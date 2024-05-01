@@ -45,11 +45,11 @@ def main():
     timestamp = arrow.now().format("YYYYMMDD-HHmmss")
 
     logging.info("Starting scraping krzh dispatch")
-    scrape_dispatch.scrape_dispatch("data/krzh_dispatch/krzh_dispatch_data")
+    scrape_dispatch.main("data/krzh_dispatch/krzh_dispatch_data")
     logging.info("Starting scraping krzh dispatch")
 
     logging.info("Starting downloading krzh dispatch")
-    download_entries.download_dispatch("data/krzh_dispatch/krzh_dispatch_data")
+    download_entries.main("data/krzh_dispatch/krzh_dispatch_data")
     logging.info("Finished downloading krzh dispatch")
 
     logging.info("Loading krzh dispatch index")

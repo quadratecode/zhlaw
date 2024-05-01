@@ -36,7 +36,7 @@ def create_metadata_file(metadata, file_path):
         json.dump(metadata, file, indent=4, ensure_ascii=False)
 
 
-def download_dispatch(folder):
+def main(folder):
     with open(
         os.path.join(folder, "krzh_dispatch_data.json"), "r", encoding="utf-8"
     ) as file:
@@ -135,4 +135,4 @@ def download_dispatch(folder):
 
 
 if __name__ == "__main__":
-    download_dispatch()
+    main()
