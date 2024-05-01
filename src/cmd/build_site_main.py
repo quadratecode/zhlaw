@@ -1,0 +1,136 @@
+# §§
+# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+# §§
+
+from src.modules.site_generator_module import build_zhlaw
+
+from src.modules.site_generator_module import process_old_html
+
+# Import external modules
+import logging
+import glob
+import json
+from tqdm import tqdm
+import shutil
+import os
+import arrow
+from bs4 import BeautifulSoup
+
+# Set up logging
+logging.basicConfig(
+    filename="logs/process.log",
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%m/%d/%Y %I:%M:%S %p",
+)
+
+static_path = "public/"
+collection_path = "public/col/"
+
+
+def main():
+
+    # Initialize error counter
+    error_counter = 0
+
+    # Timestamp
+    timestamp = arrow.now().format("YYYYMMDD-HHmmss")
+
+    logging.info("Loading laws index")
+    # Load HTML generated from PDF
+    html_files = glob.glob(
+        "data/zhlex/zhlex_files/**/**/*-merged.html",
+        recursive=True,
+    )
+    # Load original HTML files
+    html_files += glob.glob(
+        "data/zhlex/zhlex_files/**/**/*-original.html",
+        recursive=True,
+    )
+    # Load all files from src/static_files ending in .html
+    html_files += glob.glob(
+        "src/static_files/html/*.html",
+        recursive=True,
+    )
+    # Remove duplicates found from different junctions
+    html_files = list(set(html_files))
+    if not html_files:
+        logging.info("No PDF files found. Exiting.")
+        return
+
+    for html_file in tqdm(html_files):
+        # Define metadata file path
+        if html_file.endswith("-original.html"):
+            metadata_file = html_file.replace("-original.html", "-metadata.json")
+            sfx = "-original"
+            type = "old_html"
+        elif html_file.endswith("-merged.html"):
+            metadata_file = html_file.replace("-merged.html", "-metadata.json")
+            sfx = "-merged"
+            type = "new_html"
+        else:
+            type = "site_element"
+
+        try:
+            if type == "old_html":
+                with open(metadata_file, "r", encoding="utf-8") as file:
+                    metadata = json.load(file)
+                with open(html_file, "r", encoding="iso-8859-1") as file:
+                    soup = BeautifulSoup(file, "html.parser")
+                soup = process_old_html.main(soup)
+            elif type == "new_html":
+                with open(metadata_file, "r", encoding="utf-8") as file:
+                    metadata = json.load(file)
+                with open(html_file, "r", encoding="utf-8") as file:
+                    soup = BeautifulSoup(file, "html.parser")
+            else:
+                metadata = {}
+                with open(html_file, "r", encoding="utf-8") as file:
+                    soup = BeautifulSoup(file, "html.parser")
+
+            # Build ZHLaw
+            logging.info(f"Inserting InfoBox: {html_file}")
+            soup = build_zhlaw.main(soup, html_file, metadata, type)
+            logging.info(f"Finished inserting InfoBox: {html_file}")
+
+            # See if paths exist, if not create them
+            if not os.path.exists(collection_path):
+                os.makedirs(collection_path)
+            if not os.path.exists(static_path):
+                os.makedirs(static_path)
+            if type != "site_element":
+                # Write metadata file
+                logging.info(f"Writing metadata file: {metadata_file}")
+                with open(metadata_file, "w", encoding="utf-8") as file:
+                    json.dump(metadata, file, indent=4, ensure_ascii=False)
+                logging.info(f"Finished writing metadata file: {metadata_file}")
+                # Split the path from the filename
+                head, tail = os.path.split(html_file)
+                # Remove the '-merged' suffix from the filename
+                new_tail = tail.replace(sfx, "")
+                # Combine the path with the new filename
+                # Copy the file to the new location with the updated filename
+                new_file_path = collection_path + new_tail
+            else:
+                new_file_path = static_path + os.path.basename(html_file)
+            with open(new_file_path, "w", encoding="utf-8") as file:
+                file.write(str(soup.prettify()))
+            logging.info(f"Finished writing new file: {new_file_path}")
+
+        except Exception as e:
+            logging.error(
+                f"Error during in {__file__}: {e} at {timestamp}", exc_info=True
+            )
+            error_counter += 1
+            continue
+
+    # Copy markup files
+    shutil.copytree(
+        "src/static_files/markup/",
+        static_path,
+        dirs_exist_ok=True,
+    )
+
+
+if __name__ == "__main__":
+    main()
