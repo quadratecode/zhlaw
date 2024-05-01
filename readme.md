@@ -5,7 +5,7 @@
 This repository contains:
 
 - A data processing pipeline to scrape and analyse the weekly dispatch of the legislative body of the canton of Zurich
-- A data processing pipeline to scrape the collection of laws of the canton of Zurich and to convert them from PDF into HTML
+- A data processing pipeline to scrape the collection of laws of the canton of Zurich and to convert them from PDF to HTML
 - A static site generator to serve these files in a browsable format (currently available under [https://www.zhlaw.ch](https://www.zhlaw.ch))
 
 This project aims to enhance usability of legal documents and to enable further data processing.
