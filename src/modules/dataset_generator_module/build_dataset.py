@@ -45,7 +45,8 @@ def process_html_files(source_dir, dest_dir, json_file_path, base_url):
     os.makedirs(not_in_force_dir, exist_ok=True)
 
     # Copy JSON file to the destination directory
-    shutil.copy(json_file_path, dest_dir)
+    # Rename the copy to "zhlaw-collection.json"
+    shutil.copy(json_file_path, os.path.join(dest_dir, "zhlaw-collection.json"))
 
     # Process each HTML file in the source directory
     for filename in os.listdir(source_dir):
@@ -96,10 +97,10 @@ def create_zip_file(source_dir, zip_file_path):
 def main():
     base_url = "https://www.zhlaw.ch/col/"
     source_html_dir = "public/col/"
-    destination_dir = "public/dataset"
+    destination_dir = "public/data"
     json_file_path = "data/zhlex/zhlex_data/zhlex_data_processed.json"
 
-    zip_file_path = "public/dataset.zip"
+    zip_file_path = "public/data.zip"
     process_html_files(source_html_dir, destination_dir, json_file_path, base_url)
     create_zip_file(destination_dir, zip_file_path)
     logger.info("Processing complete and zip file created.")

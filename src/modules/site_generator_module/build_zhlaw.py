@@ -166,7 +166,7 @@ def insert_combined_table(
     in_force_status_class = "in-force-yes" if in_force_status else "in-force-no"
 
     # Create the table
-    table = soup.new_tag("table", **{"id": "nav-table"})
+    table = soup.new_tag("table", **{"id": "info-table"})
 
     # Collapsible row for detailed information
     info_row = soup.new_tag("tr", id="info-row")
