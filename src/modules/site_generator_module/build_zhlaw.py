@@ -11,6 +11,35 @@ import re
 logger = logging.getLogger(__name__)
 
 
+def insert_nav_buttons(soup):
+    # Create a new div to hold the buttons
+    nav_div = soup.new_tag("div", **{"class": "nav-buttons"})
+
+    # Create buttons and add them to the nav_div
+    for label, id_tag in [
+        ("< vorherige Version", "prev_ver"),
+        ("nächste Version >", "next_ver"),
+        ("neuste Version >>", "new_ver"),
+    ]:
+        button = soup.new_tag(
+            "button",
+            **{
+                "class": "nav-button",
+                "id": id_tag,
+                "onclick": "location.href='#';",  # Placeholder for actual navigation logic
+            },
+        )
+        button.string = label
+        nav_div.append(button)  # Appends the button inside the nav_div
+
+    # Find the content div and insert the nav_div at the top
+    content_div = soup.find("div", {"id": "content"})
+    if content_div:
+        content_div.insert(0, nav_div)
+
+    return soup
+
+
 def alphanum_key(s):
     """Turn a string into a list of string and number chunks.
     "z23a" -> ["z", 23, "a"]
@@ -97,7 +126,7 @@ def modify_html(soup, erlasstitel):
     # Wrap body content in divs
     body = soup.body
     if body:
-        content_div = soup.new_tag("div", **{"class": "content"})
+        content_div = soup.new_tag("div", **{"id": "content"})
 
         # Move existing body contents to the innermost div
         while body.contents:
@@ -138,28 +167,6 @@ def insert_combined_table(
 
     # Create the table
     table = soup.new_tag("table", **{"id": "nav-table"})
-    nav_row = soup.new_tag("tr")
-
-    # Row for navigation buttons
-    for label, id_tag in [
-        ("< vorherige Version", "prev_ver"),
-        ("nächste Version >", "next_ver"),
-        ("neuste Version >>", "new_ver"),
-    ]:
-        nav_cell = soup.new_tag("td", **{"class": "nav-cell"})
-        button = soup.new_tag(
-            "button",
-            **{
-                "class": "cell-button",
-                "data-pagefind-ignore": "",  # Exclude from index
-                "id": id_tag,
-                "onclick": "location.href='#';",  # Placeholder for actual navigation logic
-            },
-        )
-        button.string = label
-        nav_cell.append(button)  # Appends the button inside the table cell
-        nav_row.append(nav_cell)
-    table.append(nav_row)
 
     # Collapsible row for detailed information
     info_row = soup.new_tag("tr", id="info-row")
@@ -416,6 +423,9 @@ def main(soup, html_file, metadata, type):
     if type != "site_element":
         # Wrap content and modify head
         soup = modify_html(soup, erlasstitel)
+
+        # Insert navigation buttons
+        soup = insert_nav_buttons(soup)
 
         # Insert the combined table
         soup = insert_combined_table(

@@ -34,19 +34,24 @@ def modify_html(soup):
         if isinstance(doctype, NavigableString):
             doctype.extract()
 
-    # Create the 'law' div and move contents into it
-    law_div = soup.new_tag("div", id="law", class_="html-source")
+    # Create the source-text div and move contents into it
+    source_div = soup.new_tag("div", id="source-text", class_="html-source")
     while soup.body.contents:
         content = soup.body.contents[0]
         if isinstance(content, NavigableString) and not content.strip():
             content.extract()  # Remove empty strings
             continue
-        law_div.append(content.extract())
+        source_div.append(content.extract())
+    soup.body.append(source_div)
+
+    # Move source div into law div
+    law_div = soup.new_tag("div", id="law")
+    law_div.append(source_div.extract())
     soup.body.append(law_div)
 
     # Process font tags with color
     for font_tag in list(
-        law_div.find_all(["font", "i", "b"])
+        source_div.find_all(["font", "i", "b"])
     ):  # Use list to avoid modifying the iterable
         # Unwrap font tags
         font_tag.unwrap()

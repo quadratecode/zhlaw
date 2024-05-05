@@ -34,14 +34,14 @@ def convert_to_html(json_data, erlasstitel, marginalia):
     Raises:
         None
     """
-    # Set main indexing area for pagefind (https://pagefind.app/docs/indexing/)
-    html_content = f"<html><head></head><body class='dark-theme || light-theme'><div id='law' class='pdf-source'>"
+    # Wrap the content in div law (will later contain law text and meta data) and div source-text (will only contain the law text)
+    html_content = f"<html><head></head><body class='dark-theme || light-theme'><div id='law'><div id='source-text' class='pdf-source'>"
     font_variants = analyze_font_variants(json_data)
 
     for element in json_data.get("elements", []):
         html_content += process_element(element, font_variants, marginalia)
 
-    html_content += "</div></body></html>"
+    html_content += "</div></div></body></html>"
     return post_process_html(html_content)
 
 
