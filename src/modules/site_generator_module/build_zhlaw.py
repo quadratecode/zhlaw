@@ -62,7 +62,7 @@ def insert_header(soup, html_file):
         BeautifulSoup: The updated BeautifulSoup object with the header added.
     """
     # Create the header container
-    header = soup.new_tag("div", **{"class": "page-header"})
+    header = soup.new_tag("div", **{"id": "page-header"})
 
     # Create the logo placeholder
     logo = soup.new_tag("div", **{"id": "logo"})
@@ -365,7 +365,7 @@ def insert_footer(soup):
         BeautifulSoup: The updated BeautifulSoup object with the footer added.
     """
     # Create the footer container
-    footer = soup.new_tag("div", **{"class": "page-footer"})
+    footer = soup.new_tag("div", **{"id": "page-footer"})
 
     # Container for the links to keep them next to each other
     links_container = soup.new_tag("div", **{"class": "footer-links-container"})

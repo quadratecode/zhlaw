@@ -119,8 +119,8 @@ def merge_footnotes(soup):
         new_p.append(soup.new_tag("sup"))
         new_p.sup.string = sup_num
         new_p.append(text)
-        law_div = soup.find("div", id="law")
-        law_div.append(new_p)
+        source_div = soup.find("div", id="source-text")
+        source_div.append(new_p)
 
     return soup
 
