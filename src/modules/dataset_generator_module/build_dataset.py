@@ -7,6 +7,7 @@ import shutil
 from zipfile import ZipFile
 from bs4 import BeautifulSoup
 import urllib.parse
+import tqdm
 
 import logging
 
@@ -31,7 +32,7 @@ def convert_links_to_absolute(soup, base_url, current_file):
                 tag[attr] = absolute_url
 
 
-def process_html_files(source_dir, dest_dir, json_file_path, base_url):
+def process_html_files(source_dir, dest_dir, base_url):
     # Ensure the destination directory exists
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
@@ -44,12 +45,8 @@ def process_html_files(source_dir, dest_dir, json_file_path, base_url):
     os.makedirs(in_force_dir, exist_ok=True)
     os.makedirs(not_in_force_dir, exist_ok=True)
 
-    # Copy JSON file to the destination directory
-    # Rename the copy to "zhlaw-collection.json"
-    shutil.copy(json_file_path, os.path.join(dest_dir, "zhlaw-collection.json"))
-
     # Process each HTML file in the source directory
-    for filename in os.listdir(source_dir):
+    for filename in tqdm.tqdm(os.listdir(source_dir)):
         if filename.endswith(".html"):
             file_path = os.path.join(source_dir, filename)
             with open(file_path, "r", encoding="utf-8") as file:
@@ -97,16 +94,20 @@ def create_zip_file(source_dir, zip_file_path):
 def main():
     base_url = "https://www.zhlaw.ch/col/"
     source_html_dir = "public/col/"
-    destination_dir = "public/data"
+    destination_dir_archive = "public/data"
+    destination_dir_json = "public/collection-metadata.json"
     json_file_path = "data/zhlex/zhlex_data/zhlex_data_processed.json"
 
-    zip_file_path = "public/data.zip"
-    process_html_files(source_html_dir, destination_dir, json_file_path, base_url)
-    create_zip_file(destination_dir, zip_file_path)
+    zip_file_path = "public/html-data.zip"
+    process_html_files(source_html_dir, destination_dir_archive, base_url)
+    create_zip_file(destination_dir_archive, zip_file_path)
     logger.info("Processing complete and zip file created.")
 
+    # Copy JSON file to root
+    shutil.copy(json_file_path, destination_dir_json)
+
     # Remove the processed HTML files
-    shutil.rmtree(destination_dir)
+    shutil.rmtree(destination_dir_archive)
 
 
 if __name__ == "__main__":
