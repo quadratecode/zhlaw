@@ -3,6 +3,7 @@
 # §§
 
 import requests
+import sys
 import os
 import time
 import logging
@@ -32,6 +33,7 @@ def scrape_laws(folder):
         url = f"{BASE_URL}/de/politik-staat/gesetze-beschluesse/gesetzessammlung/_jcr_content/main/lawcollectionsearch_312548694.zhweb-zhlex-ls.zhweb-cache.json?includeRepealedEnactments=on&page={page}"
 
         try:
+            # Request from CH-IP
             response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
             response.raise_for_status()
 
@@ -44,7 +46,8 @@ def scrape_laws(folder):
                 break
         except Exception as e:
             logger.error(f"Error occurred while processing page {page}: {e}")
-            break
+            # Exit script
+            sys.exit(0)
 
         page += 1
 

@@ -166,7 +166,7 @@ def insert_combined_table(
     in_force_status_class = "in-force-yes" if in_force_status else "in-force-no"
 
     # Create the table
-    table = soup.new_tag("table", **{"id": "info-table"})
+    info_table = soup.new_tag("table", **{"id": "info-table"})
 
     # Collapsible row for detailed information
     info_row = soup.new_tag("tr", id="info-row")
@@ -176,7 +176,7 @@ def insert_combined_table(
     summary.string = "Basisinformationen"
     details.append(summary)
 
-    info_table = soup.new_tag("table", **{"id": "info-table"})
+    metadata_table = soup.new_tag("table", **{"id": "metadata-table"})
     for key, label in [
         ("erlasstitel", "Titel"),
         ("ordnungsnummer", "Ordnungsnummer"),
@@ -225,12 +225,12 @@ def insert_combined_table(
 
         tr.append(td_key)
         tr.append(td_value)
-        info_table.append(tr)
+        metadata_table.append(tr)
 
-    details.append(info_table)
+    details.append(metadata_table)
     info_cell.append(details)
     info_row.append(info_cell)
-    table.append(info_row)
+    info_table.append(info_row)
 
     # Row for in-force status message
     status_row = soup.new_tag("tr", id="status-row")
@@ -247,12 +247,12 @@ def insert_combined_table(
         else f"Text nicht in Kraft ({ordnungsnummer}-{current_nachtragsnummer})"
     )
     status_row.append(status_message)
-    table.append(status_row)
+    info_table.append(status_row)
 
     # Insert the table at the top of the body
     law_div = soup.find("div", {"id": "law"})
     if law_div:
-        law_div.insert(0, table)
+        law_div.insert(0, info_table)
 
     return soup
 
@@ -310,8 +310,8 @@ def insert_versions_and_update_navigation(
     versions_list_row.append(versions_cell)
 
     # Find the info table and insert the versions list row
-    info_table = soup.find("table", id="info-table")
-    info_table.append(versions_list_row)
+    metadata_table = soup.find("table", id="metadata-table")
+    metadata_table.append(versions_list_row)
 
     # Update navigation buttons based on versions
     prev_ver, next_ver, new_ver = None, None, None
@@ -391,6 +391,14 @@ def insert_footer(soup):
         "a", href="/dispatch.html", **{"class": "footer-links"}
     )
     dispatch_link.string = "Ratsversand"
+    links_container.append(dispatch_link)
+
+    # Create some space between links (optional, can be handled via CSS)
+    links_container.append(soup.new_string("|"))
+
+    # Create the 'Imprint' link with class 'footer-links'
+    dispatch_link = soup.new_tag("a", href="/data.html", **{"class": "footer-links"})
+    dispatch_link.string = "Datensätze"
     links_container.append(dispatch_link)
 
     # Add the links container to the footer

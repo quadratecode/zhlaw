@@ -98,7 +98,7 @@ def main():
     destination_dir_json = "public/collection-metadata.json"
     json_file_path = "data/zhlex/zhlex_data/zhlex_data_processed.json"
 
-    zip_file_path = "public/html-data.zip"
+    zip_file_path = "public/collection-html.zip"
     process_html_files(source_html_dir, destination_dir_archive, base_url)
     create_zip_file(destination_dir_archive, zip_file_path)
     logger.info("Processing complete and zip file created.")

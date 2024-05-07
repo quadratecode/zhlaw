@@ -35,7 +35,7 @@ def modify_html(soup):
             doctype.extract()
 
     # Create the source-text div and move contents into it
-    source_div = soup.new_tag("div", id="source-text", class_="html-source")
+    source_div = soup.new_tag("div", id="source-text", **{"class": "html-source"})
     while soup.body.contents:
         content = soup.body.contents[0]
         if isinstance(content, NavigableString) and not content.strip():
