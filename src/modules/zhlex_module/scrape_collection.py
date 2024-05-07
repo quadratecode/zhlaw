@@ -134,6 +134,10 @@ def process_laws(folder):
         new_laws = json.load(file)
 
     for law in tqdm(new_laws, desc="Processing laws"):
+        if "Nachtrag" not in law["erlasstitel"]:
+            erlasstitel = law["erlasstitel"]
+        else:
+            pass
         ordnungsnummer = law["ordnungsnummer"]
         nachtragsnummer = extract_nachtragsnummer(law["link"])
 
@@ -236,6 +240,7 @@ def process_laws(folder):
             logger.error(f"Error fetching {law_page_url}: {e}")
 
         law_data["versions"] = versions
+        law_data["erlasstitel"] = erlasstitel
 
         if ordnungsnummer in laws_dict:
             # If law exists, just append the new versions to it

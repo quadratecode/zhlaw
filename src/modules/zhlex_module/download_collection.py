@@ -46,6 +46,14 @@ def main(folder):
 
     for law in tqdm(laws, desc="downloading laws"):
         for version in law.get("versions", []):
+
+            erlasstitel = law.get("erlasstitel")
+            ordnungsnummer = law["ordnungsnummer"]
+            nachtragsnummer = version["nachtragsnummer"]
+            law_dir = os.path.join(folder, ordnungsnummer, str(nachtragsnummer))
+            
+            os.makedirs(law_dir, exist_ok=True)
+
             if version.get("law_text_redirect") != None:
                 law_text_url = version.get("law_text_redirect")
             elif version.get("law_text_url") != None:
@@ -53,12 +61,6 @@ def main(folder):
             else:
                 continue
 
-            ordnungsnummer = law["ordnungsnummer"]
-            nachtragsnummer = version["nachtragsnummer"]
-            law_dir = os.path.join(folder, ordnungsnummer, str(nachtragsnummer))
-            os.makedirs(law_dir, exist_ok=True)
-
-            erlassdatum = version.get("erlassdatum")
             # Build file name
             if "pdf" in law_text_url:
                 file_name = (
@@ -86,7 +88,7 @@ def main(folder):
 
                 metadata = {
                     "doc_info": {
-                        "erlasstitel": law.get("erlasstitel"),
+                        "erlasstitel": erlasstitel,
                         "ordnungsnummer": ordnungsnummer,
                         **law.get("doc_info", {}),
                     },
