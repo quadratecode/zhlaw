@@ -6,7 +6,6 @@ import fitz
 import re
 import json
 import logging
-import numpy as np
 import random
 
 # Get logger from main module
@@ -321,7 +320,7 @@ def sort_elements(elements, margin_ratio=0.005):
     return sorted_elements
 
 
-def check_blue_color(document_path, elements, margin=1, dpi=300):
+def check_blue_color(document_path, elements, margin=5, dpi=300):
     """
     Checks for blue color within the bounds of text elements in a PDF document, optionally expanding the check area by a margin.
     Creates a high-resolution image for each element showing the checked area with red boxes, saved as separate images.
@@ -412,31 +411,31 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     with open(json_path, "r") as file:
         json_data = json.load(file)
 
+    elements = json_data["elements"]
+
     # Flatten elements
-    json_data["elements"] = flatten_elements(json_data["elements"])
+    elements = flatten_elements(elements)
 
     # Remove elements with no text
-    json_data["elements"] = del_empty_elements(json_data["elements"])
+    elements = del_empty_elements(elements)
 
     # Add page heights to elements
-    json_data["elements"] = add_page_heights_to_elements(
-        modified_pdf_path, json_data["elements"]
-    )
+    elements = add_page_heights_to_elements(modified_pdf_path, elements)
 
     # Assign unique IDs to elements
-    json_data["elements"] = assign_unique_ids(json_data["elements"])
+    elements = assign_unique_ids(elements)
 
     # Convert coordinates to PyMuPDF format
-    json_data["elements"] = convert_bounds_to_pymupdf(json_data["elements"])
+    elements = convert_bounds_to_pymupdf(elements)
 
     # Sort elements
-    json_data["elements"] = sort_elements(json_data["elements"])
+    elements = sort_elements(elements)
 
     # Remove headers and footers
-    # json_data["elements"] = remove_headers_and_footers(json_data["elements"])
+    elements = remove_header_footer(elements)
 
     # Check for blue color in elements
-    json_data["elements"] = check_blue_color(modified_pdf_path, json_data["elements"])
+    elements = check_blue_color(elements)
 
     # Add hyperlinks to extended_metadata
     if "extended_metadata" not in json_data:
@@ -444,7 +443,7 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     json_data["extended_metadata"]["hyperlinks"] = hyperlinks
 
     # Merge / seperate elements
-    json_data["elements"] = merge_and_split_elements(json_data["elements"])
+    elements = merge_and_split_elements(elements)
 
     with open(updated_json_path, "w") as file:
         json.dump(json_data, file, indent=4, ensure_ascii=False)
