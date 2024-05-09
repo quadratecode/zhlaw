@@ -2,7 +2,7 @@
 
 **EN:**
 
-Copyrighted 2024, ZHlaw contributors (see [CONTRIBUTORS.md](https://github.com/quadratecode/zhlaw/CONTRIBUTORS.md))
+Copyrighted 2024, ZHlaw contributors (see [CONTRIBUTORS.md](https://github.com/quadratecode/zhlaw/blob/main/CONTRIBUTORS.md))
 
 Licensed under the [EUPL-1.2 only](https://joinup.ec.europa.eu/sites/default/files/custom-page/attachment/2020-03/EUPL-1.2%20EN.txt) with the specific provision (EUPL-1.2 articles 14 and 15) that the applicable law is the Swiss law and the Jurisdiction Zurich, Switzerland.
 
@@ -10,7 +10,7 @@ Any redistribution must include the specific provision above.
 
 **DE:**
 
-Urheberrechtlich geschützt 2024, ZHlaw Mitwirkende (siehe [CONTRIBUTORS.md](https://github.com/quadratecode/zhlaw/CONTRIBUTORS.md))
+Urheberrechtlich geschützt 2024, ZHlaw Mitwirkende (siehe [CONTRIBUTORS.md](https://github.com/quadratecode/zhlaw/blob/main/CONTRIBUTORS.md))
 
 Lizenziert unter der [EUPL, nur Version 1.2,](https://joinup.ec.europa.eu/sites/default/files/inline-files/EUPL%20v1_2%20DE.txt) mit der vorrangigen Bestimmung (Art. 14 und 15 EUPL-1.2), dass diese Lizenz dem schweizerischen Recht untersteht und der Gerichtsstand Zürich, Schweiz, ist.
 
