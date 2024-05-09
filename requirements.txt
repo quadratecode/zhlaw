@@ -20,7 +20,6 @@ importlib_metadata==7.1.0
 latest==0.6.0
 lxml==5.2.1
 multipart==0.2.4
-numpy==1.26.4
 openai==1.23.2
 packaging==21.3
 pdfservices-sdk==2.3.1

@@ -431,11 +431,11 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     # Sort elements
     elements = sort_elements(elements)
 
-    # Remove headers and footers
+    # Remove headers and footers by coordinates
     elements = remove_header_footer(elements)
 
     # Check for blue color in elements
-    elements = check_blue_color(elements)
+    elements = check_blue_color(modified_pdf_path, elements)
 
     # Add hyperlinks to extended_metadata
     if "extended_metadata" not in json_data:
@@ -444,6 +444,9 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
 
     # Merge / seperate elements
     elements = merge_and_split_elements(elements)
+
+    # Update elements in JSON data
+    json_data["elements"] = elements
 
     with open(updated_json_path, "w") as file:
         json.dump(json_data, file, indent=4, ensure_ascii=False)
