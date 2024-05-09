@@ -131,6 +131,8 @@ def main():
             error_counter += 1
             continue
 
+    # TODO: Implement database builder here (see build_dataset.py)
+
     # Load collection data
     with open(
         "data/zhlex/zhlex_data/zhlex_data_processed.json", "r", encoding="utf-8"
