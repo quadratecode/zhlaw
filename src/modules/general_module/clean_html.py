@@ -145,6 +145,7 @@ def merge_other_conditions(soup):
         BeautifulSoup: The modified BeautifulSoup object with merged paragraphs.
     """
     paragraphs = soup.find_all("p")
+    to_remove = []
 
     for i in range(1, len(paragraphs)):
         current_p = paragraphs[i]
@@ -153,10 +154,11 @@ def merge_other_conditions(soup):
         # Check if the current paragraph should merge with the previous one
         if current_p.text.startswith((",", ")")) or prev_p.text.endswith("Bst."):
             # Move all elements from the current paragraph to the previous paragraph
-            for element in current_p.contents:
-                prev_p.append(element)
-            # Remove the now empty current paragraph
-            current_p.decompose()
+            prev_p.append(current_p.extract())  # Use extract to detach and then append
+
+    # Clean up: remove any tagged paragraphs that are now empty and detached
+    for p in to_remove:
+        p.decompose()
 
     return soup
 

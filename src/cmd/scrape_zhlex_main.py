@@ -100,6 +100,5 @@ def main():
 
     logging.info(f"Finished scraping laws with {error_counter} errors")
 
-
 if __name__ == "__main__":
     main()

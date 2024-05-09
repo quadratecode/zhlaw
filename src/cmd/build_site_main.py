@@ -3,8 +3,8 @@
 # §§
 
 from src.modules.site_generator_module import build_zhlaw
-
 from src.modules.site_generator_module import process_old_html
+from src.modules.site_generator_module import create_placeholders
 
 # Import external modules
 import logging
@@ -75,8 +75,11 @@ def main():
             if type == "old_html":
                 with open(metadata_file, "r", encoding="utf-8") as file:
                     metadata = json.load(file)
-                with open(html_file, "r", encoding="iso-8859-1") as file:
+                with open(
+                    html_file, "r", encoding="iso-8859-1"
+                ) as file:  # Changed encoding to iso-8859-1
                     soup = BeautifulSoup(file, "html.parser")
+                # Process old HTML only for these files
                 soup = process_old_html.main(soup)
             elif type == "new_html":
                 with open(metadata_file, "r", encoding="utf-8") as file:
@@ -84,13 +87,15 @@ def main():
                 with open(html_file, "r", encoding="utf-8") as file:
                     soup = BeautifulSoup(file, "html.parser")
             else:
+                # Emtpy metadata for site elements
                 metadata = {}
                 with open(html_file, "r", encoding="utf-8") as file:
                     soup = BeautifulSoup(file, "html.parser")
 
             # Build ZHLaw
             logging.info(f"Inserting InfoBox: {html_file}")
-            soup = build_zhlaw.main(soup, html_file, metadata, type)
+            doc_info = metadata.get("doc_info", {})
+            soup = build_zhlaw.main(soup, html_file, doc_info, type)
             logging.info(f"Finished inserting InfoBox: {html_file}")
 
             # See if paths exist, if not create them
@@ -125,6 +130,31 @@ def main():
             )
             error_counter += 1
             continue
+
+    # Load collection data
+    with open(
+        "data/zhlex/zhlex_data/zhlex_data_processed.json", "r", encoding="utf-8"
+    ) as file:
+        zhlex_data_processed = json.load(file)
+
+    # Load all files from public ending in .html
+    public_html_files = glob.glob(
+        "public/col/*.html",
+        recursive=True,
+    )
+
+    # Create placeholders
+    logging.info("Creating placeholders")
+    placeholder_dir = "data/zhlex/placeholders"
+    create_placeholders.main(zhlex_data_processed, public_html_files, placeholder_dir)
+    logging.info("Finished creating placeholders")
+
+    # Copy placeholder files
+    shutil.copytree(
+        "data/zhlex/placeholders",
+        collection_path,
+        dirs_exist_ok=True,
+    )
 
     # Copy markup files
     shutil.copytree(

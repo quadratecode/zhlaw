@@ -50,7 +50,7 @@ def alphanum_key(s):
     ]
 
 
-def insert_header(soup, html_file):
+def insert_header(soup):
     """
     Inserts a header with a logo placeholder and a mailto link button at the top of the HTML document,
     including a superscript version number next to the logo with a specific ID for further styling.
@@ -71,7 +71,7 @@ def insert_header(soup, html_file):
     logo_text = soup.new_tag("span")
     logo_text.string = "ZHLaw"
     alpha_sup = soup.new_tag("sup", **{"id": "logo-add"})
-    alpha_sup.string = "v0.01"
+    alpha_sup.string = "alpha"
     logo_text.append(alpha_sup)
     logo_link.append(logo_text)
     logo.append(logo_link)
@@ -82,7 +82,7 @@ def insert_header(soup, html_file):
         "a",
         **{
             "id": "contact-button",
-            "href": f"mailto:admin@zhlaw.ch?subject=Feedback&body=source file: {html_file}",
+            "href": f"mailto:admin@zhlaw.ch",
         },
     )
     mailto.string = "Kontakt"
@@ -149,7 +149,7 @@ def format_date(date_str):
 
 
 def insert_combined_table(
-    soup, metadata, in_force_status, ordnungsnummer, current_nachtragsnummer
+    soup, doc_info, in_force_status, ordnungsnummer, current_nachtragsnummer
 ):
     """
     Inserts a table with navigation, status information, and a collapsible infobox
@@ -162,7 +162,6 @@ def insert_combined_table(
     Returns:
         BeautifulSoup: The updated BeautifulSoup object with the combined table added.
     """
-    doc_info = metadata.get("doc_info", {})
     in_force_status_class = "in-force-yes" if in_force_status else "in-force-no"
 
     # Create the table
@@ -258,21 +257,25 @@ def insert_combined_table(
 
 
 def insert_versions_and_update_navigation(
-    soup, metadata, ordnungsnummer, current_nachtragsnummer
+    soup, versions, ordnungsnummer, current_nachtragsnummer
 ):
-    doc_info = metadata.get("doc_info", {})
-    versions = doc_info.get("versions", {})
 
-    # Combine older and newer versions, and sort them
-    all_versions = versions.get("older_versions", []) + versions.get(
-        "newer_versions", []
-    )
-    all_versions.append(
-        {
-            "nachtragsnummer": current_nachtragsnummer,  # Add the current version for complete list
-            "current": True,  # Mark the current version
-        }
-    )
+    # Check if key "older_versions" or "newer_versions" exists in versions
+    if "older_versions" in versions:
+
+        # Combine older and newer versions, and sort them
+        all_versions = versions.get("older_versions", []) + versions.get(
+            "newer_versions", []
+        )
+        all_versions.append(
+            {
+                "nachtragsnummer": current_nachtragsnummer,  # Add the current version for complete list
+                "current": True,  # Mark the current version
+            }
+        )
+    else:
+        all_versions = versions
+
     all_versions = sorted(
         all_versions, key=lambda x: alphanum_key(x["nachtragsnummer"])
     )
@@ -417,18 +420,19 @@ def insert_footer(soup):
     return soup
 
 
-def main(soup, html_file, metadata, type):
+def main(soup, html_file, doc_info, type):
     """
     Loads HTML content, applies transformations, and saves it.
     """
 
-    erlasstitel = metadata.get("doc_info", {}).get("erlasstitel")
-    ordnungsnummer = metadata.get("doc_info", {}).get("ordnungsnummer")
-    current_nachtragsnummer = metadata.get("doc_info", {}).get("nachtragsnummer")
-    in_force_status = metadata.get("doc_info", {}).get("in_force", False)
-    inkraftsetzungsdatum = metadata.get("doc_info", {}).get("inkraftsetzungsdatum")
-
     if type != "site_element":
+
+        erlasstitel = doc_info.get("erlasstitel")
+        ordnungsnummer = doc_info.get("ordnungsnummer")
+        current_nachtragsnummer = doc_info.get("nachtragsnummer")
+        in_force_status = doc_info.get("in_force", False)
+        versions = doc_info.get("versions", {})
+
         # Wrap content and modify head
         soup = modify_html(soup, erlasstitel)
 
@@ -437,12 +441,16 @@ def main(soup, html_file, metadata, type):
 
         # Insert the combined table
         soup = insert_combined_table(
-            soup, metadata, in_force_status, ordnungsnummer, current_nachtragsnummer
+            soup,
+            doc_info,
+            in_force_status,
+            ordnungsnummer,
+            current_nachtragsnummer,
         )
 
         # Insert versions list and update navigation buttons
         soup = insert_versions_and_update_navigation(
-            soup, metadata, ordnungsnummer, current_nachtragsnummer
+            soup, versions, ordnungsnummer, current_nachtragsnummer
         )
 
         # Set law div as index
@@ -451,7 +459,7 @@ def main(soup, html_file, metadata, type):
             law_div.attrs["data-pagefind-body"] = ""
 
     # Insert header
-    soup = insert_header(soup, html_file)
+    soup = insert_header(soup)
 
     # Insert footer
     soup = insert_footer(soup)

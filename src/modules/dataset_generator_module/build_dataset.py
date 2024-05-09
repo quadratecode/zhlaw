@@ -92,6 +92,7 @@ def create_zip_file(source_dir, zip_file_path):
 
 
 def main():
+    # TODO: Integrate into cmd/build_site_main.py
     base_url = "https://www.zhlaw.ch/col/"
     source_html_dir = "public/col/"
     destination_dir_archive = "public/data"
