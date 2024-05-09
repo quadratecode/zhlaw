@@ -88,47 +88,39 @@ def find_subprovisions(soup):
 
 
 def merge_footnotes(soup):
+    # Find all paragraphs with 'footnote' class
     footnote_paragraphs = soup.find_all("p", class_="footnote")
     new_paragraphs = []
     current_text = []
-    sup_num = None
 
     for p in footnote_paragraphs:
-        if p.sup:
-            if current_text:
-                if sup_num is not None:
-                    new_paragraphs.append((sup_num, " ".join(current_text)))
-                else:
-                    logging.debug(
-                        "Skipping text with undefined sup_num: %s",
-                        " ".join(current_text),
-                    )
+        if p.sup:  # If a <sup> tag is found, start a new paragraph
+            if current_text:  # If there's existing text, save the previous paragraph
+                new_paragraphs.append((sup_number, " ".join(current_text)))
                 current_text = []
-            sup_num = p.sup.extract().get_text()
-        current_text.append(p.get_text())
+            sup_number = (
+                p.sup.extract().get_text()
+            )  # Extract the <sup> text and remove it from the paragraph
+        current_text.append(
+            p.get_text()
+        )  # Append current paragraph's text to the text list
 
-    if current_text and sup_num is not None:
-        new_paragraphs.append((sup_num, " ".join(current_text)))
-    else:
-        logging.debug("Last segment skipped due to undefined sup_num")
+    # Append the last set of accumulated text to the new paragraphs
+    if current_text:
+        new_paragraphs.append((sup_number, " ".join(current_text)))
 
+    # Clear existing footnotes
     for p in footnote_paragraphs:
         p.decompose()
 
-    source_div = soup.find("div", id="source-text") or soup.new_tag(
-        "div", id="source-text"
-    )
-    soup.append(source_div)
-
+    # Create new merged paragraphs
     for sup_num, text in new_paragraphs:
-        if sup_num is not None:
-            new_p = soup.new_tag("p", **{"class": "footnote"})
-            new_p.append(soup.new_tag("sup"))
-            new_p.sup.string = sup_num
-            new_p.append(text)
-            source_div.append(new_p)
-        else:
-            logging.error("Attempting to append a footnote with None sup_num")
+        new_p = soup.new_tag("p", **{"class": "footnote"})
+        new_p.append(soup.new_tag("sup"))
+        new_p.sup.string = sup_num
+        new_p.append(text)
+        source_div = soup.find("div", id="source-text")
+        source_div.append(new_p)
 
     return soup
 
