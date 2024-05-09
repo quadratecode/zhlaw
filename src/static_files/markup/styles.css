@@ -1,0 +1,484 @@
+@font-face {
+    font-family: "Charis SIL Regular";
+    src: url("CharisSIL-Regular.woff2");
+}
+
+@font-face {
+    font-family: "Charis SIL Italic";
+    font-style: italic;
+    src: url("CharisSIL-Italic.woff2");
+}
+
+@font-face {
+    font-family: "Charis SIL Bold";
+    font-weight: bold;
+    src: url("CharisSIL-Bold.woff2");
+}
+
+@font-face {
+    font-family: 'Source Sans';
+    src: url('SourceSans3VF-Upright.woff2') format('woff2-variations');
+    font-weight: 300 1000;
+}
+
+:root {
+    --soft-black: #444444;
+    --dark-shade: #171717;
+    --link-blue: rgb(51, 51, 255);
+    --hover-blue: #e0f0ff;
+    --focus-outline-blue: #005fcc;
+    --line-grey: #ccc;
+    --highlight-grey: #eeeeee;
+    --subtle-grey: #f0f0f0;
+    --hover-grey: #e0e0e0;
+    --in-force-green: rgb(199, 255, 199);
+    --in-force-dark-green: darkgreen;
+    --in-force-red: rgb(255, 207, 207);
+    --in-force-dark-red: darkred;
+    --disabled-grey: rgb(205, 205, 205);
+}
+
+body {
+    --pagefind-ui-primary: var(--link-blue);
+    --pagefind-ui-text: var(--soft-black);
+    --pagefind-ui-background: transparent;
+    --pagefind-ui-border: var(--soft-black);
+    --pagefind-ui-tag: #eeeeee;
+    --pagefind-ui-border-width: 2px;
+    --pagefind-ui-border-radius: 0px;
+    --pagefind-ui-image-border-radius: 8px;
+    --pagefind-ui-image-box-ratio: 3 / 2;
+    --pagefind-ui-scale: 1;
+    --pagefind-ui-font: "Source Sans",
+        Bahnschrift,
+        'DIN Alternate',
+        'Franklin Gothic Medium',
+        'Nimbus Sans Narrow',
+        sans-serif-condensed,
+        sans-serif;
+}
+
+html body {
+    font-family: "Source Sans", Bahnschrift, 'DIN Alternate', 'Franklin Gothic Medium', 'Nimbus Sans Narrow', sans-serif-condensed, sans-serif;
+    font-weight: normal;
+    line-height: 1.4;
+    color: var(--soft-black);
+    height: 100%;
+    padding-bottom: 100px;
+    font-size: 1rem;
+    padding: 0;
+    margin: 0;
+}
+
+#source-text {
+    font-family: Charis SIL, 'Charis SIL Regular', 'Garamond', 'Palatino Linotype', 'URW Palladio L', P052, serif;
+    font-style: normal;
+    font-weight: 400;
+    font-size: 1.15rem;
+}
+
+#source-text .marginalia {
+    font-family: "Charis SIL Italic", 'Iowan Old Style', 'Garamond', 'Palatino Linotype', 'URW Palladio L', P052, serif;
+    font-weight: 400;
+}
+
+#content {
+    /* Calculate the min-height by subtracting the total height of the header, footer,
+       and their respective margins, paddings, and borders from the viewport height. */
+    min-height: calc(100vh - 350px);
+    max-width: 50rem;
+    padding: 1rem;
+    margin: 0 auto;
+}
+
+h1 {
+    font-size: 2em;
+    color: #171717;
+    line-height: 1.3;
+}
+
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-size: 1.4em;
+    color: var(--dark-shade);
+    line-height: 1.3;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
+
+
+p:not([class]) {
+    margin-top: 0em;
+    margin-bottom: 0em;
+}
+
+.html-source p {
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+}
+
+.marginalia {
+    font-size: 1.3rem;
+    color: var(--dark-shade);
+    margin-top: 1.5em;
+    margin-bottom: 0.2em;
+}
+
+.provision {
+    font-weight: 600;
+    font-size: 1.15rem;
+    margin-top: 0em;
+    margin-bottom: 0.3em;
+}
+
+.provision+.subprovision {
+    margin-top: 0.3em;
+}
+
+.subprovision {
+    font-size: 1.15rem;
+    font-weight: bold;
+    margin-top: 0.3em;
+    margin-bottom: 0;
+}
+
+.enum-lit {
+    margin-top: 0.1em;
+    margin-bottom: 0.1em;
+    margin-left: 15px;
+}
+
+.enum-ziff {
+    margin-top: 0.1em;
+    margin-bottom: 0.1em;
+    margin-left: 25px;
+}
+
+p.enum>sup {
+    margin-left: 0;
+}
+
+a {
+    text-decoration: none;
+    color: var(--link-blue);
+
+}
+
+/* Underlines for links not containing <sup> directly */
+a:not(:has(> sup)) {
+    display: inline-block;
+    text-decoration: underline;
+    text-decoration-color: var(--link-blue);
+    text-decoration-thickness: .1em;
+    text-underline-offset: 3px;
+}
+
+/* Specific styles for <sup> within links */
+a:has(> sup) sup {
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-weight: 600;
+    display: inline-block;
+    text-decoration: underline;
+    text-decoration-color: var(--link-blue);
+    text-decoration-thickness: .1em;
+    text-underline-offset: 3px;
+}
+
+a:hover,
+a:focus {
+    background-color: var(--hover-blue);
+}
+
+a:focus {
+    outline: 2px solid var(--focus-outline-blue);
+}
+
+.footnote-number {
+    font-size: 0.65rem;
+}
+
+.footnote-section {
+    position: relative;
+    padding-top: 20px;
+    margin-top: 30px;
+}
+
+.footnote-section::before {
+    content: "";
+    /* Required for the pseudo-element to display */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--line-grey);
+    display: block;
+}
+
+.footnote {
+    font-size: 1rem;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+.footnote:target {
+    background-color: var(--highlight-grey);
+}
+
+#info-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+#info-table th,
+#info-table td {
+    border: 1px solid black;
+}
+
+#doc-info table {
+    border-collapse: collapse;
+}
+
+#doc-info td:first-child {
+    padding-left: 24px;
+}
+
+#doc-info td:last-child {
+    padding-right: 5px;
+    font-weight: 400;
+    width: 100%;
+}
+
+#doc-info th,
+#doc-info td {
+    border: none;
+    padding: 8px;
+}
+
+#doc-info th:first-child,
+#doc-info td:first-child {
+    font-weight: bold;
+}
+
+#info-row td {
+    font-weight: bold;
+    padding: 0px;
+}
+
+.nav-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    margin-left: -5px;
+    margin-right: -5px;
+}
+
+.nav-button {
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: "Source Sans",
+        Bahnschrift,
+        'DIN Alternate',
+        'Franklin Gothic Medium',
+        'Nimbus Sans Narrow',
+        sans-serif-condensed,
+        sans-serif;
+    border: 1px solid black;
+    background: #f0f0f0;
+    width: calc(100% - 10px);
+    height: 100%;
+    cursor: pointer;
+    margin: 0 5px;
+}
+
+.nav-button:hover {
+    background-color: #e0e0e0;
+}
+
+#contact-button {
+    text-decoration: none;
+    border: 1px solid black;
+    color: #3c3c3c;
+    background-color: #f0f0f0;
+    padding-left: 15px;
+    padding-right: 15px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    font-size: 1rem;
+}
+
+#contact-button:hover {
+    background-color: #e0e0e0;
+}
+
+#logo a {
+    text-decoration: none;
+    font-size: 24px;
+    font-weight: 600;
+    color: #3c3c3c;
+    border: none;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    outline: none;
+}
+
+#logo a:hover {
+    color: #005fcc;
+    background-color: transparent;
+}
+
+#logo-add {
+    text-decoration: none;
+    font-size: 12px;
+    font-style: italic;
+}
+
+#info-row summary {
+    padding: 8px;
+    background-color: #f0f0f0;
+}
+
+#info-row[open] summary {
+    border-bottom: 1px solid black;
+}
+
+#info-row summary:hover {
+    background-color: #e0e0e0;
+}
+
+#doc-info td {
+    padding: 8px;
+}
+
+#info-table {
+    border-top: 1px solid black;
+}
+
+#status-row td {
+    text-align: center;
+    vertical-align: middle;
+    height: 30px;
+    font-weight: bold;
+    padding: 0;
+}
+
+#status-row .in-force-yes {
+    background-color: rgb(199, 255, 199);
+    color: darkgreen;
+}
+
+#status-row .in-force-no {
+    background-color: rgb(255, 207, 207);
+    color: darkred;
+}
+
+#status-row {
+    height: 10px;
+}
+
+.nav-button {
+    border: 1px solid black;
+    background: #f0f0f0;
+    color: inherit;
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    cursor: pointer;
+}
+
+.nav-button:hover {
+    background-color: #e0e0e0;
+}
+
+#page-header {
+    display: flex;
+    height: 40px;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    border-bottom: 2px solid var(--soft-black);
+    margin-bottom: 30px;
+}
+
+#page-footer {
+    font-size: 1rem;
+    display: flex;
+    height: 150px;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 30px;
+    border-top: 2px solid var(--soft-black);
+    margin-top: 40px;
+}
+
+#disclaimer {
+    text-align: center;
+    margin-top: 1.5rem;
+    margin-bottom: 0.3rem;
+    font-style: italic;
+}
+
+.footer-links-container {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.footer-links {
+    text-decoration: none;
+}
+
+#disclaimer {
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+button[disabled] {
+    cursor: not-allowed;
+    background: transparent;
+    color: rgb(205, 205, 205);
+}
+
+button[disabled]:hover {
+    background: transparent;
+}
+
+#contact {
+    list-style-type: none;
+}
+
+.static-content {
+    font-size: 1.15rem;
+}
+
+.static-content p {
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+}
+
+.static-content li {
+    line-height: inherit;
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+}
+
+pre {
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    text-align: left;
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 5px;
+    overflow-x: auto;
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+}

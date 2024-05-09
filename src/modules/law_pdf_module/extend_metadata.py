@@ -398,7 +398,7 @@ def check_blue_color(document_path, elements, margin=5, dpi=300):
             #     f"{document_path}_annotated_element_{element['unique_element_id']}.png"
             # )  # Save the image
 
-    doc.close()  # Always remember to close the document
+    doc.close()
     return elements
 
 
