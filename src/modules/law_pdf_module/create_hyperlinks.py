@@ -92,15 +92,15 @@ def merge_footnotes(soup):
     footnote_paragraphs = soup.find_all("p", class_="footnote")
     new_paragraphs = []
     current_text = []
+    sup_number = None  # Initialize to None or a suitable default
 
     for p in footnote_paragraphs:
         if p.sup:  # If a <sup> tag is found, start a new paragraph
             if current_text:  # If there's existing text, save the previous paragraph
                 new_paragraphs.append((sup_number, " ".join(current_text)))
                 current_text = []
-            sup_number = (
-                p.sup.extract().get_text()
-            )  # Extract the <sup> text and remove it from the paragraph
+            sup_number = p.sup.extract().get_text()  # Extract the <sup> text
+
         current_text.append(
             p.get_text()
         )  # Append current paragraph's text to the text list
@@ -117,7 +117,7 @@ def merge_footnotes(soup):
     for sup_num, text in new_paragraphs:
         new_p = soup.new_tag("p", **{"class": "footnote"})
         new_p.append(soup.new_tag("sup"))
-        new_p.sup.string = sup_num
+        new_p.sup.string = str(sup_num)
         new_p.append(text)
         source_div = soup.find("div", id="source-text")
         source_div.append(new_p)
@@ -181,14 +181,23 @@ def update_html_with_hyperlinks(hyperlinks, soup):
     for link in hyperlinks:
         link_text = link.get("text")
         link_uri = link.get("uri")
+        escaped_link_text = re.escape(
+            link_text
+        )  # Escape to handle special regex characters in link_text
+        regex = (
+            rf"\b{escaped_link_text}\b"  # Use word boundaries to match whole words only
+        )
 
         # Find all text containing the hyperlink text and replace it
-        text_elements = soup.find_all(text=lambda text: text and link_text in text)
+        text_elements = soup.find_all(text=re.compile(regex))
         for text_element in text_elements:
             # Check if the text is already inside an <a> tag
             if text_element.parent.name != "a":
-                new_text = text_element.replace(
-                    link_text, f'<a href="{link_uri}">{link_text}</a>'
+                new_text = re.sub(
+                    regex,
+                    f'<a href="{link_uri}">{link_text}</a>',
+                    text_element,
+                    flags=re.IGNORECASE,
                 )
                 new_soup = BeautifulSoup(new_text, "html.parser")
                 text_element.replace_with(new_soup)
@@ -332,14 +341,18 @@ def find_footnotes(soup):
     for paragraph in results:
         # Get font data attributes from data-font-size and data-font-family
         font_size = float(paragraph.get("data-font-size", 0))
-        font_fam = paragraph.get("data-font-family", "")
-
-        # Check if font size is below 9pt (non superscript) and text is on the last 2 pages
-        # Limiting page range to the last pages does not work because of attachements after footnotes
-        # Give class "footnote" to the paragraph
-        if (font_size < 9 and "Times" in font_fam) or (
-            font_size < 5 and "Times" in font_fam
+        # Check if paragraph contains sup tag with a number
+        if paragraph.find("sup") and contains_number_but_no_letter(
+            paragraph.get_text()
         ):
+            has_sup = True
+        else:
+            has_sup = False
+
+        # Check if font size is below 9pt (non superscript) or below 5pt (superscript)
+        # Give class "footnote" to the paragraph
+        # Font family not relevant since some footnotes are in a different font
+        if (font_size < 9 and not has_sup) or (font_size < 5 and has_sup):
             paragraph["class"] = ["footnote"]
 
     return soup
