@@ -12,9 +12,7 @@ This project aims to enhance usability of legal documents and to enable further 
 
 # Features
 
-**Implemented features**:
-
-View the kanban board for completed and planned features [here](https://github.com/users/quadratecode/projects/1/views/1).
+Please see the kanban board for completed and planned features [here](https://github.com/users/quadratecode/projects/1/views/1).
 
 # Development Requirements
 
