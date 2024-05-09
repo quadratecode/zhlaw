@@ -14,34 +14,7 @@ This project aims to enhance usability of legal documents and to enable further 
 
 **Implemented features**:
 
-- [x] Rapid search
-- [x] Deep linking into provisions and subprovisions
-- [x] Checking against other versions and indicating in force status
-- [x] Backlinking footnotes to better visualize changes
-
-**Planned features:**
-
-- [ ] Further metadata for laws (e.g. processing time)
-- [ ] Data sets of the collection and collection structure
-- [ ] Direct access to a browsable index
-- [ ] Dark mode
-- [ ] Better search results
-    - [ ] Fine tune relevance
-    - [ ] Better excerpts
-    - [ ] Default filter for in force laws
-- [ ] Better mobile experience
-- [ ] Sitemap and better head meta tags
-- [ ] Code refractoring
-- [ ] Ongoing quality control
-- [ ] Design enhancements
-- [ ] Version comparison between preceeding and following versions
-- [ ] Provision of datasets
-- [ ] Collection completion (currently errors with ~200 entries)
-
-**Moonshot features:**
-
-- [ ] Version comparison against all versions of a law
-- [ ] Processing for tables, amendmends and other non-standard content
+View the kanban board for completed and planned features [here](https://github.com/users/quadratecode/projects/1/views/1).
 
 # Development Requirements
 
