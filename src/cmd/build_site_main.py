@@ -6,6 +6,8 @@ from src.modules.site_generator_module import build_zhlaw
 from src.modules.site_generator_module import process_old_html
 from src.modules.site_generator_module import create_placeholders
 
+from src.modules.dataset_generator_module import build_dataset
+
 # Import external modules
 import logging
 import glob
@@ -26,6 +28,12 @@ logging.basicConfig(
 
 static_path = "public/"
 collection_path = "public/col/"
+placeholder_dir = "data/zhlex/placeholders"
+
+# Delete folders before new generation
+if os.path.exists(collection_path):
+    shutil.rmtree(static_path)
+    shutil.rmtree(placeholder_dir)
 
 
 def main():
@@ -131,13 +139,16 @@ def main():
             error_counter += 1
             continue
 
-    # TODO: Implement database builder here (see build_dataset.py)
-
     # Load collection data
     with open(
         "data/zhlex/zhlex_data/zhlex_data_processed.json", "r", encoding="utf-8"
     ) as file:
         zhlex_data_processed = json.load(file)
+
+    # Build dataset (placed here to not include placeholders)
+    logging.info("Building dataset")
+    build_dataset.main(collection_path, zhlex_data_processed)
+    logging.info("Finished building dataset")
 
     # Load all files from public ending in .html
     public_html_files = glob.glob(
@@ -147,7 +158,6 @@ def main():
 
     # Create placeholders
     logging.info("Creating placeholders")
-    placeholder_dir = "data/zhlex/placeholders"
     create_placeholders.main(zhlex_data_processed, public_html_files, placeholder_dir)
     logging.info("Finished creating placeholders")
 

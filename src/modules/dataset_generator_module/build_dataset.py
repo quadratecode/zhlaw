@@ -91,21 +91,20 @@ def create_zip_file(source_dir, zip_file_path):
                 )
 
 
-def main():
-    # TODO: Integrate into cmd/build_site_main.py
+def main(collection_path, zhlex_data_processed):
+    # Base URl to convert relative links to absolute
     base_url = "https://www.zhlaw.ch/col/"
-    source_html_dir = "public/col/"
     destination_dir_archive = "public/data"
     destination_dir_json = "public/collection-metadata.json"
-    json_file_path = "data/zhlex/zhlex_data/zhlex_data_processed.json"
+    zhlex_data_processed = "data/zhlex/zhlex_data/zhlex_data_processed.json"
 
     zip_file_path = "public/collection-html.zip"
-    process_html_files(source_html_dir, destination_dir_archive, base_url)
+    process_html_files(collection_path, destination_dir_archive, base_url)
     create_zip_file(destination_dir_archive, zip_file_path)
     logger.info("Processing complete and zip file created.")
 
     # Copy JSON file to root
-    shutil.copy(json_file_path, destination_dir_json)
+    shutil.copy(zhlex_data_processed, destination_dir_json)
 
     # Remove the processed HTML files
     shutil.rmtree(destination_dir_archive)

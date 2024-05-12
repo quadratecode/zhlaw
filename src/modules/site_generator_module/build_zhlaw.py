@@ -262,7 +262,6 @@ def insert_versions_and_update_navigation(
 
     # Check if key "older_versions" or "newer_versions" exists in versions
     if "older_versions" in versions:
-
         # Combine older and newer versions, and sort them
         all_versions = versions.get("older_versions", []) + versions.get(
             "newer_versions", []
@@ -275,6 +274,10 @@ def insert_versions_and_update_navigation(
         )
     else:
         all_versions = versions
+        # Mark the current version
+        for version in all_versions:
+            if version["nachtragsnummer"] == current_nachtragsnummer:
+                version["current"] = True
 
     all_versions = sorted(
         all_versions, key=lambda x: alphanum_key(x["nachtragsnummer"])

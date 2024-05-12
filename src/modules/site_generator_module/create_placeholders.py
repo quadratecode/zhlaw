@@ -49,7 +49,7 @@ def main(laws, html_files, placeholder_dir):
                 # File does not exist, create placeholder
                 with open(placeholder_path, "w") as f:
                     f.write(
-                        f"<html><body><div id='law'><div id='source-text'><p>Kein Erlasstext gefunden.</p><p>Möglicherweise enthält diese Nachtragsnummer keinen Text oder es liegt ein Fehler in der automatisierten Verarbeitung vor. Bitte überprüfe die <a href='{law_page_url}'>Quelle</a>.</p></div></div></body></html>"
+                        f"<html><body><div id='law'><div id='source-text'><h1>Kein Erlasstext vorhanden.</h1><p>Möglicherweise enthält diese Nachtragsnummer keinen Text oder es liegt ein Fehler in der automatisierten Verarbeitung vor. Bitte überprüfe die <a href='{law_page_url}'>Quelle</a> für mehr Informationen.</p></div></div></body></html>"
                     )
                 logger.info(f"Created placeholder HTML file: {placeholder_path}")
 
