@@ -17,6 +17,7 @@ import shutil
 import os
 import arrow
 from bs4 import BeautifulSoup
+import subprocess
 
 # Set up logging
 logging.basicConfig(
@@ -174,6 +175,12 @@ def main():
         static_path,
         dirs_exist_ok=True,
     )
+
+    # Run "npx pagefind --site /home/rdm/github/zhlaw/public/" to build search index
+    # Requires pagefind: https://github.com/CloudCannon/pagefind
+    logging.info("Building search index")
+    subprocess.run(["npx", "pagefind", "--site", static_path])
+    logging.info("Finished building search index")
 
 
 if __name__ == "__main__":
