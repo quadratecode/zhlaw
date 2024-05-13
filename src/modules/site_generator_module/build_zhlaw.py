@@ -123,6 +123,12 @@ def modify_html(soup, erlasstitel):
     title_tag.string = erlasstitel
     head.append(title_tag)
 
+    # Add viewport meta tag
+    viewport_meta = soup.new_tag(
+        "meta", name="viewport", content="width=device-width, initial-scale=1"
+    )
+    head.append(viewport_meta)
+
     # Wrap body content in divs
     body = soup.body
     if body:
