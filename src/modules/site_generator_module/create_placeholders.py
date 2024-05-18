@@ -75,7 +75,7 @@ def main(laws, html_files, placeholder_dir):
                 # Write the modified HTML back to the file
                 with open(placeholder_path, "w") as f:
                     f.write("<!DOCTYPE html>\n")
-                    f.write(str(soup.prettify()))
+                    f.write(str(soup))
 
             else:
                 logger.info(f"HTML file exists: {filename}")

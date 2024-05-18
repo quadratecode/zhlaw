@@ -130,7 +130,7 @@ def main():
             with open(new_file_path, "w", encoding="utf-8") as file:
                 # Add doc type to the beginning of the file
                 file.write("<!DOCTYPE html>\n")
-                file.write(str(soup.prettify()))
+                file.write(str(soup))
             logging.info(f"Finished writing new file: {new_file_path}")
 
         except Exception as e:

@@ -186,9 +186,6 @@ def main(html_file):
     # Add footnote line and class
     soup = add_footnote_line_and_class(soup)
 
-    # Prettyfy the HTML
-    soup = soup.prettify()
-
     # Save the updated HTML content back to the same file
     with open(html_file, "w", encoding="utf-8") as file:
         file.write(str(soup))

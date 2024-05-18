@@ -125,9 +125,14 @@ def modify_html(soup, erlasstitel):
 
     # Add viewport meta tag
     viewport_meta = soup.new_tag(
-        "meta", name="viewport", content="width=device-width, initial-scale=1"
+        "meta",
+        attrs={"name": "viewport", "content": "width=device-width, initial-scale=1"},
     )
     head.append(viewport_meta)
+
+    # Add encoding meta tag
+    encoding_meta = soup.new_tag("meta", charset="utf-8")
+    head.append(encoding_meta)
 
     # Wrap body content in divs
     body = soup.body
