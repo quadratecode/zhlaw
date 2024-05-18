@@ -547,3 +547,7 @@ pre {
     cursor: pointer;
     padding: 15px;
 }
+
+#scroll-button:hover {
+    background-color: rgba(42, 42, 42, 0.5);
+}
