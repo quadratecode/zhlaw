@@ -48,12 +48,12 @@ def main():
     logging.info("Loading laws index")
     # Load HTML generated from PDF
     html_files = glob.glob(
-        "data/zhlex/zhlex_files/**/**/*-merged.html",
+        "data/zhlex/test_cases/**/**/*-merged.html",
         recursive=True,
     )
     # Load original HTML files
     html_files += glob.glob(
-        "data/zhlex/zhlex_files/**/**/*-original.html",
+        "data/zhlex/test_cases/**/**/*-original.html",
         recursive=True,
     )
     # Load all files from src/static_files ending in .html

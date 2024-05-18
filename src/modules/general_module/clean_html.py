@@ -13,8 +13,8 @@ def reduce_whitespace(soup):
         # Process each direct string child of the paragraph
         for content in element.contents:
             if isinstance(content, NavigableString):
-                # Clean up spaces in the text node directly
-                cleaned_text = re.sub(r"\s+", " ", content.string.strip())
+                # Clean up spaces in the text node directly without stripping leading/trailing spaces
+                cleaned_text = re.sub(r"\s+", " ", content.string)
                 content.replace_with(cleaned_text)
 
     return soup
@@ -118,8 +118,17 @@ def merge_enum_paragraphs(soup):
     Returns:
         BeautifulSoup: The modified BeautifulSoup object with merged paragraphs.
     """
-    # Find all paragraphs with class 'enum'
-    enum_paragraphs = soup.find_all("p", class_=re.compile(r"enum-(lit|ziff)"))
+    # Define the pattern to match classes
+    pattern = re.compile(r"enum-(lit|ziff)")
+
+    # Custom function to filter paragraphs based on the class pattern
+    def match_classes(tag):
+        if tag.name == "p" and tag.has_attr("class"):
+            return any(pattern.match(cls) for cls in tag["class"])
+        return False
+
+    # Find all paragraphs that match the custom filter
+    enum_paragraphs = soup.find_all(match_classes)
 
     for enum_p in enum_paragraphs:
         # Find the next sibling that is a paragraph
@@ -127,6 +136,7 @@ def merge_enum_paragraphs(soup):
         if next_p:
             # Move all elements from the next paragraph to the enum paragraph
             for element in next_p.contents:
+                enum_p.append(" ")  # Insert a space before appending the next element
                 enum_p.append(element)
             # Remove the now empty next paragraph
             next_p.decompose()
@@ -136,7 +146,8 @@ def merge_enum_paragraphs(soup):
 
 def merge_other_conditions(soup):
     """
-    Merges paragraphs based on specific starting or ending characters, preserving all HTML tags.
+    Merges paragraphs based on specific starting characters or lowercase letters,
+    preserving all HTML tags and ignoring paragraphs with a class.
 
     Args:
         soup (BeautifulSoup): The BeautifulSoup object representing the HTML document.
@@ -152,9 +163,13 @@ def merge_other_conditions(soup):
         prev_p = paragraphs[i - 1]
 
         # Check if the current paragraph should merge with the previous one
-        if current_p.text.startswith((",", ")")) or prev_p.text.endswith("Bst."):
-            # Move all elements from the current paragraph to the previous paragraph
-            prev_p.append(current_p.extract())  # Use extract to detach and then append
+        if not current_p.has_attr("class"):
+            first_char = current_p.text.lstrip()[0] if current_p.text.lstrip() else ""
+            if first_char in ".,;()?":
+                # Move all child elements from the current paragraph to the previous paragraph
+                for element in current_p.contents:
+                    prev_p.append(element.extract())
+                to_remove.append(current_p)
 
     # Clean up: remove any tagged paragraphs that are now empty and detached
     for p in to_remove:

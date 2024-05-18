@@ -174,16 +174,16 @@ p:not([class]) {
     text-underline-offset: -0.1rem;
 }
 
-.enum-lit {
+.first-level {
     margin-top: 0.1em;
     margin-bottom: 0.1em;
-    margin-left: 15px;
+    margin-left: 1.7rem;
 }
 
-.enum-ziff {
+.second-level {
     margin-top: 0.1em;
     margin-bottom: 0.1em;
-    margin-left: 25px;
+    margin-left: 3.4rem;
 }
 
 p.enum>sup {

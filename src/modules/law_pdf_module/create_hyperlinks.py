@@ -130,6 +130,7 @@ def find_enumerations(soup):
     Identifies enumeration paragraphs that contain a single or double letter followed by a period,
     or a number followed by a period, while ignoring any superscript text such as footnotes.
     Assigns the class 'enum-lit' to letter matches and 'enum-ziff' to number matches.
+    Additionally, assigns 'first-level' and 'second-level' classes based on their order.
 
     Args:
         soup (BeautifulSoup): The BeautifulSoup object representing the HTML document.
@@ -142,26 +143,41 @@ def find_enumerations(soup):
     # Pattern to match single or double digits followed by a period
     number_pattern = re.compile(r"^\d{1,2}\.$")
 
-    # Iterate through all paragraph elements in the soup object
-    for paragraph in soup.find_all("p"):
+    paragraphs = soup.find_all("p")
+    previous_enum_type = None
+    current_level_class = "first-level"
+
+    for paragraph in paragraphs:
         # Extract all text nodes directly under the paragraph element, ignoring any text within <sup> tags
         text_parts = [text for text in paragraph.find_all(text=True, recursive=False)]
         text = "".join(
             text_parts
         ).strip()  # Join all direct text nodes and strip whitespace
 
-        # Check if the direct text of the paragraph (ignoring <sup> tags) matches the letter pattern
+        existing_classes = paragraph.get("class", [])
         if letter_pattern.match(text):
             # Add 'enum-lit' class to the paragraph
-            existing_classes = paragraph.get("class", [])
             if "enum-lit" not in existing_classes:
                 paragraph["class"] = existing_classes + ["enum-lit"]
-        # Check if the direct text of the paragraph matches the number pattern
+            current_enum_type = "enum-lit"
         elif number_pattern.match(text):
             # Add 'enum-ziff' class to the paragraph
-            existing_classes = paragraph.get("class", [])
             if "enum-ziff" not in existing_classes:
                 paragraph["class"] = existing_classes + ["enum-ziff"]
+            current_enum_type = "enum-ziff"
+        else:
+            # Reset the previous enum type to None if the current paragraph is not an enumeration
+            previous_enum_type = None
+            continue
+
+        # Assign 'first-level' or 'second-level' class
+        if previous_enum_type is None or previous_enum_type != current_enum_type:
+            current_level_class = "first-level"
+        else:
+            current_level_class = "second-level"
+
+        paragraph["class"] = paragraph.get("class", []) + [current_level_class]
+        previous_enum_type = current_enum_type
 
     return soup
 
@@ -216,7 +232,7 @@ def update_html_with_hyperlinks(hyperlinks, soup):
 
 def merge_numbered_paragraphs(soup):
     # Iterate over all paragraphs
-    paragraphs = soup.find_all("p")
+    paragraphs = soup.find_all(["p", "h1", "h2", "h3", "h4", "h5", "h6"])
     for current_paragraph in paragraphs:
         # Get the previous sibling that is either a paragraph or a heading
         previous_sibling = current_paragraph.find_previous_sibling(
@@ -391,7 +407,7 @@ def hyperlink_footnotes(soup):
     # Step 1: Identify all footnote references in the body text
     footnote_refs = []
     potential_refs = soup.find_all(
-        lambda tag: tag.name == "p"
+        lambda tag: tag.name in ["h1", "h2", "h3", "h4", "h5", "h6", "p"]
         and tag.get("data-text-color") == "LinkBlue"
         and "provision"
         not in tag.get("class", [])  # Exclude sup numbers from provisions

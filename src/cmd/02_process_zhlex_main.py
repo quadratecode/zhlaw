@@ -38,7 +38,7 @@ def main():
 
     logging.info("Loading laws index")
     pdf_files = glob.glob(
-        "data/zhlex/zhlex_files/**/**/*-original.pdf",
+        "data/zhlex/test_cases/**/**/*-original.pdf",
         recursive=True,
     )
     # Remove duplicates found from different junctions

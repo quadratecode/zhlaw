@@ -126,10 +126,12 @@ def process_element(element, font_variants, marginalia):
         if number_letter_match:
             number = number_letter_match.group(1)
             letter = number_letter_match.group(2)
-            data_provision_number = f"{number}_{letter}" if letter else number
+            data_provision_number = f"{number}-{letter}" if letter else number
             provision_attr = (
                 f' class="provision" id="provision-{data_provision_number}"'
             )
+        # Remmove LinkBlue color from provisions
+        text_color_data = ""
     else:
         # Ensure that provisions are not headings
         if heading_level and not is_provision:
