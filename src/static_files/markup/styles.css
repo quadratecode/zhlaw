@@ -193,7 +193,6 @@ p.enum>sup {
 a {
     text-decoration: underline;
     color: var(--link-blue);
-    display: inline-block;
     text-decoration-thickness: .1em;
     text-underline-offset: 0.3rem;
 }
