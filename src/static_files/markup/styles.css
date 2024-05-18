@@ -60,6 +60,7 @@ body {
 
 html {
     font-size: var(--base-font-size);
+    scroll-behavior: smooth;
 }
 
 body {
@@ -530,4 +531,19 @@ pre {
         padding: 5px;
         margin-bottom: 5px;
     }
+}
+
+#scroll-button {
+    text-decoration: none;
+    position: fixed;
+    bottom: 10px;
+    right: 15px;
+    z-index: 99;
+    font-size: 15px;
+    border: none;
+    outline: none;
+    background-color: rgba(42, 42, 42, 0.247);
+    color: var(--link-blue);
+    cursor: pointer;
+    padding: 15px;
 }

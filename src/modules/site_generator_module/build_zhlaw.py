@@ -434,6 +434,22 @@ def insert_footer(soup):
     return soup
 
 
+def insert_scroll_to_top_button(soup):
+    """
+    Inserts a button at the bottom of the HTML document to scroll to the top of the page.
+    """
+
+    # Create the button with href to page-header
+    scroll_button = soup.new_tag("a", href="#page-header", **{"id": "scroll-button"})
+    scroll_button.string = "🠕"
+
+    body = soup.find("body")
+    if body:
+        body.append(scroll_button)
+
+    return soup
+
+
 def main(soup, html_file, doc_info, type):
     """
     Loads HTML content, applies transformations, and saves it.
@@ -471,6 +487,9 @@ def main(soup, html_file, doc_info, type):
         law_div = soup.find("div", {"id": "law"})
         if law_div:
             law_div.attrs["data-pagefind-body"] = ""
+
+        # Insert scroll to top button
+        soup = insert_scroll_to_top_button(soup)
 
     # Insert header
     soup = insert_header(soup)
