@@ -147,7 +147,8 @@ def merge_enum_paragraphs(soup):
 def merge_other_conditions(soup):
     """
     Merges paragraphs based on specific starting characters or lowercase letters,
-    preserving all HTML tags and ignoring paragraphs with a class.
+    preserving all HTML tags. Merging is not allowed if the current paragraph has a class,
+    or if the previous paragraph has a class of 'marginalia', 'provision', 'subprovision'.
 
     Args:
         soup (BeautifulSoup): The BeautifulSoup object representing the HTML document.
@@ -157,23 +158,44 @@ def merge_other_conditions(soup):
     """
     paragraphs = soup.find_all("p")
     to_remove = []
+    excluded_classes = {"marginalia", "provision", "subprovision"}
 
-    for i in range(1, len(paragraphs)):
-        current_p = paragraphs[i]
-        prev_p = paragraphs[i - 1]
+    merged = True
 
-        # Check if the current paragraph should merge with the previous one
-        if not current_p.has_attr("class"):
-            first_char = current_p.text.lstrip()[0] if current_p.text.lstrip() else ""
-            if first_char in ".,;()?":
-                # Move all child elements from the current paragraph to the previous paragraph
-                for element in current_p.contents:
-                    prev_p.append(element.extract())
-                to_remove.append(current_p)
+    while merged:
+        merged = False
+        paragraphs = soup.find_all("p")  # Refresh the list after each iteration
+        to_remove.clear()
 
-    # Clean up: remove any tagged paragraphs that are now empty and detached
-    for p in to_remove:
-        p.decompose()
+        for i in range(1, len(paragraphs)):
+            current_p = paragraphs[i]
+            prev_p = paragraphs[i - 1]
+
+            # Check if the current paragraph should merge with the previous one
+            if not current_p.has_attr("class") and not (
+                prev_p.has_attr("class")
+                and any(cls in excluded_classes for cls in prev_p["class"])
+            ):
+                first_char = (
+                    current_p.text.lstrip()[0] if current_p.text.lstrip() else ""
+                )
+                last_char_prev_p = (
+                    prev_p.text.rstrip()[-1] if prev_p.text.rstrip() else ""
+                )
+
+                # Merge if the current paragraph starts with .,;()? or a lowercase letter
+                if first_char in ".,;()?" or (
+                    first_char.islower() and last_char_prev_p.islower()
+                ):
+                    # Move all child elements from the current paragraph to the previous paragraph
+                    for element in current_p.contents:
+                        prev_p.append(element.extract())
+                    to_remove.append(current_p)
+                    merged = True
+
+        # Clean up: remove any tagged paragraphs that are now empty and detached
+        for p in to_remove:
+            p.decompose()
 
     return soup
 

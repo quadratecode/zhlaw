@@ -166,17 +166,20 @@ def find_enumerations(soup):
                 paragraph["class"] = existing_classes + ["enum-ziff"]
             current_enum_type = "enum-ziff"
         else:
-            # Reset the previous enum type to None if the current paragraph is not an enumeration
-            previous_enum_type = None
             continue
 
         # Assign 'first-level' or 'second-level' class
-        if previous_enum_type is None or previous_enum_type != current_enum_type:
-            current_level_class = "first-level"
+        if previous_enum_type is None or previous_enum_type == current_enum_type:
+            paragraph["class"] = paragraph.get("class", []) + [current_level_class]
         else:
-            current_level_class = "second-level"
+            # Switch level class and apply to current paragraph
+            current_level_class = (
+                "second-level"
+                if current_level_class == "first-level"
+                else "first-level"
+            )
+            paragraph["class"] = paragraph.get("class", []) + [current_level_class]
 
-        paragraph["class"] = paragraph.get("class", []) + [current_level_class]
         previous_enum_type = current_enum_type
 
     return soup
