@@ -35,7 +35,7 @@ def convert_to_html(json_data, erlasstitel, marginalia):
         None
     """
     # Wrap the content in div law (will later contain law text and meta data) and div source-text (will only contain the law text)
-    html_content = f"<html><head></head><body class='dark-theme || light-theme'><div id='law'><div id='source-text' class='pdf-source'>"
+    html_content = f"<html><head></head><body><div id='law'><div id='source-text' class='pdf-source'>"
     font_variants = analyze_font_variants(json_data)
 
     for element in json_data.get("elements", []):

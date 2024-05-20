@@ -287,7 +287,7 @@ a:focus {
     background-color: #e0e0e0;
 }
 
-#contact-button {
+.header-btn {
     text-decoration: none;
     border: 1px solid black;
     color: #3c3c3c;
@@ -295,7 +295,7 @@ a:focus {
     padding: 5px 15px;
 }
 
-#contact-button:hover {
+.header-btn:hover {
     background-color: #e0e0e0;
 }
 

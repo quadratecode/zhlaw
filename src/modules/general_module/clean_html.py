@@ -184,7 +184,7 @@ def merge_other_conditions(soup):
                 )
 
                 # Merge if the current paragraph starts with .,;()? or a lowercase letter
-                if first_char in ".,;()?" or (
+                if first_char in ".,;()?:" or (
                     first_char.islower() and last_char_prev_p.islower()
                 ):
                     # Move all child elements from the current paragraph to the previous paragraph

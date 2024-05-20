@@ -77,16 +77,28 @@ def insert_header(soup):
     logo.append(logo_link)
     header.append(logo)
 
+    # Create a div to hold the buttons
+    buttons_div = soup.new_tag("div", **{"class": "header-buttons"})
+
     # Create the mailto button
     mailto = soup.new_tag(
         "a",
         **{
-            "id": "contact-button",
+            "class": "header-btn",
             "href": f"mailto:admin@zhlaw.ch",
         },
     )
     mailto.string = "Kontakt"
-    header.append(mailto)
+    buttons_div.append(mailto)
+
+    # Create the dark mode toggle button
+    # dark_mode_button = soup.new_tag(
+    #     "button", **{"class": "header-btn", "id": "dark-mode-btn"}
+    # )
+    # dark_mode_button.string = "Dark Mode"
+    # buttons_div.append(dark_mode_button)
+
+    header.append(buttons_div)
 
     # Insert the header at the top within
     body = soup.find("body")
@@ -133,6 +145,14 @@ def modify_html(soup, erlasstitel):
     # Add encoding meta tag
     encoding_meta = soup.new_tag("meta", charset="utf-8")
     head.append(encoding_meta)
+
+    # Add the JavaScript for dark mode toggle
+    # dark_mode_script = soup.new_tag("script")
+    # dark_mode_script.string =
+    """
+    TODO: Insert Script for Dark Mode Toggle
+    """
+    # head.append(dark_mode_script)
 
     # Wrap body content in divs
     body = soup.body

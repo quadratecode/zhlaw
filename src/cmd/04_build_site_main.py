@@ -6,7 +6,7 @@ from src.modules.site_generator_module import build_zhlaw
 from src.modules.site_generator_module import process_old_html
 from src.modules.site_generator_module import create_placeholders
 
-from src.modules.dataset_generator_module import build_dataset
+from src.modules.dataset_generator_module import build_datasets
 
 # Import external modules
 import logging
@@ -18,6 +18,7 @@ import os
 import arrow
 from bs4 import BeautifulSoup
 import subprocess
+import argparse
 
 # Set up logging
 logging.basicConfig(
@@ -28,7 +29,7 @@ logging.basicConfig(
 )
 
 static_path = "public/"
-collection_path = "public/col/"
+collection_path = "public/col-zh/"
 placeholder_dir = "data/zhlex/placeholders"
 
 # Delete folders before new generation
@@ -37,7 +38,7 @@ if os.path.exists(collection_path):
     shutil.rmtree(placeholder_dir)
 
 
-def main():
+def main(folder, dataset_trigger):
 
     # Initialize error counter
     error_counter = 0
@@ -48,12 +49,12 @@ def main():
     logging.info("Loading laws index")
     # Load HTML generated from PDF
     html_files = glob.glob(
-        "data/zhlex/test_cases/**/**/*-merged.html",
+        f"data/zhlex/{folder}/**/**/*-merged.html",
         recursive=True,
     )
     # Load original HTML files
     html_files += glob.glob(
-        "data/zhlex/test_cases/**/**/*-original.html",
+        f"data/zhlex/{folder}/**/**/*-original.html",
         recursive=True,
     )
     # Load all files from src/static_files ending in .html
@@ -146,28 +147,32 @@ def main():
     ) as file:
         zhlex_data_processed = json.load(file)
 
-    # Build dataset (placed here to not include placeholders)
-    logging.info("Building dataset")
-    build_dataset.main(collection_path, zhlex_data_processed)
-    logging.info("Finished building dataset")
+    if dataset_trigger:
 
-    # Load all files from public ending in .html
-    public_html_files = glob.glob(
-        "public/col/*.html",
-        recursive=True,
-    )
+        # Build dataset (placed here to not include placeholders)
+        logging.info("Building dataset")
+        build_datasets.main(collection_path, zhlex_data_processed)
+        logging.info("Finished building dataset")
 
-    # Create placeholders
-    logging.info("Creating placeholders")
-    create_placeholders.main(zhlex_data_processed, public_html_files, placeholder_dir)
-    logging.info("Finished creating placeholders")
+        # Load all files from public ending in .html
+        public_html_files = glob.glob(
+            "public/col-zh/*.html",
+            recursive=True,
+        )
 
-    # Copy placeholder files
-    shutil.copytree(
-        "data/zhlex/placeholders",
-        collection_path,
-        dirs_exist_ok=True,
-    )
+        # Create placeholders
+        logging.info("Creating placeholders")
+        create_placeholders.main(
+            zhlex_data_processed, public_html_files, placeholder_dir
+        )
+        logging.info("Finished creating placeholders")
+
+        # Copy placeholder files
+        shutil.copytree(
+            "data/zhlex/placeholders",
+            collection_path,
+            dirs_exist_ok=True,
+        )
 
     # Copy markup files
     shutil.copytree(
@@ -184,4 +189,20 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Process PDF files")
+    parser.add_argument(
+        "--folder",
+        type=str,
+        default="test_files",
+        choices=["zhlex_files", "test_files"],
+        help="Folder to process",
+    )
+    parser.add_argument(
+        "--db-build",
+        type=bool,
+        default=False,
+        choices=[True, False],
+        help="Build dataset",
+    )
+    args = parser.parse_args()
+    main(args.folder, args.db_build)

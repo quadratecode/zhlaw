@@ -18,6 +18,7 @@ import logging
 import glob
 import json
 from tqdm import tqdm
+import argparse
 
 # Set up logging
 logging.basicConfig(
@@ -28,7 +29,7 @@ logging.basicConfig(
 )
 
 
-def main():
+def main(folder):
 
     # Initialize error counter
     error_counter = 0
@@ -38,7 +39,7 @@ def main():
 
     logging.info("Loading laws index")
     pdf_files = glob.glob(
-        "data/zhlex/test_cases/**/**/*-original.pdf",
+        f"data/zhlex/{folder}/**/**/*-original.pdf",
         recursive=True,
     )
     # Remove duplicates found from different junctions
@@ -144,4 +145,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Process PDF files")
+    parser.add_argument(
+        "--folder",
+        type=str,
+        default="test_files",
+        choices=["zhlex_files", "test_files"],
+        help="Folder to process",
+    )
+    args = parser.parse_args()
+    main(args.folder)
