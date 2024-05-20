@@ -551,3 +551,47 @@ pre {
 #scroll-button:hover {
     background-color: rgba(42, 42, 42, 0.5);
 }
+
+.dispatch-entry-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    table-layout: auto;
+    /* Allows variable column widths */
+}
+
+.dispatch-entry-table th,
+.dispatch-entry-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    word-wrap: break-word;
+    /* Prevents text from overflowing */
+    vertical-align: top;
+    /* Top aligns the cells */
+}
+
+.dispatch-entry-table td {
+    width: 260px;
+    /* Sets the default width for table cells */
+}
+
+.dispatch-entry-table td+td {
+    width: auto;
+}
+
+.dispatch-entry-table tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+.dispatch-entry-table tr:hover {
+    background-color: #e8e8e8;
+    /* Subtle hover effect on table rows */
+}
+
+#dispatch-static h2 {
+    font-size: 1.35rem
+}
+
+#dispatch-static h3 {
+    font-size: 1.1rem
+}

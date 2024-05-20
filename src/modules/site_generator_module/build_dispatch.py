@@ -9,15 +9,18 @@ import re
 def generate_html_page(content):
     return f"""
     <!DOCTYPE html>
-    <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta content="width=device-width, initial-scale=1.0" name="viewport">
         <link rel="stylesheet" type="text/css" href="styles.css">
         <title>KRZH Dispatch</title>
     </head>
     <body>
-        {content}
+        <div id="content">
+            <div id="dispatch-static">
+                {content}
+            </div>
+        </div>
     </body>
     </html>
     """
@@ -38,7 +41,7 @@ def convert_to_html(data):
         else:
             for affair in dispatch["affairs"]:
                 html_content += f"<h3>{affair['title']}</h3>\n"
-                html_content += "<table>\n"
+                html_content += "<table class='dispatch-entry-table'>\n"
 
                 if affair.get("affair_type"):
                     html_content += f"<tr><td>Geschäftsart:</td><td>{affair['affair_type']}</td></tr>\n"

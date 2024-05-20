@@ -18,6 +18,8 @@ from src.modules.law_pdf_module import merge_marginalia
 from src.modules.law_pdf_module import match_marginalia
 from src.modules.law_pdf_module import create_hyperlinks
 
+from src.modules.site_generator_module import build_zhlaw
+
 from src.modules.site_generator_module import build_dispatch
 
 # Import external modules
@@ -26,6 +28,8 @@ import logging
 import glob
 import json
 from tqdm import tqdm
+from bs4 import BeautifulSoup
+import shutil
 
 # Set up logging
 logging.basicConfig(
@@ -330,13 +334,30 @@ def main():
 
     # Build page from kzrh_dispatch_data.json
     logging.info("Building page")
-    html_file_path = "data/krzh_dispatch/krzh_dispatch_site/index.html"
+    html_file_path = "data/krzh_dispatch/krzh_dispatch_site/dispatch.html"
     logging.info(f"Starting page build")
     with open(krzh_dispatch_data_path, "r") as f:
         krzh_dispatch_data = json.load(f)
+
+    # Build core of dispatch page
     with open(html_file_path, "w") as f:
         f.write(build_dispatch.main(krzh_dispatch_data))
+
+    # Process the HTML with BeautifulSoup and additional functions
+    with open(html_file_path, "r") as file:
+        soup = BeautifulSoup(file, "html.parser")
+
+    soup = build_zhlaw.insert_header(soup)
+    soup = build_zhlaw.insert_footer(soup)
+
+    # Write the modified HTML back to the file
+    with open(html_file_path, "w") as f:
+        f.write(str(soup))
     logging.info("Finished page build")
+
+    # Copy html file to public
+    logging.info("Copying html file to public")
+    shutil.copy(html_file_path, "public/dispatch.html")
 
 
 if __name__ == "__main__":
