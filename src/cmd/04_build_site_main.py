@@ -199,9 +199,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--db-build",
-        type=bool,
-        default=False,
-        choices=[True, False],
+        type=str,
+        default="yes",
+        choices=["yes", "no"],
         help="Build dataset",
     )
     args = parser.parse_args()
