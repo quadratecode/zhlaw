@@ -13,11 +13,16 @@ logger = logging.getLogger(__name__)
 
 
 def wrap_text(tag, prefix, suffix):
-    for content in tag.contents:
-        if isinstance(content, NavigableString):
-            content.replace_with(NavigableString(prefix + content + suffix))
-        else:
-            wrap_text(content, prefix, suffix)
+    stack = [(tag, 0)]  # Use a stack to avoid recursion
+    while stack:
+        current_tag, depth = stack.pop()
+        if depth > 1000:  # Prevent excessive depth
+            continue
+        for content in current_tag.contents:
+            if isinstance(content, NavigableString):
+                content.replace_with(NavigableString(prefix + content + suffix))
+            elif content.name:
+                stack.append((content, depth + 1))
 
 
 def convert_links_to_absolute(soup, base_url, current_file):
@@ -58,9 +63,10 @@ def process_html_files(source_dir, dest_dir_html, dest_dir_md, base_url):
                 soup = BeautifulSoup(file, "html.parser")
 
                 # Remove unwanted elements
-                soup.find("div", {"id": "page-header"}).decompose()
-                soup.find("div", {"id": "page-footer"}).decompose()
-                soup.find("div", {"class": "nav-buttons"}).decompose()
+                for selector in ["#page-header", "#page-footer", ".nav-buttons"]:
+                    element = soup.select_one(selector)
+                    if element:
+                        element.decompose()
 
                 # Convert relative links to absolute, including handling fragments
                 convert_links_to_absolute(soup, base_url, filename)
@@ -104,11 +110,15 @@ def process_html_files(source_dir, dest_dir_html, dest_dir_md, base_url):
                         ):
                             wrap_text(enum_paragraph, "| ", "")
 
-                        # Convert elements to markdown
-                        markdown_content = markdownify.markdownify(
-                            str(source_text_div), heading_style="ATX"
-                        )
-                        markdown_content = process_markdown(markdown_content)
+                        # Convert elements to markdown with error handling
+                        try:
+                            markdown_content = markdownify.markdownify(
+                                str(source_text_div), heading_style="ATX"
+                            )
+                            markdown_content = process_markdown(markdown_content)
+                        except RecursionError:
+                            logger.error(f"RecursionError: Skipping file {filename}")
+                            continue
 
                         # Write the markdown content to the correct subdirectory
                         new_file_path_md = os.path.join(
@@ -125,8 +135,9 @@ def process_markdown(md):
     processed_lines = []
 
     for line in lines:
-        # Clean up any other tags that may have been missed
-        line = BeautifulSoup(line, "html.parser").get_text()
+        # Only use BeautifulSoup for lines containing HTML tags
+        if "<" in line and ">" in line:
+            line = BeautifulSoup(line, "html.parser").get_text()
         processed_lines.append(line)
 
     # Join lines back into a single string
