@@ -71,6 +71,16 @@ def process_html_files(source_dir, dest_dir_html, dest_dir_md, base_url):
                 # Convert relative links to absolute, including handling fragments
                 convert_links_to_absolute(soup, base_url, filename)
 
+                # Remove all h6 tags
+                for h6_tag in soup.find_all("h6"):
+                    h6_tag.decompose()
+
+                # Convert paragraphs with class "marginalia" to h6 tags
+                for p_tag in soup.find_all("p", class_="marginalia"):
+                    new_h6_tag = soup.new_tag("h6")
+                    new_h6_tag.string = p_tag.get_text()
+                    p_tag.replace_with(new_h6_tag)
+
                 # Find the div with id 'law'
                 law_div = soup.find("div", id="law")
                 if law_div:
@@ -140,8 +150,29 @@ def process_markdown(md):
             line = BeautifulSoup(line, "html.parser").get_text()
         processed_lines.append(line)
 
+    # Adjust header levels
+    header_map = {
+        "#": "#",
+        "##": "##",
+        "###": "###",
+        "####": "####",
+        "#####": "#####",
+        "######": "######",
+    }
+
+    adjusted_lines = []
+    for line in processed_lines:
+        if line.startswith("#"):
+            parts = line.split(" ", 1)
+            if parts[0] in header_map:
+                adjusted_lines.append(f"{header_map[parts[0]]} {parts[1]}")
+            else:
+                adjusted_lines.append(line)
+        else:
+            adjusted_lines.append(line)
+
     # Join lines back into a single string
-    cleaned_md = "\n".join(processed_lines)
+    cleaned_md = "\n".join(adjusted_lines)
     cleaned_md = cleaned_md.replace("\n\n", "\n").strip()  # Remove extra newlines
     return cleaned_md
 
