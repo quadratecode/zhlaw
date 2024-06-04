@@ -79,7 +79,7 @@ def convert_to_html(data):
                 elif affair.get("affair_type") != "Vorlage":
                     html_content += f"<tr><td>Änderungen (Regex):</td><td>[Keine Vorlage: Manuelle Prüfung erforderlich]</td></tr>\n"
                 else:
-                    changes = affair.get("changes", {})
+                    changes = affair.get("regex_changes", {})
                     if changes:
                         # Remove § and . from changes
                         changes = {
@@ -101,10 +101,10 @@ def convert_to_html(data):
                         f"<tr><td>Änderungen (Regex):</td><td>{changes_str}</td></tr>\n"
                     )
 
-                if affair.get("ai_output"):
+                if affair.get("ai_changes"):
                     # Try to convert process ai output same as changes
                     try:
-                        ai_output = affair.get("ai_output", {})
+                        ai_output = affair.get("ai_changes", {})
                         # if output contains "no changes found", include unchanged
                         if "info" in ai_output:
                             pass
@@ -129,11 +129,20 @@ def convert_to_html(data):
                         else:
                             pass
                     except Exception as e:
-                        ai_output = affair["ai_output"]
+                        ai_output = affair["ai_changes"]
 
                 html_content += (
                     f"<tr><td>Änderungen (AI):</td><td>{ai_output}</td></tr>\n"
                 )
+
+                # If it contains the key "ai_municipalities", and the value is not an empty dictionary
+                # Add a row with the first column being "Gemeinden" and the second column containing
+                # the keys and values of the dictionary with each key being on a new line
+                if affair.get("ai_municipalities") and affair["ai_municipalities"]:
+                    html_content += "<tr><td>Gemeinden:</td><td>\n"
+                    for key, value in affair["ai_municipalities"].items():
+                        html_content += f"{key}: {value}<br>\n"
+                    html_content += "</td></tr>\n"
 
                 # Add hyperlinks in second column (PDF-URL and Geschäfts-URL)
                 if affair.get("krzh_pdf_url") or affair.get("krzh_affair_url"):

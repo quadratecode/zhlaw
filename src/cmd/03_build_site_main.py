@@ -184,7 +184,7 @@ def main(folder, dataset_trigger):
     # Run "npx pagefind --site /home/rdm/github/zhlaw/public/" to build search index
     # Requires pagefind: https://github.com/CloudCannon/pagefind
     logging.info("Building search index")
-    subprocess.run(["npx", "pagefind", "--site", static_path])
+    subprocess.run(["npx", "pagefind", "--site", static_path, "--serve"])
     logging.info("Finished building search index")
 
 

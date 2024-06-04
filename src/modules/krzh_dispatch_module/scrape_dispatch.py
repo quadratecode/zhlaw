@@ -79,7 +79,7 @@ def main(folder):
         # Entries younger than 2040-01-01 to catch latest entries
         "q": 'datum_start < "2040-01-01 00:00:00" sortBy datum_start/sort.descending',
         # Number of fetched entries, max is 1k
-        "m": "10",
+        "m": "50",
         # Language
         "l": "de-CH",
     }
@@ -181,7 +181,9 @@ def main(folder):
                         "krzh_affair_url": krzh_affair_url,
                         "affair_nr": "",
                         "affair_steps": ablaufschritte,
-                        "changes": {},
+                        "regex_changes": {},
+                        "ai_changes": {},
+                        "ai_municipalities": {},
                     }
                     entries.append(data)
 

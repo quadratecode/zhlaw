@@ -8,7 +8,7 @@ from src.modules.krzh_dispatch_module import download_entries
 from src.modules.krzh_dispatch_module import extract_changes
 
 from src.modules.general_module import call_adobe_api
-from src.modules.general_module import call_openai_api
+from src.modules.krzh_dispatch_module import call_openai_api
 from src.modules.general_module import json_to_html
 from src.modules.general_module import clean_html
 
@@ -142,7 +142,7 @@ def main():
                                 exc_info=True,
                             )
                             metadata["doc_info"][
-                                "ai_output"
+                                "ai_changes"
                             ] = "{error: too many tokens}"
                             metadata["process_steps"]["call_ai"] = timestamp
                         else:
@@ -265,7 +265,7 @@ def main():
                                 exc_info=True,
                             )
                             metadata["doc_info"][
-                                "ai_output"
+                                "ai_changes"
                             ] = "{error: too many tokens}"
                             metadata["process_steps"]["call_ai"] = timestamp
                         else:
@@ -307,8 +307,14 @@ def main():
                             # Add changes if key exists
                             if "changes" in metadata["doc_info"]:
                                 affair["changes"] = metadata["doc_info"]["changes"]
-                            if "ai_output" in metadata["doc_info"]:
-                                affair["ai_output"] = metadata["doc_info"]["ai_output"]
+                            if "ai_changes" in metadata["doc_info"]:
+                                affair["ai_changes"] = metadata["doc_info"][
+                                    "ai_changes"
+                                ]
+                            if "ai_municipalities" in metadata["doc_info"]:
+                                affair["ai_municipalities"] = metadata["doc_info"][
+                                    "ai_municipalities"
+                                ]
                             break
 
             with open(krzh_dispatch_data_path, "w") as f:

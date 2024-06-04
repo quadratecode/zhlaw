@@ -106,8 +106,9 @@ def main(folder):
                         "last_affair_step_type": last_affair_step_type,
                         "pdf_orientation": pdf_orientation,
                         "pdf_url": krzh_pdf_url,
-                        "changes": {},
-                        "ai_output": {},
+                        "regex_changes": {},
+                        "ai_changes": {},
+                        "ai_municipalities": {},
                     },
                     "process_steps": {
                         "scrape_dispatch": success,

@@ -108,12 +108,12 @@ def main(html_file, metadata):
     law_changes = sort_dict_lists(law_changes)
 
     # Check if 'changes' key exists within 'doc_info', if not, create it
-    if "changes" not in metadata["doc_info"]:
-        metadata["doc_info"]["changes"] = {}
+    if "regex_changes" not in metadata["doc_info"]:
+        metadata["doc_info"]["regex_changes"] = {}
 
     # If dictionaries contain values (not only keys), add them to metadata
     if law_changes:
-        metadata["doc_info"]["changes"] = law_changes
+        metadata["doc_info"]["regex_changes"] = law_changes
 
     return metadata
 
