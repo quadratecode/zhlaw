@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 import json
 import arrow
 from tqdm import tqdm
+import re
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ def scrape_laws(folder):
 
         page += 1
 
-    # Replace referenceNumber with ordnungsnummer
+    # Replace referenceNumber with ordnungsnummer and enactmentTitle with erlasstitel
     for law in all_laws:
         law["ordnungsnummer"] = law.pop("referenceNumber")
         law["erlasstitel"] = law.pop("enactmentTitle").strip()
@@ -134,12 +135,29 @@ def process_laws(folder):
         new_laws = json.load(file)
 
     for law in tqdm(new_laws, desc="Processing laws"):
+        # Exclude entries which are empty (marked by "Nachtrag")
         if "Nachtrag" not in law["erlasstitel"]:
             erlasstitel = law["erlasstitel"]
+
+            # Use a regular expression to search for text within parentheses (starts with capital letter)
+            erlass_abkrz_match = re.search(r"\(([A-Z][^\)]*)\)", erlasstitel)
+
+            # If an erlass_abkrz is found, store it in the 'erlass_abkrz' variable
+            if erlass_abkrz_match:
+                erlass_abkrz = erlass_abkrz_match.group(1)
+            else:
+                erlass_abkrz = ""  # No erlass_abkrz found
         else:
-            pass
+            erlass_abkrz = ""  # In case of "Nachtrag" entries
+
         ordnungsnummer = law["ordnungsnummer"]
         nachtragsnummer = extract_nachtragsnummer(law["link"])
+
+        # Add dynamic URL as "dynamic_source"
+        # Is built with the following pattern: http://www.zhlex.zh.ch/Erlass.html?Open&Ordnr= + ordnungsnummer
+        dynamic_source = (
+            f"http://www.zhlex.zh.ch/Erlass.html?Open&Ordnr={ordnungsnummer}"
+        )
 
         if ordnungsnummer in laws_dict and any(
             version["nachtragsnummer"] == nachtragsnummer
@@ -181,6 +199,10 @@ def process_laws(folder):
                 )
                 aufhebungsdatum = extract_data(version_soup, "Aufhebungsdatum")
                 publikationsdatum = extract_data(version_soup, "Publikationsdatum")
+                erlass_kurztitel = extract_data(version_soup, "Kurztitel")
+                if erlass_kurztitel == "-":
+                    erlass_kurztitel = ""
+                # TODO: Usage of Kurztitel to be defined (store in version or law data?)
 
                 # Convert all dates that are not "-" to YYYYMMDD
                 if erlassdatum != "-":
@@ -240,6 +262,8 @@ def process_laws(folder):
             logger.error(f"Error fetching {law_page_url}: {e}")
 
         law_data["versions"] = versions
+        law_data["dynamic_source"] = dynamic_source
+        law_data["erlass_abkrz"] = erlass_abkrz
         law_data["erlasstitel"] = erlasstitel
 
         if ordnungsnummer in laws_dict:

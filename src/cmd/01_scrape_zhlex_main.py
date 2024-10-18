@@ -9,6 +9,8 @@ from src.modules.law_pdf_module import crop_pdf
 
 from src.modules.zhlex_module import scrape_collection
 from src.modules.zhlex_module import download_collection
+from src.modules.zhlex_module import update_metadata
+from src.modules.zhlex_module import convert_csv
 
 # Import external modules
 import arrow
@@ -98,7 +100,19 @@ def main():
                 error_counter += 1
                 continue
 
+    # Update source metadata for all laws
+    processed_data = "data/zhlex/zhlex_data/zhlex_data_processed.json"
+    logging.info("Updating metadata for all laws")
+    update_metadata.main("data/zhlex/zhlex_files", processed_data)
+    logging.info("Finished updating metadata for all laws")
+
+    # Save relevant keys from processed data to CSV
+    logging.info("Saving processed data to CSV")
+    convert_csv.main(processed_data)
+    logging.info("Finished saving processed data to CSV")
+
     logging.info(f"Finished scraping laws with {error_counter} errors")
+
 
 if __name__ == "__main__":
     main()
