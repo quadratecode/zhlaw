@@ -63,9 +63,6 @@ def merge_punctuation(soup):
 
 def add_footnote_line_and_class(soup):
     """
-    Insert a vertical line above the first footnote occurrence and assign the class 'footnote'
-    to all paragraphs with an id matching 'footnote-<number>'.
-
     Args:
         soup (BeautifulSoup): The BeautifulSoup object representing the HTML document.
 
@@ -82,6 +79,8 @@ def add_footnote_line_and_class(soup):
             "hr", style="border: 0; border-top: 2px solid #ccc; margin-top: 20px;"
         )
         first_footnote.insert_before(hr_tag)
+        # Make line hyplerinkable
+        hr_tag["id"] = "footnote-line"
 
     return soup
 

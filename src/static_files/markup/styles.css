@@ -216,11 +216,11 @@ a:focus {
     background-color: var(--highlight-grey);
 }
 
-.footnote-number {
+.footnote-ref {
     font-size: 0.6rem;
 }
 
-.footnote-number>a {
+.footnote-ref>a {
     text-decoration: none;
 }
 

@@ -16,20 +16,6 @@ def read_json_file(json_file_path):
         return json.load(file)
 
 
-def assign_footnote_ids(soup):
-    # Find all paragraphs with 'footnote' class
-    footnote_paragraphs = soup.find_all("p", class_="footnote")
-
-    for p in footnote_paragraphs:
-        if p.sup:
-            # Extract the number from the <sup> tag
-            footnote_number = p.sup.get_text().strip()
-            # Assign an id based on the footnote number
-            p["id"] = f"footnote-{footnote_number}"
-
-    return soup
-
-
 def refine_footnotes(soup):
     # Get all paragraphs with 'footnote' class and reverse the list to process from bottom to top
     footnote_paragraphs = soup.find_all("p", class_="footnote")[::-1]
@@ -314,29 +300,6 @@ def hyperlink_provisions_and_subprovisions(soup):
     return soup
 
 
-def remove_arrows_from_body_footnotes(soup):
-
-    # Find all 'a' tags with href matching the pattern and containing the arrow
-    all_arrows = soup.find_all(
-        "a", href=re.compile(r"#footnote-\d+-ref-\d+"), string="↩"
-    )
-
-    # Group arrows by their 'href' attribute
-    arrows_by_href = {}
-    for arrow in all_arrows:
-        href = arrow["href"]
-        if href not in arrows_by_href:
-            arrows_by_href[href] = []
-        arrows_by_href[href].append(arrow)
-
-    # Keep only the last arrow for each href
-    for href, arrows in arrows_by_href.items():
-        for arrow in arrows[:-1]:  # Remove all but the last arrow
-            arrow.decompose()
-
-    return soup
-
-
 def contains_number_but_no_letter(text):
     # Check if text contains a number and no alphabet letters
     return bool(re.search(r"\d", text)) and not bool(re.search(r"[a-zA-Z]", text))
@@ -378,21 +341,14 @@ def find_footnotes(soup):
 
 
 def remove_content_after_last_footnote(soup):
-    # Find all footnotes using a likely common attribute such as a class or id pattern
-    footnotes = soup.find_all("p", id=lambda x: x and x.startswith("footnote-"))
-    if not footnotes:
-        return soup  # No footnotes, return the original soup
 
-    # Find the last footnote by checking the highest footnote number
-    last_footnote = max(footnotes, key=lambda fn: int(fn["id"].split("-")[1]))
-
-    # Find all siblings after the last footnote and remove them
+    # Reading bottom to top, find the first occurence of class "footnote"
+    # Remove all siblings after the last footnote
+    last_footnote = soup.find_all("p", class_="footnote")[-1]
     content_removed = False
-    next_sib = last_footnote.find_next_sibling()
-    while next_sib:
-        next_sib.decompose()
+    for sibling in last_footnote.find_next_siblings():
+        sibling.decompose()
         content_removed = True
-        next_sib = last_footnote.find_next_sibling()
 
     # If content was removed, insert a warning paragraph
     if content_removed:
@@ -405,57 +361,33 @@ def remove_content_after_last_footnote(soup):
     return soup
 
 
-def hyperlink_footnotes(soup):
-
+def handle_footnotes_refs(soup):
     # Step 1: Identify all footnote references in the body text
     footnote_refs = []
-    potential_refs = soup.find_all(
+    footnote_refs = soup.find_all(
         lambda tag: tag.name in ["h1", "h2", "h3", "h4", "h5", "h6", "p"]
         and tag.get("data-text-color") == "LinkBlue"
         and "provision"
         not in tag.get("class", [])  # Exclude sup numbers from provisions
     )
 
-    for ref in potential_refs:
-        if contains_number_but_no_letter(ref.get_text()):
-            footnote_refs.append(ref)
-
-    # Dictionary to track the number of references for each footnote
-    ref_counters = {}
-
-    # Step 2: Extract the footnote numbers and create hyperlinks
     for ref in footnote_refs:
         text = ref.get_text(strip=True)
         footnote_nums = re.findall(r"\d+", text)
         ref.clear()
         for num in footnote_nums:
-            # Update counter for each footnote number
-            ref_counters[num] = ref_counters.get(num, 0) + 1
-            ref_id = f"footnote-{num}-ref-{ref_counters[num]}"
-            # Create hyperlink for each footnote reference
-            ref_link = soup.new_tag("a", href=f"#footnote-{num}", id=ref_id)
-            ref_link.string = f"[{num}]"
-            sup_tag = soup.new_tag("sup", **{"class": "footnote-number"})
-            sup_tag.append(ref_link)
-            ref.append(sup_tag)
-            if num != footnote_nums[-1]:
-                # Add comma separator for multiple footnotes
-                comma_sup = soup.new_tag("sup")
-                comma_sup.string = ", "
-                ref.append(comma_sup)
+            # Create the <sup> tag to enclose everything
+            sup_tag = soup.new_tag("sup", **{"class": "footnote-ref"})
 
-    # Step 3: Link back from the footnote to the reference in the body text
-    footnotes = soup.find_all(
-        id=re.compile(r"footnote-\d+$")
-    )  # Use word boundry to exclude references (e.g. footnote-1-ref-1)
-    for note in footnotes:
-        footnote_num = note["id"].split("-")[1]
-        # Link back to all references for this footnote
-        for i in range(1, ref_counters.get(footnote_num, 0) + 1):
-            ref_id = f"footnote-{footnote_num}-ref-{i}"
-            backlink = soup.new_tag("a", href=f"#{ref_id}")
-            backlink.string = "↩"
-            note.append(backlink)
+            # Create a hyperlink with square brackets and the number inside
+            a_tag = soup.new_tag("a", href="#footnote-line")
+            a_tag.append(f"[{num}]")  # Add the number inside the square brackets
+
+            # Add the <a> tag inside the <sup> tag
+            sup_tag.append(a_tag)
+
+            # Add the <sup> tag to the reference
+            ref.append(sup_tag)
 
     return soup
 
@@ -484,14 +416,8 @@ def main(merged_html_law, updated_json_file_law):
     # Process footnotes
     soup = merge_footnotes(soup)
 
-    # Assign footnote id
-    soup = assign_footnote_ids(soup)
-
-    # Hyperlink footnotes
-    soup = hyperlink_footnotes(soup)
-
-    # Remove arrows from body text footnotes
-    soup = remove_arrows_from_body_footnotes(soup)
+    # Find footnote refs
+    soup = handle_footnotes_refs(soup)
 
     # Hyperlink provisons and subprovisions
     soup = hyperlink_provisions_and_subprovisions(soup)
