@@ -48,8 +48,8 @@ def main(folder):
         for version in law.get("versions", []):
 
             erlasstitel = law.get("erlasstitel")
-            erlass_kurztitel = law.get("erlass_kurztitel")
-            erlass_abkrz = law.get("erlass_abkrz")
+            kurztitel = law.get("kurztitel")
+            abkuerzung = law.get("abkuerzung")
             ordnungsnummer = law["ordnungsnummer"]
             nachtragsnummer = version["nachtragsnummer"]
             law_dir = os.path.join(folder, ordnungsnummer, str(nachtragsnummer))
@@ -91,8 +91,8 @@ def main(folder):
                 metadata = {
                     "doc_info": {
                         "erlasstitel": erlasstitel,
-                        "erlass_kurztitel": erlass_kurztitel,
-                        "erlass_abkrz": erlass_abkrz,
+                        "kurztitel": kurztitel,
+                        "abkuerzung": abkuerzung,
                         "ordnungsnummer": ordnungsnummer,
                         **law.get("doc_info", {}),
                     },

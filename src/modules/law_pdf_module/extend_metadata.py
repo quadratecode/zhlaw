@@ -88,6 +88,7 @@ def add_page_heights_to_elements(document_path, elements):
                     page_index
                 ]  # Add page height to the element
             else:
+                # TODO: Add more information to warning
                 print(
                     f"Warning: Page index {page_index} out of range for document with {len(page_heights)} pages."
                 )
@@ -247,6 +248,7 @@ def convert_bounds_to_pymupdf(elements):
                 converted_element
             )  # Add the converted element to the list
         else:
+            # TODO: Add more information to warning -> Log event
             print("Warning: Element missing 'page_height' key, cannot convert bounds.")
             converted_elements.append(
                 element

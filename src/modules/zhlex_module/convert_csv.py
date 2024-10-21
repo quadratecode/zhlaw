@@ -27,8 +27,8 @@ def convert_json_to_csv(json_file, csv_file):
         fieldnames = [
             "ordnungsnummer",
             "erlasstitel",
-            "erlass_kurztitel",
-            "erlass_abkrz",
+            "kurztitel",
+            "abkuerzung",
             "dynamic_source",
             "in_force",
         ]
@@ -42,8 +42,8 @@ def convert_json_to_csv(json_file, csv_file):
             # Extract necessary fields
             ordnungsnummer = item.get("ordnungsnummer", "")
             erlasstitel = item.get("erlasstitel", "")
-            erlass_kurztitel = item.get("erlass_kurztitel", "")
-            erlass_abkrz = item.get("erlass_abkrz", "")
+            kurztitel = item.get("kurztitel", "")
+            abkuerzung = item.get("abkuerzung", "")
             dynamic_source = item.get("dynamic_source", "")
 
             # Check the 'in_force' status based on the versions
@@ -54,8 +54,8 @@ def convert_json_to_csv(json_file, csv_file):
                 {
                     "ordnungsnummer": ordnungsnummer,
                     "erlasstitel": erlasstitel,
-                    "erlass_kurztitel": erlass_kurztitel,
-                    "erlass_abkrz": erlass_abkrz,
+                    "kurztitel": kurztitel,
+                    "abkuerzung": abkuerzung,
                     "dynamic_source": dynamic_source,
                     "in_force": in_force,
                 }

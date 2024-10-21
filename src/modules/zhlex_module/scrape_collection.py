@@ -135,26 +135,10 @@ def process_laws(folder):
         new_laws = json.load(file)
 
     for law in tqdm(new_laws, desc="Processing laws"):
-        # Exclude entries which are empty (marked by "Nachtrag")
-        if "Nachtrag" not in law["erlasstitel"]:
-            erlasstitel = law["erlasstitel"]
-
-            # Use a regular expression to search for text within parentheses (starts with capital letter)
-            erlass_abkrz_match = re.search(r"\(([A-Z][^\)]*)\)", erlasstitel)
-
-            # If an erlass_abkrz is found, store it in the 'erlass_abkrz' variable
-            if erlass_abkrz_match:
-                erlass_abkrz = erlass_abkrz_match.group(1)
-            else:
-                erlass_abkrz = ""  # No erlass_abkrz found
-        else:
-            erlass_abkrz = ""  # In case of "Nachtrag" entries
-
         ordnungsnummer = law["ordnungsnummer"]
         nachtragsnummer = extract_nachtragsnummer(law["link"])
 
         # Add dynamic URL as "dynamic_source"
-        # Is built with the following pattern: http://www.zhlex.zh.ch/Erlass.html?Open&Ordnr= + ordnungsnummer
         dynamic_source = (
             f"http://www.zhlex.zh.ch/Erlass.html?Open&Ordnr={ordnungsnummer}"
         )
@@ -174,6 +158,10 @@ def process_laws(folder):
 
         # Fetch versions and other details
         versions = []  # This will hold version data for the current law
+        highest_nachtragsnummer = -1
+        highest_nachtragsnummer_erlasstitel = None
+        highest_nachtragsnummer_abbreviation = None
+
         law_page_url = BASE_URL + law["link"]
         try:
             response = requests.get(law_page_url, headers={"User-Agent": "Mozilla/5.0"})
@@ -199,10 +187,6 @@ def process_laws(folder):
                 )
                 aufhebungsdatum = extract_data(version_soup, "Aufhebungsdatum")
                 publikationsdatum = extract_data(version_soup, "Publikationsdatum")
-                erlass_kurztitel = extract_data(version_soup, "Kurztitel")
-                if erlass_kurztitel == "-":
-                    erlass_kurztitel = ""
-                # TODO: Usage of Kurztitel to be defined (store in version or law data?)
 
                 # Convert all dates that are not "-" to YYYYMMDD
                 if erlassdatum != "-":
@@ -243,6 +227,78 @@ def process_laws(folder):
                     except Exception as e:
                         logger.error(f"Error fetching {law_text_url}: {e}")
 
+                # Fetch the erlasstitel for this version
+                version_erlasstitel = law.get("erlasstitel", "").strip()
+
+                try:
+                    numeric_nachtragsnummer = int(nachtragsnummer)
+                except:
+                    # Convert any letters in the nachtragsnummer to numbers (e.g. "a" -> 1, "b" -> 2, etc.)
+                    numeric_nachtragsnummer = sum(
+                        (ord(char) - 96) * 26**i
+                        for i, char in enumerate(nachtragsnummer[::-1].lower())
+                    )
+
+                # Check if this erlasstitel does not contain "Nachtrag" and has a higher nachtragsnummer
+                if (
+                    "Nachtrag" not in version_erlasstitel
+                    and numeric_nachtragsnummer > highest_nachtragsnummer
+                ):
+                    highest_nachtragsnummer = numeric_nachtragsnummer
+                    highest_nachtragsnummer_erlasstitel = version_erlasstitel
+
+                # Check for any string within parentheses
+                abkuerzung_match = re.search(r"\(([^\)]*)\)", version_erlasstitel)
+
+                if abkuerzung_match:
+                    parentheses_content = abkuerzung_match.group(1).strip()
+
+                    # Only proceed if parentheses_content is not an empty string
+                    if parentheses_content:
+                        # Split by comma if present
+                        if "," in parentheses_content:
+                            # Assign first group to kurztitel and second group to abbreviation
+                            kurztitel, abkuerzung = map(
+                                str.strip, parentheses_content.split(",", 1)
+                            )
+                            highest_nachtragsnummer_kurztitel = kurztitel
+                            highest_nachtragsnummer_abbreviation = abkuerzung
+                        else:
+                            # Check if parentheses_content contains any of the specific substrings
+                            substrings = [
+                                "verordnung",
+                                "gesetz",
+                                "reglement",
+                                "konkordat",
+                                "abkommen",
+                                "vereinbarung",
+                                "vertrag",
+                                "weisung",
+                                "konzession",
+                            ]
+
+                            # If content contains any of the substrings, assign it to kurztitel, otherwise to abbreviation
+                            if any(
+                                substring in parentheses_content.lower()
+                                for substring in substrings
+                            ):
+                                highest_nachtragsnummer_kurztitel = parentheses_content
+                                highest_nachtragsnummer_abbreviation = ""
+                            else:
+                                highest_nachtragsnummer_abbreviation = (
+                                    parentheses_content
+                                )
+                                highest_nachtragsnummer_kurztitel = ""
+
+                        # If kurztitel exists, check if it contains any capital letters; if not, empty it
+                        if highest_nachtragsnummer_kurztitel and not any(
+                            char.isupper() for char in highest_nachtragsnummer_kurztitel
+                        ):
+                            highest_nachtragsnummer_kurztitel = ""
+                else:
+                    highest_nachtragsnummer_abbreviation = ""
+                    highest_nachtragsnummer_kurztitel = ""
+
                 version_data = {
                     "law_page_url": version_law_page_url,
                     "law_text_url": law_text_url,
@@ -261,10 +317,18 @@ def process_laws(folder):
         except Exception as e:
             logger.error(f"Error fetching {law_page_url}: {e}")
 
+        # If we found a version with the highest nachtragsnummer, use its erlasstitel and abbreviation
+        if highest_nachtragsnummer_erlasstitel:
+            law_data["erlasstitel"] = highest_nachtragsnummer_erlasstitel
+            law_data["abkuerzung"] = highest_nachtragsnummer_abbreviation
+            law_data["kurztitel"] = highest_nachtragsnummer_kurztitel
+        else:
+            law_data["erlasstitel"] = law.get("erlasstitel", "").strip()
+            law_data["abkuerzung"] = ""
+            law_data["kurztitel"] = ""
+
         law_data["versions"] = versions
         law_data["dynamic_source"] = dynamic_source
-        law_data["erlass_abkrz"] = erlass_abkrz
-        law_data["erlasstitel"] = erlasstitel
 
         if ordnungsnummer in laws_dict:
             # If law exists, just append the new versions to it

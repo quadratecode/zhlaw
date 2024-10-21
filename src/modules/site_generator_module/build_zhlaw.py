@@ -209,8 +209,8 @@ def insert_combined_table(
     metadata_table = soup.new_tag("table", **{"id": "metadata-table"})
     for key, label in [
         ("erlasstitel", "Titel"),
-        ("erlass_kurztitel", "Kurztitel"),
-        ("erlass_abkrz", "Abkürzung"),
+        ("kurztitel", "Kurztitel"),
+        ("abkuerzung", "Abkürzung"),
         ("ordnungsnummer", "Ordnungsnummer"),
         ("nachtragsnummer", "Nachtragsnummer"),
         ("erlassdatum", "Erlassdatum"),
@@ -238,10 +238,10 @@ def insert_combined_table(
             td_value.string = value
             td_value.attrs["data-pagefind-meta"] = "title"
             td_value.attrs["data-pagefind-weight"] = "10"
-        elif key == "erlass_kurztitel":
+        elif key == "kurztitel":
             td_value.string = value
             td_value.attrs["data-pagefind-meta"] = "Kurztitel"
-        elif key == "erlass_abkrz":
+        elif key == "abkuerzung":
             td_value.string = value
             td_value.attrs["data-pagefind-meta"] = "Abkürzung"
         elif key == "ordnungsnummer":
