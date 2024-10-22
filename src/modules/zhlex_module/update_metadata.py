@@ -51,6 +51,7 @@ def update_file(file_path, source_data):
             data["doc_info"]["ordnungsnummer"] = found_record.get("ordnungsnummer", "")
             data["doc_info"]["kurztitel"] = found_record.get("kurztitel", "")
             data["doc_info"]["abkuerzung"] = found_record.get("abkuerzung", "")
+            data["doc_info"]["category"] = found_record.get("category", "")
             # Add information about whether the document is in force
             if data["doc_info"]["aufhebungsdatum"] == "":
                 data["doc_info"]["in_force"] = True

@@ -17,6 +17,25 @@ def extract_in_force(versions):
     return False
 
 
+def extract_category(item):
+    """
+    Extracts the ordner, section, and subsection from the category field in the JSON item,
+    handling cases where the category or its parts might be None.
+    """
+    category = item.get("category", {})
+
+    ordner = category.get("ordner", {}) if category else {}
+    ordner_name = ordner.get("name", "") if ordner else ""
+
+    section = category.get("section", {}) if category else {}
+    section_name = section.get("name", "") if section else ""
+
+    subsection = category.get("subsection", {}) if category else {}
+    subsection_name = subsection.get("name", "") if subsection else ""
+
+    return ordner_name, section_name, subsection_name
+
+
 def convert_json_to_csv(json_file, csv_file):
     # Open and load the JSON data
     with open(json_file, "r", encoding="utf-8") as f:
@@ -31,6 +50,9 @@ def convert_json_to_csv(json_file, csv_file):
             "abkuerzung",
             "dynamic_source",
             "in_force",
+            "ordner",
+            "section",
+            "subsection",
         ]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
@@ -46,6 +68,9 @@ def convert_json_to_csv(json_file, csv_file):
             abkuerzung = item.get("abkuerzung", "")
             dynamic_source = item.get("dynamic_source", "")
 
+            # Extract ordner, section, and subsection from the category field
+            ordner, section, subsection = extract_category(item)
+
             # Check the 'in_force' status based on the versions
             in_force = extract_in_force(item.get("versions", []))
 
@@ -58,6 +83,9 @@ def convert_json_to_csv(json_file, csv_file):
                     "abkuerzung": abkuerzung,
                     "dynamic_source": dynamic_source,
                     "in_force": in_force,
+                    "ordner": ordner,
+                    "section": section,
+                    "subsection": subsection,
                 }
             )
 
@@ -70,4 +98,4 @@ def main(processed_data):
 
 
 if __name__ == "__main__":
-    main()
+    main("data/zhlex/zhlex_data/zhlex_data_processed.json")

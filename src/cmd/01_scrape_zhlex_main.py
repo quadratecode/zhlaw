@@ -107,9 +107,9 @@ def main():
     logging.info("Finished updating metadata for all laws")
 
     # Save relevant keys from processed data to CSV
-    # logging.info("Saving processed data to CSV")
-    # convert_csv.main(processed_data)
-    # logging.info("Finished saving processed data to CSV")
+    logging.info("Saving processed data to CSV")
+    convert_csv.main(processed_data)
+    logging.info("Finished saving processed data to CSV")
 
     logging.info(f"Finished scraping laws with {error_counter} errors")
 

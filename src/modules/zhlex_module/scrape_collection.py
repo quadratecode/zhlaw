@@ -117,8 +117,101 @@ def replace_dash_with_empty_string(value):
     return value
 
 
+def load_hierarchy():
+    # Load the hierarchy JSON file
+    with open(
+        "data/zhlex/zhlex_data/zhlex_cc_folders_hierarchy.json", "r", encoding="utf-8"
+    ) as file:
+        hierarchy = json.load(file)
+    return hierarchy
+
+
+def find_category_by_ordnungsnummer(hierarchy, ordnungsnummer):
+    """
+    Find the category by ordnungsnummer following the updated rules:
+    - Use the first group of ordnungsnummer (e.g., 131.1 -> 131)
+    - Check subsections, sections, and ordner hierarchy
+    Returns a structured category object with ordner, section, and subsection.
+    """
+    ordnungsnummer_first_group = ordnungsnummer.split(".")[0]
+
+    # Helper function to search recursively in the hierarchy and pass ordner context
+    def search_hierarchy(hierarchy_level, ordnungsnummer_group, parent_ordner=None):
+        for key, value in hierarchy_level.items():
+            if isinstance(value, dict):
+                ordner_id = value.get("id", None)
+                ordner_name = value.get("name", None)
+
+                # If this level defines an ordner, update the parent_ordner
+                current_ordner = parent_ordner or {"id": ordner_id, "name": ordner_name}
+
+                # Check if ordnungsnummer_group matches a subsection
+                if (
+                    "subsections" in value
+                    and ordnungsnummer_group in value["subsections"]
+                ):
+                    return {
+                        "ordner": current_ordner,
+                        "section": {
+                            "id": int(key),
+                            "name": value["name"],
+                        },  # Keep the parent section
+                        "subsection": {
+                            "id": int(ordnungsnummer_group),
+                            "name": value["subsections"][ordnungsnummer_group],
+                        },
+                    }
+
+                # Check if it matches a section
+                if "sections" in value and ordnungsnummer_group in value["sections"]:
+                    if isinstance(value["sections"][ordnungsnummer_group], dict):
+                        return {
+                            "ordner": current_ordner,
+                            "section": {
+                                "id": int(ordnungsnummer_group),
+                                "name": value["sections"][ordnungsnummer_group]["name"],
+                            },
+                            "subsection": None,
+                        }
+                    else:
+                        return {
+                            "ordner": current_ordner,
+                            "section": {
+                                "id": int(ordnungsnummer_group),
+                                "name": value["sections"][ordnungsnummer_group],
+                            },
+                            "subsection": None,
+                        }
+
+                # Recursively search deeper
+                result = search_hierarchy(value, ordnungsnummer_group, current_ordner)
+                if result:
+                    return result
+        return None
+
+    # First try using the full group (e.g., 131 for 131.1)
+    category = search_hierarchy(hierarchy, ordnungsnummer_first_group)
+    if category:
+        return category
+
+    # If no match, try the first two digits (e.g., 13 for 131)
+    ordnungsnummer_first_two_digits = ordnungsnummer_first_group[:2]
+    category = search_hierarchy(hierarchy, ordnungsnummer_first_two_digits)
+
+    if category:
+        return category
+    else:
+        return {
+            "ordner": {"id": None, "name": "Unknown"},
+            "section": None,
+            "subsection": None,
+        }
+
+
 def process_laws(folder):
     processed_laws_path = os.path.join(folder, "zhlex_data_processed.json")
+    hierarchy = load_hierarchy()  # Load the hierarchy once here
+
     # Load existing processed laws if the file exists
     if os.path.exists(processed_laws_path):
         with open(processed_laws_path, "r", encoding="utf-8") as file:
@@ -138,11 +231,6 @@ def process_laws(folder):
         ordnungsnummer = law["ordnungsnummer"]
         nachtragsnummer = extract_nachtragsnummer(law["link"])
 
-        # Add dynamic URL as "dynamic_source"
-        dynamic_source = (
-            f"http://www.zhlex.zh.ch/Erlass.html?Open&Ordnr={ordnungsnummer}"
-        )
-
         if ordnungsnummer in laws_dict and any(
             version["nachtragsnummer"] == nachtragsnummer
             for version in laws_dict[ordnungsnummer].get("versions", [])
@@ -155,6 +243,16 @@ def process_laws(folder):
             for key in law
             if key not in ["enactmentDate", "withdrawalDate", "link"]
         }
+
+        # Add dynamic URL as "dynamic_source"
+        dynamic_source = (
+            f"http://www.zhlex.zh.ch/Erlass.html?Open&Ordnr={ordnungsnummer}"
+        )
+        law_data["dynamic_source"] = dynamic_source
+
+        # Find and add category based on the ordnungsnummer, passing hierarchy
+        category = find_category_by_ordnungsnummer(hierarchy, ordnungsnummer)
+        law_data["category"] = category
 
         # Fetch versions and other details
         versions = []  # This will hold version data for the current law
@@ -328,7 +426,6 @@ def process_laws(folder):
             law_data["kurztitel"] = ""
 
         law_data["versions"] = versions
-        law_data["dynamic_source"] = dynamic_source
 
         if ordnungsnummer in laws_dict:
             # If law exists, just append the new versions to it
