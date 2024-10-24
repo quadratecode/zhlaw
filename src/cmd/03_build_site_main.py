@@ -181,6 +181,12 @@ def main(folder, dataset_trigger):
         dirs_exist_ok=True,
     )
 
+    # Copy server script to handle redirects
+    shutil.copy(
+        "src/server_scripts/redirect.php",
+        collection_path,
+    )
+
     # Run "npx pagefind --site /home/rdm/github/zhlaw/public/" to build search index
     # Requires pagefind: https://github.com/CloudCannon/pagefind
     logging.info("Building search index")

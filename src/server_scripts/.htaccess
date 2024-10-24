@@ -1,3 +1,0 @@
-RewriteEngine On
-# Capture any numeric and period sequence followed by a hyphen and pass it to the PHP script
-RewriteRule ^col-zh/([0-9\.]+)- /col-zh/redirector.php?prefix=$1 [L]

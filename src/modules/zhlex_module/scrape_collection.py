@@ -250,6 +250,11 @@ def process_laws(folder):
         )
         law_data["dynamic_source"] = dynamic_source
 
+        # Add a dynamic zhlaw URL as "zhlaw_url_dynamic"
+        # Pattern: zhalw.ch/col-zh/{ordnungsnummer}
+        zhlaw_url_dynamic = f"https://www.zhlaw.ch/col-zh/{ordnungsnummer}"
+        law_data["zhlaw_url_dynamic"] = zhlaw_url_dynamic
+
         # Find and add category based on the ordnungsnummer, passing hierarchy
         category = find_category_by_ordnungsnummer(hierarchy, ordnungsnummer)
         law_data["category"] = category

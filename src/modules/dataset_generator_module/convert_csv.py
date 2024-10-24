@@ -19,21 +19,34 @@ def extract_in_force(versions):
 
 def extract_category(item):
     """
-    Extracts the ordner, section, and subsection from the category field in the JSON item,
-    handling cases where the category or its parts might be None.
+    Safely extracts the ordner, section, and subsection (and their IDs) from the category field in the JSON item.
+    Handles cases where category or subfields might be None.
     """
     category = item.get("category", {})
 
-    ordner = category.get("ordner", {}) if category else {}
+    # Extract ordner details
+    ordner = category.get("ordner", {})
     ordner_name = ordner.get("name", "") if ordner else ""
+    ordner_id = ordner.get("id", "") if ordner else ""
 
-    section = category.get("section", {}) if category else {}
+    # Extract section details
+    section = category.get("section", {})
     section_name = section.get("name", "") if section else ""
+    section_id = section.get("id", "") if section else ""
 
-    subsection = category.get("subsection", {}) if category else {}
+    # Extract subsection details
+    subsection = category.get("subsection", {})
     subsection_name = subsection.get("name", "") if subsection else ""
+    subsection_id = subsection.get("id", "") if subsection else ""
 
-    return ordner_name, section_name, subsection_name
+    return (
+        ordner_name,
+        ordner_id,
+        section_name,
+        section_id,
+        subsection_name,
+        subsection_id,
+    )
 
 
 def convert_json_to_csv(json_file, csv_file):
@@ -50,8 +63,11 @@ def convert_json_to_csv(json_file, csv_file):
             "abkuerzung",
             "dynamic_source",
             "in_force",
+            "ordner_id",
             "ordner",
+            "section_id",
             "section",
+            "subsection_id",
             "subsection",
         ]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -68,8 +84,10 @@ def convert_json_to_csv(json_file, csv_file):
             abkuerzung = item.get("abkuerzung", "")
             dynamic_source = item.get("dynamic_source", "")
 
-            # Extract ordner, section, and subsection from the category field
-            ordner, section, subsection = extract_category(item)
+            # Extract ordner, section, and subsection (and their IDs) from the category field
+            ordner, ordner_id, section, section_id, subsection, subsection_id = (
+                extract_category(item)
+            )
 
             # Check the 'in_force' status based on the versions
             in_force = extract_in_force(item.get("versions", []))
@@ -83,8 +101,11 @@ def convert_json_to_csv(json_file, csv_file):
                     "abkuerzung": abkuerzung,
                     "dynamic_source": dynamic_source,
                     "in_force": in_force,
+                    "ordner_id": ordner_id,
                     "ordner": ordner,
+                    "section_id": section_id,
                     "section": section,
+                    "subsection_id": subsection_id,
                     "subsection": subsection,
                 }
             )

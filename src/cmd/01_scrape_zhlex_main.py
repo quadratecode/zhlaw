@@ -10,7 +10,7 @@ from src.modules.law_pdf_module import crop_pdf
 from src.modules.zhlex_module import scrape_collection
 from src.modules.zhlex_module import download_collection
 from src.modules.zhlex_module import update_metadata
-from src.modules.zhlex_module import convert_csv
+from src.modules.dataset_generator_module import convert_csv
 
 # Import external modules
 import arrow
