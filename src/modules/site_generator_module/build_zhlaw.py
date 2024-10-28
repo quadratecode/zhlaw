@@ -237,14 +237,14 @@ def insert_combined_table(
         elif key == "erlasstitel":
             td_value.string = value
             td_value.attrs["data-pagefind-meta"] = "title"
-            td_value.attrs["data-pagefind-weight"] = "10.0"
+            td_value.attrs["data-pagefind-weight"] = "10"
         elif key == "kurztitel":
             td_value.string = value
             td_value.attrs["data-pagefind-meta"] = "Kurztitel"
         elif key == "abkuerzung":
             td_value.string = value
             td_value.attrs["data-pagefind-meta"] = "Abkürzung"
-            td_value.attrs["data-pagefind-weight"] = "10.0"
+            td_value.attrs["data-pagefind-weight"] = "10"
         elif key == "ordnungsnummer":
             td_value.string = value
             td_value.attrs["data-pagefind-meta"] = "Ordnungsnummer"
@@ -515,7 +515,7 @@ def main(soup, html_file, doc_info, type):
         # Set law div as index
         law_div = soup.find("div", {"id": "law"})
         if law_div:
-            law_div.attrs["data-pagefind-body"] = ""
+            law_div.attrs["data-pagefind-body"] = None
 
         # Insert scroll to top button
         soup = insert_scroll_to_top_button(soup)

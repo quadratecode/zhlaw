@@ -5,6 +5,7 @@
 from src.modules.site_generator_module import build_zhlaw
 from src.modules.site_generator_module import process_old_html
 from src.modules.site_generator_module import create_placeholders
+from src.modules.site_generator_module import generate_index
 
 from src.modules.dataset_generator_module import build_datasets
 
@@ -45,6 +46,15 @@ def main(folder, dataset_trigger):
 
     # Timestamp
     timestamp = arrow.now().format("YYYYMMDD-HHmmss")
+
+    # Generate index
+    # Generate index
+    logging.info("Generating index")
+    generate_index.main(
+        "data/zhlex/zhlex_data/zhlex_data_processed.json",
+        "src/static_files/html/index.html",
+    )
+    logging.info("Finished generating index")
 
     logging.info("Loading laws index")
     # Load HTML generated from PDF

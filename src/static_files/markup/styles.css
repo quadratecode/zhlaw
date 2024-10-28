@@ -595,3 +595,60 @@ pre {
 #dispatch-static h3 {
     font-size: 1.1rem
 }
+
+
+.details-col {
+    margin-left: 20px;
+}
+
+/* Style for the summary elements inside details-collection */
+.details-col>summary {
+    cursor: pointer;
+    font-weight: bold;
+}
+
+/* Additional styles for details-collection */
+.details-col[open]>summary {
+    color: #007BFF;
+}
+
+/* Styles for the law tables */
+.law-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-left: 20px;
+    margin-bottom: 10px;
+}
+
+.law-table td {
+    padding: 5px;
+    vertical-align: top;
+}
+
+.law-table .ordnungsnummer-col {
+    width: 150px;
+    /* Adjust as needed */
+    white-space: nowrap;
+}
+
+.law-table .erlasstitel-col {
+    word-break: break-word;
+}
+
+.law-table a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.law-table tr:hover {
+    background-color: #f2f2f2;
+}
+
+.clickable-row {
+    cursor: pointer;
+}
+
+.clickable-row:hover {
+    background-color: var(--hover-blue);
+    /* Change to your preferred hover color */
+}
