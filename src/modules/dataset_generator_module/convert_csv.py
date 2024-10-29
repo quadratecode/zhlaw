@@ -4,17 +4,56 @@
 
 import json
 import csv
+import arrow
 
 
-def extract_in_force(versions):
+def extract_latest_version_info(versions):
     """
-    Extracts the 'in_force' status. If any version has 'in_force' set to true,
-    it returns True, otherwise False.
+    Extracts the in_force status and dates from the version with the highest 'numeric_nachtragsnummer'.
     """
+    if not versions:
+        return False, "", "", "", ""
+
+    # Use 'numeric_nachtragsnummer' for sorting
     for version in versions:
-        if version.get("in_force", False):
-            return True
-    return False
+        try:
+            version["numeric_nachtragsnummer_float"] = float(
+                version.get("numeric_nachtragsnummer", 0)
+            )
+        except ValueError:
+            version["numeric_nachtragsnummer_float"] = 0.0
+
+    # Sort versions by 'numeric_nachtragsnummer_float' in descending order
+    sorted_versions = sorted(
+        versions, key=lambda x: x["numeric_nachtragsnummer_float"], reverse=True
+    )
+
+    latest_version = sorted_versions[0]
+
+    in_force = latest_version.get("in_force", False)
+    erlassdatum = latest_version.get("erlassdatum", "")
+    inkraftsetzungsdatum = latest_version.get("inkraftsetzungsdatum", "")
+    publikationsdatum = latest_version.get("publikationsdatum", "")
+    aufhebungsdatum = latest_version.get("aufhebungsdatum", "")
+
+    return (
+        in_force,
+        erlassdatum,
+        inkraftsetzungsdatum,
+        publikationsdatum,
+        aufhebungsdatum,
+    )
+
+
+def format_date(date_str):
+    if date_str:
+        try:
+            date = arrow.get(date_str, "YYYYMMDD")
+            return date.format("DD.MM.YYYY")
+        except Exception:
+            return ""
+    else:
+        return ""
 
 
 def extract_category(item):
@@ -57,18 +96,23 @@ def convert_json_to_csv(json_file, csv_file):
     # Open the CSV file for writing
     with open(csv_file, "w", newline="", encoding="utf-8-sig") as csvfile:
         fieldnames = [
-            "ordnungsnummer",
-            "erlasstitel",
-            "kurztitel",
-            "abkuerzung",
-            "dynamic_source",
-            "in_force",
+            "Ordnungsnummer",
+            "Erlasstitel",
+            "Kurztitel",
+            "Abkürzung",
+            "Dynamischer Link",
+            "In Kraft",
+            "Erlassdatum",
+            "Inkraftsetzungsdatum",
+            "Letzte Publikation",
+            "Aufhebungsdatum",
             "ordner_id",
             "ordner",
             "section_id",
             "section",
             "subsection_id",
             "subsection",
+            "timestamp",
         ]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
@@ -89,24 +133,41 @@ def convert_json_to_csv(json_file, csv_file):
                 extract_category(item)
             )
 
-            # Check the 'in_force' status based on the versions
-            in_force = extract_in_force(item.get("versions", []))
+            # Extract the latest version info using 'numeric_nachtragsnummer'
+            (
+                in_force,
+                erlassdatum,
+                inkraftsetzungsdatum,
+                publikationsdatum,
+                aufhebungsdatum,
+            ) = extract_latest_version_info(item.get("versions", []))
+
+            # Format the dates
+            erlassdatum_formatted = format_date(erlassdatum)
+            inkraftsetzungsdatum_formatted = format_date(inkraftsetzungsdatum)
+            aufhebungsdatum_formatted = format_date(aufhebungsdatum)
+            publikationsdatum_formatted = format_date(publikationsdatum)
 
             # Write the row to CSV
             writer.writerow(
                 {
-                    "ordnungsnummer": ordnungsnummer,
-                    "erlasstitel": erlasstitel,
-                    "kurztitel": kurztitel,
-                    "abkuerzung": abkuerzung,
-                    "dynamic_source": dynamic_source,
-                    "in_force": in_force,
+                    "Ordnungsnummer": ordnungsnummer,
+                    "Erlasstitel": erlasstitel,
+                    "Kurztitel": kurztitel,
+                    "Abkürzung": abkuerzung,
+                    "Dynamischer Link": dynamic_source,
+                    "In Kraft": in_force,
+                    "Erlassdatum": erlassdatum_formatted,
+                    "Inkraftsetzungsdatum": inkraftsetzungsdatum_formatted,
+                    "Letzte Publikation": publikationsdatum_formatted,
+                    "Aufhebungsdatum": aufhebungsdatum_formatted,
                     "ordner_id": ordner_id,
                     "ordner": ordner,
                     "section_id": section_id,
                     "section": section,
                     "subsection_id": subsection_id,
                     "subsection": subsection,
+                    "timestamp": arrow.now().format("YYYY-MM-DD HH:mm:ss"),
                 }
             )
 

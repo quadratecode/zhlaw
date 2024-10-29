@@ -334,13 +334,28 @@ def process_laws(folder):
                 version_erlasstitel = law.get("erlasstitel", "").strip()
 
                 try:
-                    numeric_nachtragsnummer = int(nachtragsnummer)
+                    numeric_nachtragsnummer = float(nachtragsnummer)
                 except:
-                    # Convert any letters in the nachtragsnummer to numbers (e.g. "a" -> 1, "b" -> 2, etc.)
-                    numeric_nachtragsnummer = sum(
-                        (ord(char) - 96) * 26**i
-                        for i, char in enumerate(nachtragsnummer[::-1].lower())
-                    )
+                    # Convert any letters in the nachtragsnummer to numbers (e.g. "066a" -> 066a.1, "066b" -> 066b.2, etc.)
+                    # Match digits followed by letters in nachtragsnummer
+                    match = re.match(r"(\d+)([a-zA-Z]+)$", nachtragsnummer)
+                    if match:
+                        number_part = match.group(1)
+                        letter_part = match.group(2)
+
+                        # Convert each letter to its corresponding number (a=1, b=2, ..., z=26)
+                        letter_numbers = "".join(
+                            str(ord(char.lower()) - ord("a") + 1)
+                            for char in letter_part
+                        )
+
+                        # Combine the numeric and letter parts to form a float (e.g., "066a" -> 66.1)
+                        numeric_nachtragsnummer = float(
+                            f"{number_part}.{letter_numbers}"
+                        )
+                    else:
+                        # Handle cases where nachtragsnummer doesn't match the expected format
+                        raise ValueError("Invalid nachtragsnummer format")
 
                 # Check if this erlasstitel does not contain "Nachtrag" and has a higher nachtragsnummer
                 if (
@@ -378,6 +393,7 @@ def process_laws(folder):
                                 "vertrag",
                                 "weisung",
                                 "konzession",
+                                "ordnung",
                             ]
 
                             # If content contains any of the substrings, assign it to kurztitel, otherwise to abbreviation
@@ -407,6 +423,7 @@ def process_laws(folder):
                     "law_text_url": law_text_url,
                     "law_text_redirect": law_text_redirect,
                     "nachtragsnummer": nachtragsnummer,
+                    "numeric_nachtragsnummer": numeric_nachtragsnummer,
                     "erlassdatum": erlassdatum,
                     "inkraftsetzungsdatum": inkraftsetzungsdatum,
                     "publikationsdatum": publikationsdatum,
