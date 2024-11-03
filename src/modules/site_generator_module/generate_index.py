@@ -5,6 +5,8 @@
 import json
 import os
 
+from src.modules.dataset_generator_module import convert_csv
+
 html_template = """
 <html>
     <head>
@@ -53,9 +55,18 @@ def generate_tree_structure(data):
     """
     ordners = {}
     for item in data:
-        # Check if the law is currently in force
-        if not any(version.get("in_force") for version in item.get("versions", [])):
-            continue  # Skip laws that are not in force
+        # Get in_force status from the latest version
+        (
+            in_force,
+            erlassdatum,
+            inkraftsetzungsdatum,
+            publikationsdatum,
+            aufhebungsdatum,
+        ) = convert_csv.extract_latest_version_info(item.get("versions", []))
+
+        # Skip laws that are not in force
+        if not in_force:
+            continue
 
         # Extract category details
         category = item.get("category", {}) or {}

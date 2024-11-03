@@ -129,7 +129,10 @@ def find_enumerations(soup):
     # Pattern to match single or double digits followed by a period
     number_pattern = re.compile(r"^\d{1,2}\.$")
 
-    paragraphs = soup.find_all("p")
+    paragraphs = [
+        p for p in soup.find_all("p")
+        if not p.find_parent(["h1", "h2", "h3", "h4", "h5", "h6"]) and "marginalia" not in p.get("class", [])
+    ]
     previous_enum_type = None
     current_level_class = "first-level"
 

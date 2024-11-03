@@ -49,7 +49,7 @@ def format_date(date_str):
     if date_str:
         try:
             date = arrow.get(date_str, "YYYYMMDD")
-            return date.format("DD.MM.YYYY")
+            return date.format("YYYY-MM-DD")
         except Exception:
             return ""
     else:
