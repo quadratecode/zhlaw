@@ -7,7 +7,7 @@ from src.modules.site_generator_module import process_old_html
 from src.modules.site_generator_module import create_placeholders
 from src.modules.site_generator_module import generate_index
 
-from src.modules.dataset_generator_module import build_datasets
+from src.modules.dataset_generator_module import build_markdown
 
 # Import external modules
 import logging
@@ -30,6 +30,7 @@ logging.basicConfig(
 )
 
 static_path = "public/"
+source_path = "data/zhlex/zhlex_files"
 collection_path = "public/col-zh/"
 placeholder_dir = "data/zhlex/placeholders"
 
@@ -159,9 +160,9 @@ def main(folder, dataset_trigger):
 
     if dataset_trigger:
 
-        # Build dataset (placed here to not include placeholders)
+        # Build MD-dataset (placed here to not include placeholders)
         logging.info("Building dataset")
-        build_datasets.main(collection_path, zhlex_data_processed)
+        build_markdown.main(source_path)
         logging.info("Finished building dataset")
 
         # Load all files from public ending in .html

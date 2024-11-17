@@ -52,6 +52,10 @@ def update_file(file_path, source_data):
             data["doc_info"]["kurztitel"] = found_record.get("kurztitel", "")
             data["doc_info"]["abkuerzung"] = found_record.get("abkuerzung", "")
             data["doc_info"]["category"] = found_record.get("category", "")
+            data["doc_info"]["dynamic_source"] = found_record.get("dynamic_source", "")
+            data["doc_info"]["zhlaw_url_dynamic"] = found_record.get(
+                "zhlaw_url_dynamic", ""
+            )
             # Add information about whether the document is in force
             if data["doc_info"]["aufhebungsdatum"] == "":
                 data["doc_info"]["in_force"] = True
