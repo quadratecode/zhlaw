@@ -37,33 +37,34 @@ def wrap_text(tag, prefix, suffix):
 
 
 def convert_links_to_absolute(soup, base_url, current_file):
+    """
+    Convert relative links to absolute URLs while simplifying the path structure.
+
+    Args:
+        soup: BeautifulSoup object containing the HTML
+        base_url: Base URL of the website (e.g., 'https://www.zhlaw.ch/col-zh/')
+        current_file: Current file path (e.g., 'data/zhlex/test_files/125/101-125-merged.html')
+    """
     for tag in soup.find_all(["a", "link", "script", "img"]):
         attr = "href" if tag.name in ["a", "link"] else "src"
         if tag.has_attr(attr):
             url = tag[attr]
             parsed_url = urllib.parse.urlparse(url)
-            if not parsed_url.netloc and not url.startswith("#"):  # Relative URL
-                # Extract ordnungsnummer and nachtragsnummer from the filename
-                parts = url.split("-")
-                if len(parts) >= 2:
-                    ordnungsnummer = parts[0]
-                    nachtragsnummer = parts[1].split(".")[0]
-                    absolute_url = f"{base_url}{ordnungsnummer}-{nachtragsnummer}.html"
-                    tag[attr] = absolute_url
-                else:
-                    tag[attr] = urllib.parse.urljoin(base_url, url)
-            elif url.startswith("#"):  # Handle fragment identifiers
-                # Extract ordnungsnummer and nachtragsnummer from current_file
-                parts = current_file.split("-")
-                if len(parts) >= 2:
-                    ordnungsnummer = parts[0]
-                    nachtragsnummer = parts[1].split(".")[0]
-                    absolute_url = (
-                        f"{base_url}{ordnungsnummer}-{nachtragsnummer}.html{url}"
+
+            if not parsed_url.netloc:  # If it's a relative URL
+                if url.startswith("#"):  # Handle fragment identifiers
+                    # Extract the base filename from the current_file path
+                    filename = os.path.basename(current_file)
+                    # Remove '-merged' suffix if present
+                    simplified_filename = filename.replace("-merged.html", ".html")
+                    # Create the simplified absolute URL
+                    absolute_url = urllib.parse.urljoin(
+                        base_url, simplified_filename + url
                     )
                     tag[attr] = absolute_url
                 else:
-                    absolute_url = urllib.parse.urljoin(base_url + current_file, url)
+                    # Handle other relative URLs normally
+                    absolute_url = urllib.parse.urljoin(base_url, url)
                     tag[attr] = absolute_url
 
 
