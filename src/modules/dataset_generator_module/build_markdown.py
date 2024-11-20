@@ -1,409 +1,286 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
-
 import os
-import shutil
 import json
-from zipfile import ZipFile
-from bs4 import BeautifulSoup, NavigableString, Tag
-import urllib.parse
-import markdownify
+import re
+from bs4 import BeautifulSoup
+from markdownify import markdownify as md
+import zipfile
+from pathlib import Path
 import yaml
 import logging
-from tqdm import tqdm  # Imported tqdm
-import re  # Imported regex for post-processing
 
-# Configure logging
+# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def wrap_text(tag, prefix, suffix):
+def is_ascii_art_or_noise(line):
     """
-    Wrap the text content of a tag with prefix and suffix.
-    Skips wrapping if the text is only whitespace.
+    Check if a line appears to be ASCII art or noise.
+    Returns True if the line should be removed.
     """
-    if tag.string and not tag.string.isspace():
-        # Wrap only if the string is not just whitespace
-        tag.string.replace_with(f"{prefix}{tag.string}{suffix}")
-    else:
-        for content in tag.contents:
-            if isinstance(content, NavigableString):
-                if not content.isspace():
-                    content.replace_with(f"{prefix}{content}{suffix}")
-            elif isinstance(content, Tag):
-                wrap_text(content, prefix, suffix)
+    # Strip whitespace first
+    stripped = line.strip()
+    if not stripped:
+        return True
+
+    # Define special characters commonly found in ASCII art/noise
+    special_chars = set("·•.:-_=|/\\[](){}♦◊,'\"`~!@#$%^&*+<>?;")
+
+    # Count special characters
+    special_count = sum(1 for char in stripped if char in special_chars)
+
+    # If more than 30% of the line consists of special characters, consider it noise
+    if len(stripped) > 0:
+        special_ratio = special_count / len(stripped)
+        return special_ratio > 0.3
+
+    return True
 
 
-def convert_links_to_absolute(soup, base_url, current_file):
+def read_file_with_fallback_encoding(file_path):
     """
-    Convert relative links to absolute URLs while simplifying the path structure.
-
-    Args:
-        soup: BeautifulSoup object containing the HTML
-        base_url: Base URL of the website (e.g., 'https://www.zhlaw.ch/col-zh/')
-        current_file: Current file path (e.g., 'data/zhlex/test_files/125/101-125-merged.html')
+    Try to read file with different encodings
     """
-    for tag in soup.find_all(["a", "link", "script", "img"]):
-        attr = "href" if tag.name in ["a", "link"] else "src"
-        if tag.has_attr(attr):
-            url = tag[attr]
-            parsed_url = urllib.parse.urlparse(url)
+    encodings = ["utf-8", "iso-8859-1", "cp1252", "latin1"]
 
-            if not parsed_url.netloc:  # If it's a relative URL
-                if url.startswith("#"):  # Handle fragment identifiers
-                    # Extract the base filename from the current_file path
-                    filename = os.path.basename(current_file)
-                    # Remove '-merged' suffix if present
-                    simplified_filename = filename.replace("-merged.html", ".html")
-                    # Create the simplified absolute URL
-                    absolute_url = urllib.parse.urljoin(
-                        base_url, simplified_filename + url
-                    )
-                    tag[attr] = absolute_url
-                else:
-                    # Handle other relative URLs normally
-                    absolute_url = urllib.parse.urljoin(base_url, url)
-                    tag[attr] = absolute_url
+    for encoding in encodings:
+        try:
+            with open(file_path, "r", encoding=encoding) as f:
+                return f.read(), encoding
+        except UnicodeDecodeError:
+            continue
 
-
-def process_footnotes(soup):
-    """
-    Process footnote markers and definitions.
-    - Merge footnote markers that are in separate <p> tags into the previous <p>.
-    - Collect footnote definitions from <p class="footnote"> and convert them to Markdown links.
-
-    Returns:
-        footnote_texts (list): List of footnote definitions in Markdown format.
-    """
-    footnote_definitions = {}
-
-    # Step 1: Merge footnote markers into previous paragraphs
-    # Find all <p> tags that contain only <sup>n</sup>
-    footnote_marker_ps = soup.find_all("p")
-    for p in footnote_marker_ps:
-        # Check if the paragraph contains only a <sup> tag
-        if len(p.contents) == 1 and p.sup:
-            n = p.sup.get_text().strip()
-            if n and n.isdigit():
-                footnote_mark = f"[^{n}]"
-                # Append as plain text
-                footnote_marker = NavigableString(footnote_mark)
-                # Append to previous <p>
-                prev_p = p.find_previous_sibling("p")
-                if prev_p:
-                    prev_p.append(footnote_marker)
-                else:
-                    logger.warning(
-                        f"No preceding <p> found for footnote marker [{n}]. Skipping."
-                    )
-                # Remove the footnote marker <p>
-                p.decompose()
-            else:
-                logger.warning(
-                    f"Invalid or missing footnote number in <sup>: '{n}'. Skipping this footnote marker."
-                )
-
-    # Step 2: Extract footnote definitions from <p class="footnote">
-    footnote_p_tags = soup.find_all("p", class_="footnote")
-    for footnote_p in footnote_p_tags:
-        sup = footnote_p.find("sup")
-        if sup:
-            n = sup.get_text().strip()
-            if n and n.isdigit():
-                # Remove the <sup> tag from the footnote definition
-                sup.decompose()
-                # Get the footnote content with inner HTML to preserve links
-                content_html = footnote_p.decode_contents().strip()
-                # Convert HTML links to Markdown links
-                content_md = convert_html_links_to_markdown(content_html)
-                footnote_definitions[n] = content_md
-                # Remove the footnote <p>
-                footnote_p.decompose()
-            else:
-                logger.warning(
-                    f"Invalid or missing footnote number in <sup>: '{n}'. Skipping this footnote definition."
-                )
-        else:
-            logger.warning(
-                "No <sup> tag found within <p class='footnote'>. Skipping this footnote definition."
-            )
-
-    # Step 3: Create footnote_texts in sorted order
-    footnote_texts = []
-    # Sort footnotes by numerical order, ensuring keys are valid integers
-    sorted_keys = sorted(
-        [k for k in footnote_definitions.keys() if k.isdigit()], key=lambda x: int(x)
+    raise UnicodeDecodeError(
+        f"Could not decode file {file_path} with any of the attempted encodings"
     )
 
-    for n in sorted_keys:
-        content = footnote_definitions[n]
-        footnote_texts.append(f"[^{n}]: {content}")
 
-    # Debug log
-    logger.debug(f"Footnote definitions: {footnote_definitions}")
-    logger.debug(f"Footnote texts: {footnote_texts}")
-
-    return footnote_texts
-
-
-def convert_html_links_to_markdown(html_content):
+def sanitize_headings(soup):
     """
-    Convert HTML links within the content to Markdown links.
-
-    Args:
-        html_content (str): HTML string containing links.
-
-    Returns:
-        markdown_content (str): Markdown string with converted links.
+    Find any heading tags beyond h6 and convert them to h6.
+    This handles malformed HTML that might contain h7, h8, etc.
     """
-    soup = BeautifulSoup(html_content, "html.parser")
-    for a_tag in soup.find_all("a"):
-        text = a_tag.get_text()
-        href = a_tag.get("href", "")
-        # Create Markdown link
-        markdown_link = f"[{text}]({href})"
-        a_tag.replace_with(markdown_link)
-    # Replace multiple spaces and newlines
-    markdown_content = " ".join(soup.stripped_strings)
-    return markdown_content
+    # Find all elements whose names start with 'h' followed by a number
+    for tag in soup.find_all(
+        lambda tag: tag.name and tag.name.startswith("h") and tag.name[1:].isdigit()
+    ):
+        level = int(tag.name[1:])
+        if level > 6:
+            # Create new h6 tag
+            new_tag = soup.new_tag("h6")
+            # Copy contents instead of just string
+            new_tag.extend(tag.contents)
+            tag.replace_with(new_tag)
 
 
-def convert_marginalia_to_h6(soup):
-    """
-    Convert elements with class 'marginalia' to h6 tags.
-    """
-    for element in soup.find_all(class_="marginalia"):
-        new_h6_tag = soup.new_tag("h6")
-        new_h6_tag.string = element.get_text()
-        element.replace_with(new_h6_tag)
-
-
-def add_line_breaks(soup):
-    """
-    Add line breaks after certain elements to improve readability.
-    Skip adding <br> after elements that end with footnote markers.
-    """
-    for tag in soup.find_all(["h6", "p"]):
-        # Check if the last child is a footnote marker
-        last_child = tag.contents[-1] if tag.contents else None
-        if isinstance(last_child, NavigableString):
-            if not last_child.strip().startswith("[^"):
-                tag.append(soup.new_tag("br"))
-        elif (
-            isinstance(last_child, Tag)
-            and last_child.name == "a"
-            and last_child.get_text().startswith("[^")
-        ):
-            # If the last child is an <a> tag with a footnote marker, skip adding <br>
-            continue
+def flatten_dict(d, parent_key="", sep="_"):
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict) and k != "versions":
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
         else:
-            tag.append(soup.new_tag("br"))
+            if k != "versions":
+                items.append((new_key, v))
+    return dict(items)
 
 
-def process_markdown(md, footnote_texts):
+def convert_html_to_md(html_content, metadata, ordnungsnummer, nachtragsnummer):
     """
-    Process the markdown content by cleaning and appending footnotes.
-    Inserts a blank line between each footnote definition.
+    Convert HTML content to Markdown with specific transformations.
     """
-    lines = md.split("\n")
-    processed_lines = []
-    previous_line_blank = False
+    # Parse HTML
+    soup = BeautifulSoup(html_content, "html.parser")
 
-    for line in lines:
-        # Strip leading and trailing whitespace
-        line = line.strip()
-        if not line:
-            if not previous_line_blank:
-                processed_lines.append("")
-                previous_line_blank = True
-            continue
-        previous_line_blank = False
+    # Sanitize any invalid heading tags first
+    sanitize_headings(soup)
 
-        # **Remove or comment out the section that strips links**
-        # This preserves the markdown links intact
-        # if line.startswith("[") and "](https://" in line:
-        #     # Extract the text inside the brackets
-        #     line = line.split("]", 1)[0][1:]
+    # 1. Remove footnote references
+    for footnote_ref in soup.find_all(class_="footnote-ref"):
+        footnote_ref.decompose()
 
-        processed_lines.append(line)
+    # 2. Remove footnote definitions
+    for footnote in soup.find_all(class_="footnote"):
+        footnote.decompose()
 
-    # Append footnotes at the end with a blank line between each
-    if footnote_texts:
-        processed_lines.append("")
-        for footnote in footnote_texts:
-            processed_lines.append(footnote)
-            processed_lines.append("")  # Insert a blank line after each footnote
+    # 3. Convert dynamic hyperlinks
+    base_url = f"https://www.zhlaw.ch/col-zh/{ordnungsnummer}-{nachtragsnummer}.html"
+    for link in soup.find_all("a", href=True):
+        if link["href"].startswith("#"):
+            link["href"] = f"{base_url}{link['href']}"
 
-        # Remove the last blank line to prevent extra blank line at the end
-        if processed_lines and processed_lines[-1] == "":
-            processed_lines.pop()
+    # 4. Process marginalia (before provisions to avoid interference)
+    for marginalia in soup.find_all(class_="marginalia"):
+        marginalia_text = marginalia.get_text(strip=True)
+        new_tag = soup.new_tag("strong")
+        new_tag.string = marginalia_text
+        marginalia.clear()
+        marginalia.append(new_tag)
 
-    # Join lines back into a single string
-    cleaned_md = "\n".join(processed_lines)
+    # 5. Format enumeration elements
+    for enum in soup.find_all(class_=["enum-ziff", "enum-ziffer", "enum-lit"]):
+        enum_text = enum.get_text(strip=True)
+        new_tag = soup.new_tag("p")
+        new_tag.string = f"| {enum_text}"
+        enum.replace_with(new_tag)
 
-    # **Post-processing to fix footnote markers if necessary**
-    # Replace any [[n]](URL) with [^n]
-    # This is a workaround in case markdownify misinterprets [^n] as a link
-    # Regex explanation:
-    # \[\[(\d+)\]\]\(.*?\) matches [[n]](URL)
-    # and replaces it with [^n]
-    cleaned_md = re.sub(r"\[\[(\d+)\]\]\(.*?\)", r"[^\1]", cleaned_md)
+    # 6. Wrap provisions in curly brackets and create links
+    for provision in soup.find_all(class_="provision"):
+        provision_id = provision.get("id", "")
+        provision_text = provision.get_text(strip=True)
+        new_text = f"[{{{provision_text}}}]({base_url}#{provision_id})"
+        provision.string = new_text
+        # Add consistent spacing
+        provision.append(soup.new_string("\n\n"))
 
-    return cleaned_md
+    # 7. Wrap subprovisions in code brackets and create links
+    for subprovision in soup.find_all(class_="subprovision"):
+        subprovision_id = subprovision.get("id", "")
+        subprovision_text = subprovision.get_text(strip=True)
+        # Extract number from superscript if present
+        number = subprovision.find("sup")
+        number_text = number.get_text(strip=True) if number else subprovision_text
+        new_text = f"[<{number_text}>]({base_url}#{subprovision_id})"
+        subprovision.string = new_text
+        # Add consistent spacing
+        subprovision.append(soup.new_string("\n\n"))
+
+    # 8. Set up custom markdownify conversion
+    def convert_tag(tag, content):
+        # Handle headings
+        if tag.name in ["h1", "h2", "h3", "h4", "h5", "h6"]:
+            level = int(tag.name[1])
+            return f"{'#' * level} {content}\n\n"
+
+        # Handle strong tags (for marginalia)
+        if tag.name == "strong":
+            return f"**{content}**"
+
+        # Default handling with consistent spacing
+        return f"{content}\n\n"
+
+    # Generate markdown content
+    md_content = md(str(soup), heading_style="ATX", convert_tag=convert_tag)
+
+    # Clean up multiple consecutive newlines and single whitespace lines
+    md_content = re.sub(
+        r"\n{3,}", "\n\n", md_content
+    )  # First clean up multiple newlines
+
+    # Clean up lines containing only whitespace and remove trailing horizontal rules
+    cleaned_lines = [
+        line
+        for line in md_content.splitlines()
+        if line.strip() != "" and line.strip() != "---"
+    ]
+    md_content = "\n\n".join(cleaned_lines)
+
+    # 9. Add YAML frontmatter
+    frontmatter = {}
+    if "doc_info" in metadata:
+        # Flatten and filter out versions
+        flat_metadata = flatten_dict(metadata["doc_info"])
+        frontmatter.update(flat_metadata)
+
+    # Convert frontmatter to YAML and combine with content
+    yaml_frontmatter = yaml.dump(frontmatter, allow_unicode=True, sort_keys=False)
+    final_content = f"---\n{yaml_frontmatter}---\n\n{md_content.strip()}\n"
+
+    return final_content
 
 
-def create_zip_file(source_dir, zip_file_path):
-    """
-    Create a ZIP archive of the specified source directory.
-    """
-    with ZipFile(zip_file_path, "w") as zipf:
-        for root, dirs, files in os.walk(source_dir):
-            for file in files:
-                zipf.write(
-                    os.path.join(root, file),
-                    os.path.relpath(
-                        os.path.join(root, file), os.path.join(source_dir, "..")
-                    ),
-                )
+def process_files(base_path):
+    try:
+        # Create output directory for zip file
+        output_dir = Path(base_path).parent / "public"
+        output_dir.mkdir(exist_ok=True)
 
+        processed_files = 0
+        zhlex_files_dir = Path(base_path) / "zhlex" / "zhlex_files"
+        logger.info(f"Looking for files in: {zhlex_files_dir}")
 
-def process_html_files(source_dir, dest_dir_md, base_url):
-    """
-    Process HTML files: convert to Markdown, handle links, and organize based on metadata.
-    """
-    # Ensure the destination directories exist
-    os.makedirs(dest_dir_md, exist_ok=True)
+        with zipfile.ZipFile(output_dir / "col-zh-md.zip", "w") as zipf:
+            for root, dirs, files in os.walk(zhlex_files_dir):
+                root_path = Path(root)
+                html_files = [
+                    f for f in files if f.endswith(("-original.html", "-merged.html"))
+                ]
 
-    in_force_dir_md = os.path.join(dest_dir_md, "in_force")
-    not_in_force_dir_md = os.path.join(dest_dir_md, "not_in_force")
+                if not html_files:
+                    continue
 
-    os.makedirs(in_force_dir_md, exist_ok=True)
-    os.makedirs(not_in_force_dir_md, exist_ok=True)
+                logger.info(f"Found target HTML files in {root_path}: {html_files}")
 
-    # Collect all relevant files first
-    all_files = []
-    for root, dirs, files in os.walk(source_dir):
-        for file in files:
-            if file.endswith("-merged.html") or file.endswith("-original.html"):
-                all_files.append(os.path.join(root, file))
+                for html_file in html_files:
+                    try:
+                        file_path = root_path / html_file
+                        parts = html_file.split("-")
 
-    # Wrap the file list with tqdm for a progress bar
-    for file_path in tqdm(all_files, desc="Processing HTML Files", unit="file"):
-        html_file_path = file_path
-        # Corresponding metadata file
-        base_filename = os.path.basename(file_path).rsplit("-", 1)[0]  # e.g., 101-000
-        metadata_filename = f"{base_filename}-metadata.json"
-        metadata_file_path = os.path.join(os.path.dirname(file_path), metadata_filename)
+                        if len(parts) < 2:
+                            logger.warning(
+                                f"Skipping {html_file}: Invalid filename format"
+                            )
+                            continue
 
-        if os.path.exists(metadata_file_path):
-            # Process the pair
-            # Read the HTML file with proper encoding handling
-            with open(html_file_path, "rb") as html_file:
-                content = html_file.read()
-                try:
-                    content_decoded = content.decode("utf-8")
-                except UnicodeDecodeError:
-                    content_decoded = content.decode("iso-8859-1")
-
-            soup = BeautifulSoup(content_decoded, "html.parser")
-
-            # Read the metadata
-            with open(metadata_file_path, "r", encoding="utf-8") as metadata_file:
-                metadata = json.load(metadata_file)
-
-            # Exclude the key "process_steps" from metadata
-            metadata = {k: v for k, v in metadata.items() if k != "process_steps"}
-
-            # Remove 'versions' key from 'doc_info' in metadata
-            if "doc_info" in metadata and "versions" in metadata["doc_info"]:
-                del metadata["doc_info"]["versions"]
-
-            # Flatten 'doc_info' into the top-level metadata
-            if "doc_info" in metadata:
-                doc_info = metadata.pop("doc_info")
-                # Ensure no key conflicts when updating
-                for key, value in doc_info.items():
-                    if key not in metadata:
-                        metadata[key] = value
-                    else:
-                        # Handle key conflict if necessary
-                        logger.warning(
-                            f"Key '{key}' in 'doc_info' conflicts with top-level key. Skipping."
+                        ordnungsnummer = parts[0]
+                        nachtragsnummer = parts[1]
+                        metadata_file = (
+                            root_path
+                            / f"{ordnungsnummer}-{nachtragsnummer}-metadata.json"
                         )
 
-            # Convert relative links to absolute, including handling fragments
-            convert_links_to_absolute(soup, base_url, file_path)
+                        if not metadata_file.exists():
+                            logger.warning(f"Metadata file not found for {html_file}")
+                            continue
 
-            # Process footnotes: merge markers and collect definitions
-            footnote_texts = process_footnotes(soup)
+                        logger.info(
+                            f"Processing {html_file} with metadata from {metadata_file}"
+                        )
 
-            # Convert marginalia to h6 tags
-            convert_marginalia_to_h6(soup)
+                        # Try to read the HTML file with different encodings
+                        try:
+                            html_content, encoding = read_file_with_fallback_encoding(
+                                file_path
+                            )
+                            logger.info(
+                                f"Successfully read {html_file} with {encoding} encoding"
+                            )
+                        except UnicodeDecodeError as e:
+                            logger.error(f"Could not decode {html_file}: {e}")
+                            continue
 
-            # Wrap provisions in "{}"
-            for provision in soup.find_all(class_="provision"):
-                wrap_text(provision, "{", "}")
+                        # Read metadata file (should be UTF-8)
+                        with open(metadata_file, "r", encoding="utf-8") as f:
+                            metadata = json.load(f)
 
-            # Wrap subprovisions in "<>"
-            for subprovision in soup.find_all(class_="subprovision"):
-                wrap_text(subprovision, "<", ">")
+                        # Convert to markdown
+                        md_content = convert_html_to_md(
+                            html_content, metadata, ordnungsnummer, nachtragsnummer
+                        )
 
-            # Start enum paragraphs with "| "
-            for enum_paragraph in soup.find_all(class_=["enum-lit", "enum-ziff"]):
-                wrap_text(enum_paragraph, "| ", "")
+                        # Save markdown file
+                        md_file = file_path.with_suffix(".md")
+                        with open(md_file, "w", encoding="utf-8") as f:
+                            f.write(md_content)
 
-            # Add line breaks after certain tags to improve readability
-            add_line_breaks(soup)
+                        # Add to zip file
+                        relative_path = md_file.relative_to(zhlex_files_dir)
+                        zipf.write(md_file, str(relative_path))
+                        processed_files += 1
+                        logger.info(f"Successfully processed {html_file}")
 
-            # Convert elements to markdown with error handling
-            try:
-                markdown_content = markdownify.markdownify(
-                    str(soup), heading_style="ATX", newline_style="NL"
-                )
-                markdown_content = process_markdown(markdown_content, footnote_texts)
-            except RecursionError:
-                logger.error(f"RecursionError: Skipping file {file_path}")
-                continue
+                    except Exception as e:
+                        logger.error(f"Error processing file {html_file}: {e}")
+                        continue
 
-            # Include the metadata as YAML front matter in the markdown
-            yaml_front_matter = yaml.dump(metadata, allow_unicode=True)
-            markdown_with_front_matter = (
-                f"---\n{yaml_front_matter}---\n\n{markdown_content}"
-            )
+        logger.info(f"Processing complete. Processed {processed_files} files.")
 
-            # Determine whether the law is in force
-            in_force = metadata.get("in_force", False)
-
-            # Determine the target directory
-            target_dir_md = in_force_dir_md if in_force else not_in_force_dir_md
-
-            # Write the markdown content to the correct subdirectory
-            new_file_name_md = f"{base_filename}.md"
-            new_file_path_md = os.path.join(target_dir_md, new_file_name_md)
-            with open(new_file_path_md, "w", encoding="utf-8") as new_file_md:
-                new_file_md.write(markdown_with_front_matter)
-
-        else:
-            logger.warning(f"Metadata file not found for {html_file_path}")
-
-
-def main(collection_path):
-    base_url = "https://www.zhlaw.ch/col-zh/"
-    destination_dir_archive_md = "public/collection-md"
-    destination_dir_json = "public/collection-metadata.json"
-    zhlex_data_processed = "data/zhlex/zhlex_data/zhlex_data_processed.json"
-
-    zip_file_path_md = "public/col-zh-md.zip"
-
-    process_html_files(collection_path, destination_dir_archive_md, base_url)
-    create_zip_file(destination_dir_archive_md, zip_file_path_md)
-    logger.info("Processing complete and zip file created.")
-
-    shutil.copy(zhlex_data_processed, destination_dir_json)
-    shutil.rmtree(destination_dir_archive_md)
+    except Exception as e:
+        logger.error(f"Error in process_files: {e}")
+        raise
 
 
 if __name__ == "__main__":
-    main("data/zhlex/zhlex_files")
+    # Use the base path of your project
+    base_path = "/home/rdm/github/zhlaw/data"
+    process_files(base_path)
