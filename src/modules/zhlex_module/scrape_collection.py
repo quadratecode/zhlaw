@@ -130,82 +130,117 @@ def find_category_by_ordnungsnummer(hierarchy, ordnungsnummer):
     """
     Find the category by ordnungsnummer following the updated rules:
     - Use the first group of ordnungsnummer (e.g., 131.1 -> 131)
-    - Check subsections, sections, and ordner hierarchy
-    Returns a structured category object with ordner, section, and subsection.
+    - Check subsections, sections, and folder hierarchy
+    Returns a structured category object with folder, section, and subsection.
     """
+    # Extract the first group, e.g. "131" from "131.1"
     ordnungsnummer_first_group = ordnungsnummer.split(".")[0]
 
-    # Helper function to search recursively in the hierarchy and pass ordner context
-    def search_hierarchy(hierarchy_level, ordnungsnummer_group, parent_ordner=None):
+    def search_hierarchy(hierarchy_level, ordnungsnummer_group, parent_folder=None):
+        """
+        Recursively search through the hierarchy, carrying along the parent_folder context.
+        """
         for key, value in hierarchy_level.items():
+            # 'key' might be something like "1", "2", "10", "sections", etc.
+            # 'value' can be either a string or a nested dictionary.
+
+            # Only proceed if 'value' is a dictionary (folder, section, or container)
             if isinstance(value, dict):
-                ordner_id = value.get("id", None)
-                ordner_name = value.get("name", None)
+                # If we're at the topmost or mid-level numeric key, treat it as a "folder" if no folder yet
+                folder_id = None
+                if key.isdigit():
+                    folder_id = int(key)
 
-                # If this level defines an ordner, update the parent_ordner
-                current_ordner = parent_ordner or {"id": ordner_id, "name": ordner_name}
+                folder_name = value.get("name", None)
 
-                # Check if ordnungsnummer_group matches a subsection
+                # If there's no parent folder yet, set the current one from this level.
+                # Otherwise, propagate the parent's folder down the recursion.
+                current_folder = parent_folder or {
+                    "id": folder_id,
+                    "name": folder_name,
+                }
+
+                # ----- Check if ordnungsnummer_group matches a subsection in this dict -----
+                # e.g. value = {
+                #      "name": "Gemeinden",
+                #      "subsections": {
+                #          "131": "Organisation und Aufgaben",
+                #          ...
+                #      }
+                # }
                 if (
                     "subsections" in value
                     and ordnungsnummer_group in value["subsections"]
                 ):
                     return {
-                        "ordner": current_ordner,
+                        "folder": current_folder,
                         "section": {
-                            "id": int(key),
-                            "name": value["name"],
-                        },  # Keep the parent section
+                            "id": int(key) if key.isdigit() else None,
+                            "name": value.get("name", ""),
+                        },
                         "subsection": {
                             "id": int(ordnungsnummer_group),
                             "name": value["subsections"][ordnungsnummer_group],
                         },
                     }
 
-                # Check if it matches a section
+                # ----- Check if ordnungsnummer_group matches a section in this dict -----
+                # e.g. value = {
+                #      "name": "Staat – Volk – Behörden",
+                #      "sections": {
+                #          "10": "Verfassung",
+                #          "11": "Kantonsgebiet",
+                #          ...
+                #      }
+                # }
                 if "sections" in value and ordnungsnummer_group in value["sections"]:
-                    if isinstance(value["sections"][ordnungsnummer_group], dict):
+                    # The matching section could be a string (simple) or another dict
+                    section_data = value["sections"][ordnungsnummer_group]
+                    if isinstance(section_data, dict):
+                        # e.g. "sections": { "13": {"name": "Gemeinden", "subsections": {...}}}
                         return {
-                            "ordner": current_ordner,
+                            "folder": current_folder,
                             "section": {
                                 "id": int(ordnungsnummer_group),
-                                "name": value["sections"][ordnungsnummer_group]["name"],
+                                "name": section_data.get("name", ""),
                             },
                             "subsection": None,
                         }
                     else:
+                        # e.g. "sections": { "10": "Verfassung" }
                         return {
-                            "ordner": current_ordner,
+                            "folder": current_folder,
                             "section": {
                                 "id": int(ordnungsnummer_group),
-                                "name": value["sections"][ordnungsnummer_group],
+                                "name": section_data,
                             },
                             "subsection": None,
                         }
 
-                # Recursively search deeper
-                result = search_hierarchy(value, ordnungsnummer_group, current_ordner)
+                # ----- Otherwise, recurse deeper into the hierarchy -----
+                result = search_hierarchy(value, ordnungsnummer_group, current_folder)
                 if result:
                     return result
+
         return None
 
-    # First try using the full group (e.g., 131 for 131.1)
+    # 1. Attempt using the full ordnungsnummer_first_group (e.g. "131")
     category = search_hierarchy(hierarchy, ordnungsnummer_first_group)
     if category:
         return category
 
-    # If no match, try the first two digits (e.g., 13 for 131)
+    # 2. If no direct match, try the first two digits (e.g. "13" for "131")
     ordnungsnummer_first_two_digits = ordnungsnummer_first_group[:2]
     category = search_hierarchy(hierarchy, ordnungsnummer_first_two_digits)
-
     if category:
         return category
-    else:
-        return {
-            "ordner": {"id": None, "name": "Unknown"},
-            "section": None,
-            "subsection": None,
-        }
+
+    # 3. If still no match, return an 'unknown' default
+    return {
+        "folder": {"id": None, "name": "Unknown"},
+        "section": None,
+        "subsection": None,
+    }
 
 
 def process_laws(folder):

@@ -58,15 +58,15 @@ def format_date(date_str):
 
 def extract_category(item):
     """
-    Safely extracts the ordner, section, and subsection (and their IDs) from the category field in the JSON item.
+    Safely extracts the folder, section, and subsection (and their IDs) from the category field in the JSON item.
     Handles cases where category or subfields might be None.
     """
     category = item.get("category", {})
 
-    # Extract ordner details
-    ordner = category.get("ordner", {})
-    ordner_name = ordner.get("name", "") if ordner else ""
-    ordner_id = ordner.get("id", "") if ordner else ""
+    # Extract folder details
+    folder = category.get("folder", {})
+    folder_name = folder.get("name", "") if folder else ""
+    folder_id = folder.get("id", "") if folder else ""
 
     # Extract section details
     section = category.get("section", {})
@@ -79,8 +79,8 @@ def extract_category(item):
     subsection_id = subsection.get("id", "") if subsection else ""
 
     return (
-        ordner_name,
-        ordner_id,
+        folder_name,
+        folder_id,
         section_name,
         section_id,
         subsection_name,
@@ -106,8 +106,8 @@ def convert_json_to_csv(json_file, csv_file):
             "Inkraftsetzungsdatum",
             "Letzte Publikation",
             "Aufhebungsdatum",
-            "ordner_id",
-            "ordner",
+            "folder_id",
+            "folder",
             "section_id",
             "section",
             "subsection_id",
@@ -128,8 +128,8 @@ def convert_json_to_csv(json_file, csv_file):
             abkuerzung = item.get("abkuerzung", "")
             dynamic_source = item.get("dynamic_source", "")
 
-            # Extract ordner, section, and subsection (and their IDs) from the category field
-            ordner, ordner_id, section, section_id, subsection, subsection_id = (
+            # Extract folder, section, and subsection (and their IDs) from the category field
+            folder, folder_id, section, section_id, subsection, subsection_id = (
                 extract_category(item)
             )
 
@@ -161,8 +161,8 @@ def convert_json_to_csv(json_file, csv_file):
                     "Inkraftsetzungsdatum": inkraftsetzungsdatum_formatted,
                     "Letzte Publikation": publikationsdatum_formatted,
                     "Aufhebungsdatum": aufhebungsdatum_formatted,
-                    "ordner_id": ordner_id,
-                    "ordner": ordner,
+                    "folder_id": folder_id,
+                    "folder": folder,
                     "section_id": section_id,
                     "section": section,
                     "subsection_id": subsection_id,

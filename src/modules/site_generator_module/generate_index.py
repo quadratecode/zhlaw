@@ -2,6 +2,7 @@
 # LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 # §§
 
+
 import json
 import os
 
@@ -35,11 +36,13 @@ def generate_tree_structure(data):
     """
     Generate HTML for a collapsible tree structure using <details> and <summary> elements,
     with laws displayed in flex containers for better mobile responsiveness.
-    Uses semantic <a> tags for law titles.
+    Uses <span> elements for summary numbers and text (no <strong> tags).
     """
-    ordners = {}
+    # Build a nested dictionary for three levels: category -> section -> subsection.
+    categories = {}
+
     for item in data:
-        # Get in_force status from the latest version
+        # Get 'in_force' status, etc. (assuming a helper function exists):
         (
             in_force,
             erlassdatum,
@@ -52,72 +55,103 @@ def generate_tree_structure(data):
         if not in_force:
             continue
 
-        # Extract category details
-        category = item.get("category", {}) or {}
+        # Extract top-level (folder), second-level (section), third-level (subsection)
+        cat = item.get("category", {})
+        folder = cat.get("folder", {}) or {}
+        section = cat.get("section", {}) or {}
+        subsection = cat.get("subsection", {}) or {}
 
-        # Ordner
-        if category.get("ordner") and category["ordner"].get("id"):
-            ordner = category["ordner"]
-            ordner_id = str(ordner.get("id", "")).strip()
-            ordner_name = ordner.get("name", "").strip()
-        else:
-            ordner_id = "Unbekannter Ordner"
-            ordner_name = ""
+        # Category (folder)
+        category_id = str(folder.get("id", "Unbekannte Kategorie")).strip()
+        category_name = folder.get("name", "").strip()
 
         # Section
-        if category.get("section") and category["section"].get("id"):
-            section = category["section"]
-            section_id = str(section.get("id", "")).strip()
-            section_name = section.get("name", "").strip()
-        else:
-            section_id = None
-            section_name = None
+        section_id = section.get("id")
+        section_name = section.get("name", "")
 
-        # Initialize ordner
-        if ordner_id not in ordners:
-            ordners[ordner_id] = {"name": ordner_name, "sections": {}, "laws": []}
+        # Subsection
+        subsection_id = subsection.get("id")
+        subsection_name = subsection.get("name", "")
 
-        if section_id:
-            # Initialize section
-            if section_id not in ordners[ordner_id]["sections"]:
-                ordners[ordner_id]["sections"][section_id] = {
+        # 1) Initialize the category if not present
+        if category_id not in categories:
+            categories[category_id] = {
+                "name": category_name,
+                "sections": {},
+                "laws": [],
+            }
+
+        # 2) If we have a section
+        if section_id is not None:
+            section_id = str(section_id).strip()
+
+            # Make sure this section exists under this category
+            if section_id not in categories[category_id]["sections"]:
+                categories[category_id]["sections"][section_id] = {
                     "name": section_name,
+                    "subsections": {},
                     "laws": [],
                 }
-            # Append the law to the appropriate section
-            ordners[ordner_id]["sections"][section_id]["laws"].append(item)
-        else:
-            # Append the law directly to the ordner
-            ordners[ordner_id]["laws"].append(item)
 
-    # Generate the HTML
+            # 3) If we also have a subsection
+            if subsection_id is not None:
+                subsection_id = str(subsection_id).strip()
+
+                # Make sure this subsection exists
+                if (
+                    subsection_id
+                    not in categories[category_id]["sections"][section_id][
+                        "subsections"
+                    ]
+                ):
+                    categories[category_id]["sections"][section_id]["subsections"][
+                        subsection_id
+                    ] = {"name": subsection_name, "laws": []}
+
+                # Place the law in the subsection
+                categories[category_id]["sections"][section_id]["subsections"][
+                    subsection_id
+                ]["laws"].append(item)
+            else:
+                # If no subsection, place the law directly under the section
+                categories[category_id]["sections"][section_id]["laws"].append(item)
+        else:
+            # If no section, place the law directly under the category
+            categories[category_id]["laws"].append(item)
+
+    # Generate nested HTML
     tree_html = ""
 
-    # Sort ordners numerically, placing 'Unbekannter Ordner' last
-    ordner_items = list(ordners.items())
-    ordner_items.sort(
+    # Sort categories numerically (unknown last)
+    category_items = list(categories.items())
+    category_items.sort(
         key=lambda x: (
-            x[0] == "Unbekannter Ordner",
+            x[0] == "Unbekannte Kategorie",
             int(x[0]) if x[0].isdigit() else float("inf"),
         )
     )
 
-    for ordner_id, ordner_data in ordner_items:
-        ordner_display = (
-            f'<strong>{ordner_id}</strong><strong>:</strong> {ordner_data["name"]}'
+    # Build the <details> structure
+    for cat_id, cat_data in category_items:
+        # Category summary with spans instead of <strong>
+        category_display = (
+            f'<span class="summary-col-number">{cat_id}:</span>'
+            f'<span class="summary-col-text"> {cat_data["name"]}</span>'
         )
-        tree_html += f'<details class="details-col"><summary>{ordner_display}</summary>'
+        tree_html += (
+            f'<details class="details-col"><summary>{category_display}</summary>'
+        )
 
-        # Append laws directly under ordner using div structure
-        if ordner_data.get("laws"):
+        # Laws directly under this category
+        if cat_data.get("laws"):
             tree_html += '<div class="law-container">'
-            for law in ordner_data.get("laws", []):
+            for law in cat_data["laws"]:
                 ordnungsnummer = law.get("ordnungsnummer", "")
                 erlasstitel = law.get("erlasstitel", "")
                 zhlaw_url_dynamic = law.get("zhlaw_url_dynamic", "#")
                 tree_html += f"""
                 <div class="law-item">
-                    <div class="law-number"><strong>{ordnungsnummer}</strong></div>
+                    <div class="law-number">{ordnungsnummer}</div>
                     <div class="law-title">
                         <a href="{zhlaw_url_dynamic}">{erlasstitel}</a>
                     </div>
@@ -125,29 +159,32 @@ def generate_tree_structure(data):
                 """
             tree_html += "</div>"
 
-        # Sort sections numerically for this ordner
-        section_items = list(ordner_data["sections"].items())
+        # Sort sections numerically
+        section_items = list(cat_data["sections"].items())
         section_items.sort(
             key=lambda x: (int(x[0]) if x[0].isdigit() else float("inf"))
         )
 
-        # Process sections for this ordner
-        for section_id, section_data in section_items:
-            section_display = f'<strong>{section_id}</strong><strong>:</strong> {section_data["name"]}'
+        for sec_id, sec_data in section_items:
+            # Section summary
+            section_display = (
+                f'<span class="summary-col-number">{sec_id}:</span>'
+                f'<span class="summary-col-text"> {sec_data["name"]}</span>'
+            )
             tree_html += (
                 f'<details class="details-col"><summary>{section_display}</summary>'
             )
 
-            # Append laws under section using div structure
-            if section_data.get("laws"):
+            # Laws directly under this section
+            if sec_data.get("laws"):
                 tree_html += '<div class="law-container">'
-                for law in section_data.get("laws", []):
+                for law in sec_data["laws"]:
                     ordnungsnummer = law.get("ordnungsnummer", "")
                     erlasstitel = law.get("erlasstitel", "")
                     zhlaw_url_dynamic = law.get("zhlaw_url_dynamic", "#")
                     tree_html += f"""
                     <div class="law-item">
-                        <div class="law-number"><strong>{ordnungsnummer}</strong></div>
+                        <div class="law-number">{ordnungsnummer}</div>
                         <div class="law-title">
                             <a href="{zhlaw_url_dynamic}">{erlasstitel}</a>
                         </div>
@@ -155,8 +192,42 @@ def generate_tree_structure(data):
                     """
                 tree_html += "</div>"
 
-            tree_html += "</details>"
-        tree_html += "</details>"
+            # Sort subsections numerically
+            subsection_items = list(sec_data["subsections"].items())
+            subsection_items.sort(
+                key=lambda x: (int(x[0]) if x[0].isdigit() else float("inf"))
+            )
+
+            for sub_id, sub_data in subsection_items:
+                # Subsection summary
+                subsection_display = (
+                    f'<span class="summary-col-number">{sub_id}:</span>'
+                    f'<span class="summary-col-text"> {sub_data["name"]}</span>'
+                )
+                tree_html += f'<details class="details-col"><summary>{subsection_display}</summary>'
+
+                # Laws under this subsection
+                if sub_data.get("laws"):
+                    tree_html += '<div class="law-container">'
+                    for law in sub_data["laws"]:
+                        ordnungsnummer = law.get("ordnungsnummer", "")
+                        erlasstitel = law.get("erlasstitel", "")
+                        zhlaw_url_dynamic = law.get("zhlaw_url_dynamic", "#")
+                        tree_html += f"""
+                        <div class="law-item">
+                            <div class="law-number">{ordnungsnummer}</div>
+                            <div class="law-title">
+                                <a href="{zhlaw_url_dynamic}">{erlasstitel}</a>
+                            </div>
+                        </div>
+                        """
+                    tree_html += "</div>"
+
+                tree_html += "</details>"  # end subsection <details>
+
+            tree_html += "</details>"  # end section <details>
+
+        tree_html += "</details>"  # end category <details>
 
     return tree_html
 
