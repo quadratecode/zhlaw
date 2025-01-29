@@ -540,15 +540,14 @@ details.details-col summary:hover {
 
 .law-item {
     display: flex;
-    gap: 1em;
+    gap: 1.5em;
     margin: 0.25em 0;
     margin-left: 3.2em;
 }
 
 .law-number {
     flex: 0 0 4em;
-    font-feature-settings: "tnum";
-    font-variant-numeric: tabular-nums;
+    font-weight: var(--font-weight-bold);
 }
 
 /* Style for all ancestor summaries in the open path */
