@@ -158,6 +158,7 @@ data
 public
 **/static_files/*
 !**/static_files/markup/
+temp
 
 # Deployment
 deploy.sh
