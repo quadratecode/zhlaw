@@ -63,7 +63,9 @@ def main(laws, html_files, placeholder_dir):
                 doc_info.update(version)  # Add all other version info
 
                 # Process the HTML using build_zhlaw's main function
-                soup = build_zhlaw.main(soup, placeholder_path, doc_info, "new_html")
+                soup = build_zhlaw.main(
+                    soup, placeholder_path, doc_info, "new_html", law_origin="zh"
+                )
 
                 # Write the modified HTML back to the file
                 with open(placeholder_path, "w") as f:

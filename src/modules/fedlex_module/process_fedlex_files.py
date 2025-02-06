@@ -17,6 +17,11 @@ Processing steps include:
     and more.
   - Finally, the script pretty prints the final HTML (using 4 spaces per indent level).
 
+Additionally:
+  - A function returning classes to remove is provided (fill in the list as needed).
+  - If the processed HTML contains an element with class "erlasstitel", the metadata JSON file (in the same folder,
+    with "-metadata.json" replacing "-raw.html") is updated accordingly.
+
 Usage:
     python process_fedlex_files.py
 """
@@ -24,39 +29,33 @@ Usage:
 import os
 import re
 import glob
-import arrow
 from bs4 import BeautifulSoup, Comment, formatter
 
 # Define the base input directory (the raw files are stored here in subfolders)
 INPUT_DIR = os.path.join("data", "fedlex", "fedlex_files")
 
 
-def extract_srnummer(html_content):
+def get_classes_to_remove():
     """
-    Extracts the srnummer from the HTML content.
-    Looks for the first element with class "srnummer" and returns its text.
+    Return a list of class names that should be removed from the document.
+    TODO: Fill in the classes you want to remove.
     """
-    soup = BeautifulSoup(html_content, "lxml")
-    sr_elem = soup.find(class_="srnummer")
-    if sr_elem:
-        return sr_elem.get_text(strip=True)
-    return None
+    # Replace the list below with the actual class names you want removed.
+    return ["class-to-remove-1", "class-to-remove-2"]
 
 
-def extract_date_from_filename(filename):
+def remove_elements_with_classes(soup, classes):
     """
-    Extracts an 8-digit date from the filename and uses Arrow to parse it.
-    Returns the date string in YYYYMMDD format.
+    Remove all elements that have any class in the given list.
+    The element with class "erlasstitel" is not removed so that its content
+    can be used to update the metadata.
     """
-    match = re.search(r"(\d{8})", filename)
-    if match:
-        date_str = match.group(1)
-        try:
-            date_obj = arrow.get(date_str, "YYYYMMDD")
-            return date_obj.format("YYYYMMDD")
-        except arrow.parser.ParserError:
-            return None
-    return None
+    for class_name in classes:
+        # Skip removal for "erlasstitel" so that metadata can be updated.
+        if class_name == "erlasstitel":
+            continue
+        for tag in soup.find_all(class_=class_name):
+            tag.decompose()
 
 
 def remove_empty_tags(soup_obj):
@@ -142,6 +141,9 @@ def process_html(html):
     # 7.5 Remove elements with class "srnummer"
     for tag in soup.find_all(class_="srnummer"):
         tag.decompose()
+
+    # 7.6 Remove elements with classes specified by get_classes_to_remove()
+    remove_elements_with_classes(soup, get_classes_to_remove())
 
     # 8. Delete any <br> tags.
     for br in soup.find_all("br"):
@@ -356,6 +358,7 @@ def process_files():
     Loops over all raw HTML files under the INPUT_DIR (recursively),
     processes each file, and saves the modified HTML right next to the raw file,
     replacing the "-raw.html" suffix with "-merged.html".
+    Also updates the metadata file with any found erlasstitel.
     """
     # Use recursive glob to find all files ending with "-raw.html"
     pattern = os.path.join(INPUT_DIR, "**", "*-raw.html")
@@ -373,6 +376,24 @@ def process_files():
             out_f.write(processed_html)
 
         print(f"Processed file {filepath} -> {output_filepath}")
+
+        # # Update metadata file if it exists.
+        # metadata_filepath = filepath.replace("-raw.html", "-metadata.json")
+        # if os.path.exists(metadata_filepath):
+        #     # Parse the processed HTML to find the erlasstitel element.
+        #     soup_for_meta = BeautifulSoup(processed_html, "lxml")
+        #     erlasstitel_element = soup_for_meta.find(class_="erlasstitel")
+        #     if erlasstitel_element:
+        #         new_erlasstitel_text = erlasstitel_element.get_text(strip=True)
+        #         with open(metadata_filepath, "r", encoding="utf-8") as meta_file:
+        #             metadata = json.load(meta_file)
+        #         if "doc_info" in metadata:
+        #             metadata["doc_info"]["erlasstitel"] = new_erlasstitel_text
+        #         else:
+        #             metadata["erlasstitel"] = new_erlasstitel_text
+        #         with open(metadata_filepath, "w", encoding="utf-8") as meta_file:
+        #             json.dump(metadata, meta_file, ensure_ascii=False, indent=4)
+        #         print(f"Updated metadata erlasstitel in {metadata_filepath}")
 
 
 def main():

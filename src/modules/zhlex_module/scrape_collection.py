@@ -128,116 +128,124 @@ def load_hierarchy():
 
 def find_category_by_ordnungsnummer(hierarchy, ordnungsnummer):
     """
-    Find the category by ordnungsnummer following the updated rules:
-    - Use the first group of ordnungsnummer (e.g., 131.1 -> 131)
-    - Check subsections, sections, and folder hierarchy
-    Returns a structured category object with folder, section, and subsection.
+    The function uses the first group of the ordnungsnummer (e.g. for "131.1" it uses "131")
+    and searches in folder keys, then inside each folder's "sections", and then inside any "subsections."
+
+    Returns a structured category object of the form:
+       { "folder": { "id": ..., "name": ... },
+         "section": { "id": ..., "name": ... } or None,
+         "subsection": { "id": ..., "name": ... } or None }
     """
     # Extract the first group, e.g. "131" from "131.1"
     ordnungsnummer_first_group = ordnungsnummer.split(".")[0]
 
-    def search_hierarchy(hierarchy_level, ordnungsnummer_group, parent_folder=None):
+    def search_hierarchy(level, target):
         """
-        Recursively search through the hierarchy, carrying along the parent_folder context.
-        """
-        for key, value in hierarchy_level.items():
-            # 'key' might be something like "1", "2", "10", "sections", etc.
-            # 'value' can be either a string or a nested dictionary.
+        Recursively search through the given dictionary (level) for a key that matches target.
+        This function first checks the current level’s keys (which may be folder IDs, section IDs,
+        or subsection IDs). Then it explicitly looks into any "sections" and "subsections" objects.
 
-            # Only proceed if 'value' is a dictionary (folder, section, or container)
+        Returns a dictionary of the form:
+           { "folder": { "id": <folder_key>, "name": <folder_name> },
+             "section": { "id": <section_key>, "name": <section_name> } or None,
+             "subsection": { "id": <subsection_key>, "name": <subsection_name> } or None }
+        if a match is found; otherwise returns None.
+        """
+        # First, check for an exact key match at this level.
+        if target in level:
+            # We assume that if the match is at the top level, it is a folder match.
+            value = level[target]
             if isinstance(value, dict):
-                # If we're at the topmost or mid-level numeric key, treat it as a "folder" if no folder yet
-                folder_id = None
-                if key.isdigit():
-                    folder_id = int(key)
-
-                folder_name = value.get("name", None)
-
-                # If there's no parent folder yet, set the current one from this level.
-                # Otherwise, propagate the parent's folder down the recursion.
-                current_folder = parent_folder or {
-                    "id": folder_id,
-                    "name": folder_name,
+                return {
+                    "folder": {"id": target, "name": value.get("name", "")},
+                    "section": None,
+                    "subsection": None,
+                }
+            else:
+                return {
+                    "folder": {"id": target, "name": value},
+                    "section": None,
+                    "subsection": None,
                 }
 
-                # ----- Check if ordnungsnummer_group matches a subsection in this dict -----
-                # e.g. value = {
-                #      "name": "Gemeinden",
-                #      "subsections": {
-                #          "131": "Organisation und Aufgaben",
-                #          ...
-                #      }
-                # }
-                if (
-                    "subsections" in value
-                    and ordnungsnummer_group in value["subsections"]
-                ):
-                    return {
-                        "folder": current_folder,
-                        "section": {
-                            "id": int(key) if key.isdigit() else None,
-                            "name": value.get("name", ""),
-                        },
-                        "subsection": {
-                            "id": int(ordnungsnummer_group),
-                            "name": value["subsections"][ordnungsnummer_group],
-                        },
-                    }
-
-                # ----- Check if ordnungsnummer_group matches a section in this dict -----
-                # e.g. value = {
-                #      "name": "Staat – Volk – Behörden",
-                #      "sections": {
-                #          "10": "Verfassung",
-                #          "11": "Kantonsgebiet",
-                #          ...
-                #      }
-                # }
-                if "sections" in value and ordnungsnummer_group in value["sections"]:
-                    # The matching section could be a string (simple) or another dict
-                    section_data = value["sections"][ordnungsnummer_group]
-                    if isinstance(section_data, dict):
-                        # e.g. "sections": { "13": {"name": "Gemeinden", "subsections": {...}}}
-                        return {
-                            "folder": current_folder,
-                            "section": {
-                                "id": int(ordnungsnummer_group),
-                                "name": section_data.get("name", ""),
-                            },
-                            "subsection": None,
-                        }
-                    else:
-                        # e.g. "sections": { "10": "Verfassung" }
-                        return {
-                            "folder": current_folder,
-                            "section": {
-                                "id": int(ordnungsnummer_group),
-                                "name": section_data,
-                            },
-                            "subsection": None,
-                        }
-
-                # ----- Otherwise, recurse deeper into the hierarchy -----
-                result = search_hierarchy(value, ordnungsnummer_group, current_folder)
-                if result:
-                    return result
-
+        # Next, iterate through the keys at this level.
+        for key, value in level.items():
+            if isinstance(value, dict):
+                # If there is a "sections" key, try to match the target in it.
+                if "sections" in value and isinstance(value["sections"], dict):
+                    sections = value["sections"]
+                    if target in sections:
+                        section_data = sections[target]
+                        folder = {"id": key, "name": value.get("name", "")}
+                        if isinstance(section_data, dict):
+                            return {
+                                "folder": folder,
+                                "section": {
+                                    "id": target,
+                                    "name": section_data.get("name", ""),
+                                },
+                                "subsection": None,
+                            }
+                        else:
+                            return {
+                                "folder": folder,
+                                "section": {"id": target, "name": section_data},
+                                "subsection": None,
+                            }
+                    # Otherwise, search in each section’s "subsections" (if available).
+                    for sec_key, sec_value in value["sections"].items():
+                        if (
+                            sec_value
+                            and isinstance(sec_value, dict)
+                            and "subsections" in sec_value
+                            and isinstance(sec_value["subsections"], dict)
+                        ):
+                            subsections = sec_value["subsections"]
+                            if target in subsections:
+                                folder = {"id": key, "name": value.get("name", "")}
+                                section = {
+                                    "id": sec_key,
+                                    "name": sec_value.get("name", ""),
+                                }
+                                sub_data = subsections[target]
+                                return {
+                                    "folder": folder,
+                                    "section": section,
+                                    "subsection": {
+                                        "id": target,
+                                        "name": sub_data.get("name", ""),
+                                    },
+                                }
+                # Additionally, search recursively in any nested dictionaries
+                # (for example, in case a folder’s value contains additional nested keys).
+                for nested_key in ["sections", "subsections"]:
+                    if nested_key in value and isinstance(value[nested_key], dict):
+                        result = search_hierarchy(value[nested_key], target)
+                        if result:
+                            # If we haven't yet recorded a folder, use the current one.
+                            if result["folder"] is None:
+                                result["folder"] = {
+                                    "id": key,
+                                    "name": value.get("name", ""),
+                                }
+                            return result
         return None
 
-    # 1. Attempt using the full ordnungsnummer_first_group (e.g. "131")
+    # 1. First, attempt using the full first group (e.g. "131").
     category = search_hierarchy(hierarchy, ordnungsnummer_first_group)
     if category:
         return category
 
-    # 2. If no direct match, try the first two digits (e.g. "13" for "131")
-    ordnungsnummer_first_two_digits = ordnungsnummer_first_group[:2]
-    category = search_hierarchy(hierarchy, ordnungsnummer_first_two_digits)
-    if category:
-        return category
+    # 2. If no direct match, try with the first two digits (e.g. "13" for "131") if possible.
+    if len(ordnungsnummer_first_group) >= 2:
+        target = ordnungsnummer_first_group[:2]
+        category = search_hierarchy(hierarchy, target)
+        if category:
+            return category
 
-    # 3. If still no match, return an 'unknown' default
+    # 3. Otherwise, return none if no match is found.
     return {
-        "folder": {"id": None, "name": "Unknown"},
+        "folder": None,
         "section": None,
         "subsection": None,
     }

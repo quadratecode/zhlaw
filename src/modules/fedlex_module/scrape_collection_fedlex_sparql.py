@@ -7,7 +7,7 @@ import arrow
 # The SPARQL endpoint URL
 SPARQL_ENDPOINT = "https://fedlex.data.admin.ch/sparqlendpoint"
 
-# The SPARQL query (as provided)
+# The SPARQL query
 SPARQL_QUERY = """
 PREFIX jolux: <http://data.legilux.public.lu/resource/ontology/jolux#>
 PREFIX skos:  <http://www.w3.org/2004/02/skos/core#>
@@ -25,6 +25,8 @@ SELECT DISTINCT
   (str(?languageNotation) AS ?languageTag) 
   (str(?fileFormatNode) AS ?fileFormat)
   (str(?aufhebungsdatum) AS ?aufhebungsdatum)
+  (str(?firstPublicationDateNode) AS ?firstPublicationDate)
+  ?basicAct
   ?fileURL
 WHERE {
   # Use the current date for all validity comparisons
@@ -87,6 +89,14 @@ WHERE {
   FILTER( !BOUND(?ccEndDate) || xsd:date(?ccEndDate) >= xsd:date(?currentDate) )
   OPTIONAL { ?consoAbstract jolux:dateNoLongerInForce ?ccEndForce . }
   FILTER( !BOUND(?ccEndForce) || xsd:date(?ccEndForce) > xsd:date(?currentDate) )
+  
+  # Additional properties added:
+  OPTIONAL {
+    ?consoAbstract <http://cogni.internal.system/model#firstPublicationDate> ?firstPublicationDateNode .
+  }
+  OPTIONAL {
+    ?consoAbstract <http://data.legilux.public.lu/resource/ontology/jolux#basicAct> ?basicAct .
+  }
   
   # Language filter on the abstract expression
   ?languageConcept skos:notation ?languageNotation .
@@ -257,7 +267,7 @@ def main():
         print(f"Saved metadata to: {metadata_path}")
 
         # Add a delay between processing each record for server compatibility.
-        time.sleep(1)  # Adjust delay (in seconds) if needed
+        time.sleep(0.2)  # Adjust delay (in seconds) if needed
 
 
 if __name__ == "__main__":

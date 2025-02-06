@@ -2,15 +2,6 @@
 # LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 # §§
 
-from src.modules.site_generator_module import build_zhlaw
-from src.modules.site_generator_module import process_old_html
-from src.modules.site_generator_module import create_placeholders
-from src.modules.site_generator_module import generate_index
-from src.modules.site_generator_module.create_sitemap import SitemapGenerator
-
-from src.modules.dataset_generator_module import build_markdown
-
-# Import external modules
 import logging
 import glob
 import json
@@ -22,6 +13,14 @@ from bs4 import BeautifulSoup
 import subprocess
 import argparse
 
+# Local imports
+from src.modules.site_generator_module import build_zhlaw
+from src.modules.site_generator_module import process_old_html
+from src.modules.site_generator_module import create_placeholders
+from src.modules.site_generator_module import generate_index
+from src.modules.site_generator_module.create_sitemap import SitemapGenerator
+from src.modules.dataset_generator_module import build_markdown
+
 # Set up logging
 logging.basicConfig(
     filename="logs/process.log",
@@ -30,219 +29,338 @@ logging.basicConfig(
     datefmt="%m/%d/%Y %I:%M:%S %p",
 )
 
-static_path = "public/"
-source_path = "data/zhlex/zhlex_files"
-collection_path = "public/col-zh/"
-placeholder_dir = "data/zhlex/placeholders"
+# -------------------------------------------------------------------------
+# Collection-specific constants
+# -------------------------------------------------------------------------
+# ZH-Lex collection data
+COLLECTION_DATA_ZH = "data/zhlex/zhlex_data/zhlex_data_processed.json"
+COLLECTION_PATH_ZH = "public/col-zh/"
 
-# Delete folders before new generation
-if os.path.exists(collection_path):
-    shutil.rmtree(static_path)
-    shutil.rmtree(placeholder_dir)
+# FedLex collection data
+COLLECTION_DATA_CH = "data/fedlex/fedlex_data/fedlex_data_processed.json"
+COLLECTION_PATH_CH = "public/col-ch/"
+
+# Placeholder paths
+PLACEHOLDER_DIR_ZH = "data/zhlex/placeholders"  # Used only for ZH-Lex
+
+# Common paths
+STATIC_PATH = "public/"
 
 
-def main(folder, dataset_trigger):
-
-    # Initialize error counter
+def process_html_files(html_files, collection_data_path, collection_path, law_origin):
+    """
+    Process a list of HTML files for a given collection.
+    - Insert InfoBox via build_zhlaw
+    - Possibly process old HTML
+    - Write output to `collection_path`
+    """
     error_counter = 0
-
-    # Timestamp
     timestamp = arrow.now().format("YYYYMMDD-HHmmss")
 
-    # Generate index
-    logging.info("Generating index")
-    generate_index.main(
-        "data/zhlex/zhlex_data/zhlex_data_processed.json",
-        "src/static_files/html/index.html",
-    )
-    logging.info("Finished generating index")
-
-    logging.info("Loading laws index")
-    # Load HTML generated from PDF
-    html_files = glob.glob(
-        f"data/zhlex/{folder}/**/**/*-merged.html",
-        recursive=True,
-    )
-    # Load original HTML files
-    html_files += glob.glob(
-        f"data/zhlex/{folder}/**/**/*-original.html",
-        recursive=True,
-    )
-    # Load all files from src/static_files ending in .html
-    html_files += glob.glob(
-        "src/static_files/html/*.html",
-        recursive=True,
-    )
-    # Remove duplicates found from different junctions
-    html_files = list(set(html_files))
-    if not html_files:
-        logging.info("No PDF files found. Exiting.")
-        return
-
     for html_file in tqdm(html_files):
-        # Define metadata file path
+        # Identify what type of file we have
         if html_file.endswith("-original.html"):
             metadata_file = html_file.replace("-original.html", "-metadata.json")
             sfx = "-original"
-            type = "old_html"
+            file_type = "old_html"
         elif html_file.endswith("-merged.html"):
             metadata_file = html_file.replace("-merged.html", "-metadata.json")
             sfx = "-merged"
-            type = "new_html"
+            file_type = "new_html"
         else:
-            type = "site_element"
+            # Likely a static site element
+            file_type = "site_element"
+            metadata_file = None
 
         try:
-            if type == "old_html":
+            if file_type in ["old_html", "new_html"]:
+                # Load metadata
                 with open(metadata_file, "r", encoding="utf-8") as file:
                     metadata = json.load(file)
-                with open(
-                    html_file, "r", encoding="iso-8859-1"
-                ) as file:  # Changed encoding to iso-8859-1
-                    soup = BeautifulSoup(file, "html.parser")
-                # Process old HTML only for these files
-                soup = process_old_html.main(soup)
-            elif type == "new_html":
-                with open(metadata_file, "r", encoding="utf-8") as file:
-                    metadata = json.load(file)
-                with open(html_file, "r", encoding="utf-8") as file:
-                    soup = BeautifulSoup(file, "html.parser")
+
+                # Load HTML
+                if file_type == "old_html":
+                    # Older HTML might be iso-8859-1 encoded
+                    with open(html_file, "r", encoding="iso-8859-1") as file:
+                        soup = BeautifulSoup(file, "html.parser")
+                    soup = process_old_html.main(soup)
+                else:
+                    # Merged HTML is usually UTF-8
+                    with open(html_file, "r", encoding="utf-8") as file:
+                        soup = BeautifulSoup(file, "html.parser")
+
             else:
-                # Emtpy metadata for site elements
+                # For site elements
                 metadata = {}
                 with open(html_file, "r", encoding="utf-8") as file:
                     soup = BeautifulSoup(file, "html.parser")
 
-            # Build ZHLaw
+            # Insert InfoBox and other final touches
             logging.info(f"Inserting InfoBox: {html_file}")
             doc_info = metadata.get("doc_info", {})
-            soup = build_zhlaw.main(soup, html_file, doc_info, type)
+            soup = build_zhlaw.main(
+                soup,
+                html_file,
+                doc_info,
+                file_type,
+                law_origin,
+            )
             logging.info(f"Finished inserting InfoBox: {html_file}")
 
-            # See if paths exist, if not create them
+            # Create output folders if needed
             if not os.path.exists(collection_path):
                 os.makedirs(collection_path)
-            if not os.path.exists(static_path):
-                os.makedirs(static_path)
-            if type != "site_element":
-                # Write metadata file
+
+            # Update metadata file if relevant
+            if file_type in ["old_html", "new_html"]:
                 logging.info(f"Writing metadata file: {metadata_file}")
                 with open(metadata_file, "w", encoding="utf-8") as file:
                     json.dump(metadata, file, indent=4, ensure_ascii=False)
                 logging.info(f"Finished writing metadata file: {metadata_file}")
-                # Split the path from the filename
-                head, tail = os.path.split(html_file)
-                # Remove the '-merged' suffix from the filename
+
+                # Derive new filename (remove "-original" or "-merged" suffix)
+                _, tail = os.path.split(html_file)
                 new_tail = tail.replace(sfx, "")
-                # Combine the path with the new filename
-                # Copy the file to the new location with the updated filename
-                new_file_path = collection_path + new_tail
+                new_file_path = os.path.join(collection_path, new_tail)
             else:
-                new_file_path = static_path + os.path.basename(html_file)
+                # For site elements, store in STATIC_PATH
+                if not os.path.exists(STATIC_PATH):
+                    os.makedirs(STATIC_PATH)
+                new_file_path = os.path.join(STATIC_PATH, os.path.basename(html_file))
+
+            # Write final HTML
             with open(new_file_path, "w", encoding="utf-8") as file:
-                # Add doc type to the beginning of the file
                 file.write("<!DOCTYPE html>\n")
                 file.write(str(soup))
             logging.info(f"Finished writing new file: {new_file_path}")
 
         except Exception as e:
             logging.error(
-                f"Error during in {__file__}: {e} at {timestamp}", exc_info=True
+                f"Error during processing {html_file}: {e} at {timestamp}",
+                exc_info=True,
             )
             error_counter += 1
             continue
 
-    # Load collection data
-    with open(
-        "data/zhlex/zhlex_data/zhlex_data_processed.json", "r", encoding="utf-8"
-    ) as file:
-        zhlex_data_processed = json.load(file)
+    return error_counter
 
-    if dataset_trigger.lower() == "yes":
 
-        # Build MD-dataset (placed before placeholder creation as not to include them in the dataset)
-        logging.info("Building dataset")
-        build_markdown.main(source_path, static_path)
-        logging.info("Finished building dataset")
+def main(folder_choice, dataset_trigger, placeholders_trigger):
+    """
+    Depending on `folder_choice`:
+     - If "all_folders": process full ZH-Lex folder + FedLex
+     - If "test_files": process only ZH test_files (skip FedLex)
+    """
+    # Remove existing public folder to ensure a clean build
+    if os.path.exists(STATIC_PATH):
+        shutil.rmtree(STATIC_PATH)
 
-    # If placeholders are to be created
-    if args.placeholders.lower() == "yes":
+    # Remove zh placeholders if exist
+    if os.path.exists(PLACEHOLDER_DIR_ZH):
+        shutil.rmtree(PLACEHOLDER_DIR_ZH)
 
-        # Load all files from public ending in .html
-        public_html_files = glob.glob(
-            "public/col-zh/*.html",
+    # Decide what to process for ZH
+    if folder_choice == "all_folders":
+        zh_folder = "zhlex_files"  # the main full folder for ZH
+        process_fed = True
+    else:
+        # "test_files"
+        zh_folder = "test_files"
+        process_fed = False
+
+    # -------------------------------------------------------------------------
+    # 1) Generate index (for ZH).
+    #    (If you wanted a separate index for FedLex, you could call generate_index again.)
+    # -------------------------------------------------------------------------
+    logging.info("Generating ZH index")
+    generate_index.main(
+        COLLECTION_DATA_ZH,
+        "src/static_files/html/index.html",  # Template
+    )
+    logging.info("Finished generating ZH index")
+
+    # -------------------------------------------------------------------------
+    # 2) Process ZH-Lex HTML files
+    # -------------------------------------------------------------------------
+    logging.info("Loading ZH-Lex HTML files")
+
+    html_files_zh_merged = glob.glob(
+        f"data/zhlex/{zh_folder}/**/**/*-merged.html",
+        recursive=True,
+    )
+    html_files_zh_orig = glob.glob(
+        f"data/zhlex/{zh_folder}/**/**/*-original.html",
+        recursive=True,
+    )
+    # Site elements from static_files
+    html_site_elements = glob.glob(
+        "src/static_files/html/*.html",
+        recursive=True,
+    )
+    # Combine
+    html_files_zh = list(
+        set(html_files_zh_merged + html_files_zh_orig + html_site_elements)
+    )
+
+    if not html_files_zh:
+        logging.info("No ZH-Lex files found. Proceeding anyway...")
+    else:
+        error_counter_zh = process_html_files(
+            html_files_zh,
+            COLLECTION_DATA_ZH,
+            COLLECTION_PATH_ZH,
+            law_origin="zh",
+        )
+        logging.info(f"ZH-Lex: encountered {error_counter_zh} errors.")
+
+    # -------------------------------------------------------------------------
+    # 3) Process FedLex HTML files (only if folder_choice == 'all_folders')
+    # -------------------------------------------------------------------------
+    if process_fed:
+        logging.info("Loading FedLex HTML files")
+
+        html_files_ch_merged = glob.glob(
+            "data/fedlex/fedlex_files/**/**/*-merged.html",
+            recursive=True,
+        )
+        html_files_ch_orig = glob.glob(
+            "data/fedlex/fedlex_files/**/**/*-original.html",
             recursive=True,
         )
 
-        # Create placeholders
-        logging.info("Creating placeholders")
+        html_files_ch = list(set(html_files_ch_merged + html_files_ch_orig))
+
+        if not html_files_ch:
+            logging.info("No FedLex files found. Proceeding anyway...")
+        else:
+            error_counter_ch = process_html_files(
+                html_files_ch,
+                COLLECTION_DATA_CH,
+                COLLECTION_PATH_CH,
+                law_origin="ch",
+            )
+            logging.info(f"FedLex: encountered {error_counter_ch} errors.")
+    else:
+        logging.info("Skipping FedLex (test_files mode).")
+
+    # -------------------------------------------------------------------------
+    # 4) Build MD datasets if requested (for the collections we processed)
+    # -------------------------------------------------------------------------
+    if dataset_trigger.lower() == "yes":
+        logging.info("Building dataset for ZH-Lex ...")
+        # If test_files, still pass that folder to build_markdown:
+        build_markdown.main(f"data/zhlex/{zh_folder}", STATIC_PATH)
+        logging.info("Finished building dataset for ZH-Lex")
+
+        if process_fed:
+            logging.info("Building dataset for FedLex ...")
+            build_markdown.main("data/fedlex/fedlex_files", STATIC_PATH)
+            logging.info("Finished building dataset for FedLex")
+
+    # -------------------------------------------------------------------------
+    # 5) Create placeholders for ZH-Lex only if requested
+    # -------------------------------------------------------------------------
+    if placeholders_trigger.lower() == "yes":
+        # Load ZH data
+        with open(COLLECTION_DATA_ZH, "r", encoding="utf-8") as file:
+            zhlex_data_processed = json.load(file)
+
+        # Collect all ZH public HTML files
+        public_html_files_zh = glob.glob(
+            os.path.join(COLLECTION_PATH_ZH, "*.html"),
+            recursive=True,
+        )
+
+        logging.info("Creating placeholders for ZH-Lex")
         create_placeholders.main(
-            zhlex_data_processed, public_html_files, placeholder_dir
+            zhlex_data_processed, public_html_files_zh, PLACEHOLDER_DIR_ZH
         )
-        logging.info("Finished creating placeholders")
+        logging.info("Finished creating placeholders for ZH-Lex")
 
-        # Copy placeholder files
-        shutil.copytree(
-            "data/zhlex/placeholders",
-            collection_path,
-            dirs_exist_ok=True,
-        )
+        # Copy placeholder files into the ZH collection
+        if os.path.exists(PLACEHOLDER_DIR_ZH):
+            shutil.copytree(
+                PLACEHOLDER_DIR_ZH,
+                COLLECTION_PATH_ZH,
+                dirs_exist_ok=True,
+            )
 
-    # Copy markup files
+    # -------------------------------------------------------------------------
+    # 6) Copy static markup, server scripts, and metadata JSON for whichever
+    #    collections have been built
+    # -------------------------------------------------------------------------
+    # Copy markup (CSS, JS, etc.)
     shutil.copytree(
         "src/static_files/markup/",
-        static_path,
+        STATIC_PATH,
         dirs_exist_ok=True,
     )
 
-    # Copy server script to handle redirects
+    # Copy redirect script to ZH
     shutil.copy(
         "src/server_scripts/redirect.php",
-        collection_path,
+        COLLECTION_PATH_ZH,
     )
 
-    # Copy file zhlex_data_processed.json to public
-    # Rename to collection-metadata.json
+    # Copy and rename ZH metadata into public root
     shutil.copy(
-        "data/zhlex/zhlex_data/zhlex_data_processed.json",
-        "public/collection-metadata.json",
+        COLLECTION_DATA_ZH,
+        os.path.join(STATIC_PATH, "collection-metadata-zh.json"),
     )
 
-    # Generate sitemap
+    # If we processed FedLex, copy those as well
+    if process_fed:
+        shutil.copy(
+            "src/server_scripts/redirect.php",
+            COLLECTION_PATH_CH,
+        )
+        shutil.copy(
+            COLLECTION_DATA_CH,
+            os.path.join(STATIC_PATH, "collection-metadata-ch.json"),
+        )
+
+    # -------------------------------------------------------------------------
+    # 7) Generate a sitemap (covering everything under public/)
+    # -------------------------------------------------------------------------
     logging.info("Generating sitemap")
-    generator = SitemapGenerator("https://zhlaw.ch", static_path)
+    generator = SitemapGenerator("https://zhlaw.ch", STATIC_PATH)
     generator.save_sitemap()
     logging.info("Finished generating sitemap")
 
-    # Requires pagefind: https://github.com/CloudCannon/pagefind
+    # -------------------------------------------------------------------------
+    # 8) Build Pagefind search index (covering everything in public/)
+    # -------------------------------------------------------------------------
     logging.info("Building search index")
-    subprocess.run(["npx", "pagefind", "--site", static_path, "--serve"])
+    subprocess.run(["npx", "pagefind", "--site", STATIC_PATH, "--serve"])
     logging.info("Finished building search index")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Process PDF files")
+    parser = argparse.ArgumentParser(
+        description="Process PDF -> HTML for multiple collections."
+    )
     parser.add_argument(
         "--folder",
         type=str,
-        default="test_files",
-        choices=["zhlex_files", "test_files"],
-        help="Folder to process",
+        default="all_folders",
+        choices=["all_folders", "test_files"],
+        help="Choose between 'all_folders' (ZH + CH) and 'test_files' (ZH only).",
     )
     parser.add_argument(
         "--db-build",
         type=str,
         default="yes",
         choices=["yes", "no"],
-        help="Build dataset",
+        help="Build dataset for processed collections",
     )
     parser.add_argument(
         "--placeholders",
         type=str,
         default="yes",
         choices=["yes", "no"],
-        help="Create placeholders",
+        help="Create placeholders (ZH-Lex only)",
     )
     args = parser.parse_args()
-    print(args)
-    main(args.folder, args.db_build)
+
+    logging.info(f"Script arguments: {args}")
+    main(args.folder, args.db_build, args.placeholders)

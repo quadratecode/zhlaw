@@ -1,7 +1,3 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
-
 from bs4 import BeautifulSoup
 import logging
 import arrow
@@ -67,7 +63,6 @@ def insert_header(soup):
     Inserts a header with logo on the left and a search bar on the right,
     wrapped in a search-container. Pagefind UI assets go to <head>.
     """
-
     # Create the main header container
     header = soup.new_tag("div", **{"id": "page-header"})
 
@@ -218,7 +213,12 @@ def format_date(date_str):
 
 
 def insert_combined_table(
-    soup, doc_info, in_force_status, ordnungsnummer, current_nachtragsnummer
+    soup,
+    doc_info,
+    in_force_status,
+    ordnungsnummer,
+    current_nachtragsnummer,
+    law_origin,
 ):
     """
     Inserts metadata with vertical layout and status information.
@@ -317,6 +317,10 @@ def insert_combined_table(
             value_div.string = "Ja" if value == True else "Nein"
             value_div.attrs["data-pagefind-meta"] = "Text in Kraft"
             value_div.attrs["data-pagefind-filter"] = "Text in Kraft"
+        elif law_origin:
+            value.div.string = "ZH" if law_origin == "zh" else "CH"
+            value.div.attrs["data-pagefind-meta"] = "Gesetzessammlung"
+            value.div.attrs["data-pagefind-filter"] = "Gesetzessammlung"
         else:
             value_div.string = str(value)
 
@@ -517,7 +521,6 @@ def process_enum_elements(soup):
 
         if first_text:
             # Pattern for both letter and number enumerations
-            # Matches at the start: a., b., c. or 1., 2., 3.
             match = re.match(r"^([a-zA-Z0-9]+\.)", first_text)
 
             if match:
@@ -656,10 +659,12 @@ def wrap_subprovisions(soup):
     return soup
 
 
-def main(soup, html_file, doc_info, type):
+def main(soup, html_file, doc_info, type, law_origin):
     """
-    Loads HTML content, applies transformations, and saves it.
+    Loads HTML content, applies transformations, and returns the modified soup.
+    If law_origin is provided ("zh" or "ch"), we add a meta tag in <head> for Pagefind filtering.
     """
+
     if type != "site_element":
         erlasstitel = doc_info.get("erlasstitel")
         ordnungsnummer = doc_info.get("ordnungsnummer")
@@ -683,6 +688,7 @@ def main(soup, html_file, doc_info, type):
             in_force_status,
             ordnungsnummer,
             current_nachtragsnummer,
+            law_origin,
         )
 
         # Insert navigation buttons and status message into version-container
@@ -701,6 +707,7 @@ def main(soup, html_file, doc_info, type):
             soup, versions, ordnungsnummer, current_nachtragsnummer
         )
 
+    # Insert header and footer (always, unless it's a site element we want to skip—but we do it anyway for site pages)
     soup = insert_header(soup)
     soup = insert_footer(soup)
 
@@ -708,4 +715,6 @@ def main(soup, html_file, doc_info, type):
 
 
 if __name__ == "__main__":
-    main()
+    # This module is intended to be imported and used by another script.
+    # If needed, you could place test code here.
+    pass
