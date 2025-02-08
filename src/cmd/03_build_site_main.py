@@ -35,13 +35,11 @@ logging.basicConfig(
 # ZH-Lex collection data
 COLLECTION_DATA_ZH = "data/zhlex/zhlex_data/zhlex_data_processed.json"
 COLLECTION_PATH_ZH = "public/col-zh/"
+PLACEHOLDER_DIR_ZH = "data/zhlex/placeholders"  # Used only for ZH-Lex
 
 # FedLex collection data
 COLLECTION_DATA_CH = "data/fedlex/fedlex_data/fedlex_data_processed.json"
 COLLECTION_PATH_CH = "public/col-ch/"
-
-# Placeholder paths
-PLACEHOLDER_DIR_ZH = "data/zhlex/placeholders"  # Used only for ZH-Lex
 
 # Common paths
 STATIC_PATH = "public/"
@@ -99,11 +97,7 @@ def process_html_files(html_files, collection_data_path, collection_path, law_or
             logging.info(f"Inserting InfoBox: {html_file}")
             doc_info = metadata.get("doc_info", {})
             soup = build_zhlaw.main(
-                soup,
-                html_file,
-                doc_info,
-                file_type,
-                law_origin,
+                soup, html_file, doc_info, file_type, law_origin=law_origin
             )
             logging.info(f"Finished inserting InfoBox: {html_file}")
 
@@ -148,75 +142,88 @@ def process_html_files(html_files, collection_data_path, collection_path, law_or
 def main(folder_choice, dataset_trigger, placeholders_trigger):
     """
     Depending on `folder_choice`:
-     - If "all_folders": process full ZH-Lex folder + FedLex
-     - If "test_files": process only ZH test_files (skip FedLex)
+     - "zhlex_files": process the main ZH-Lex folder (skip FedLex)
+     - "ch_files": process only FedLex (skip ZH-Lex)
+     - "all_files": process both ZH-Lex (zhlex_files) and FedLex
+     - "test_files": process only ZH 'test_files' folder (skip FedLex)
     """
+
     # Remove existing public folder to ensure a clean build
     if os.path.exists(STATIC_PATH):
         shutil.rmtree(STATIC_PATH)
 
-    # Remove zh placeholders if exist
+    # Remove ZH placeholders if exist
     if os.path.exists(PLACEHOLDER_DIR_ZH):
         shutil.rmtree(PLACEHOLDER_DIR_ZH)
 
-    # Decide what to process for ZH
-    if folder_choice == "all_folders":
-        zh_folder = "zhlex_files"  # the main full folder for ZH
-        process_fed = True
-    else:
-        # "test_files"
+    # Decide whether to process ZH and/or CH based on the folder choice
+    process_zh = False
+    process_ch = False
+    zh_folder = None
+
+    if folder_choice == "zhlex_files":
+        process_zh = True
+        zh_folder = "zhlex_files"
+    elif folder_choice == "test_files":
+        process_zh = True
         zh_folder = "test_files"
-        process_fed = False
+    elif folder_choice == "ch_files":
+        process_ch = True
+    elif folder_choice == "all_files":
+        process_zh = True
+        zh_folder = "zhlex_files"
+        process_ch = True
 
     # -------------------------------------------------------------------------
-    # 1) Generate index (for ZH).
-    #    (If you wanted a separate index for FedLex, you could call generate_index again.)
+    # 1) Generate index (for ZH) if we are processing ZH
     # -------------------------------------------------------------------------
-    logging.info("Generating ZH index")
-    generate_index.main(
-        COLLECTION_DATA_ZH,
-        "src/static_files/html/index.html",  # Template
-    )
-    logging.info("Finished generating ZH index")
-
-    # -------------------------------------------------------------------------
-    # 2) Process ZH-Lex HTML files
-    # -------------------------------------------------------------------------
-    logging.info("Loading ZH-Lex HTML files")
-
-    html_files_zh_merged = glob.glob(
-        f"data/zhlex/{zh_folder}/**/**/*-merged.html",
-        recursive=True,
-    )
-    html_files_zh_orig = glob.glob(
-        f"data/zhlex/{zh_folder}/**/**/*-original.html",
-        recursive=True,
-    )
-    # Site elements from static_files
-    html_site_elements = glob.glob(
-        "src/static_files/html/*.html",
-        recursive=True,
-    )
-    # Combine
-    html_files_zh = list(
-        set(html_files_zh_merged + html_files_zh_orig + html_site_elements)
-    )
-
-    if not html_files_zh:
-        logging.info("No ZH-Lex files found. Proceeding anyway...")
-    else:
-        error_counter_zh = process_html_files(
-            html_files_zh,
+    if process_zh:
+        logging.info("Generating ZH index")
+        generate_index.main(
             COLLECTION_DATA_ZH,
-            COLLECTION_PATH_ZH,
-            law_origin="zh",
+            "src/static_files/html/index.html",  # Template
         )
-        logging.info(f"ZH-Lex: encountered {error_counter_zh} errors.")
+        logging.info("Finished generating ZH index")
 
     # -------------------------------------------------------------------------
-    # 3) Process FedLex HTML files (only if folder_choice == 'all_folders')
+    # 2) Process ZH-Lex HTML files (if requested)
     # -------------------------------------------------------------------------
-    if process_fed:
+    if process_zh and zh_folder:
+        logging.info(f"Loading ZH-Lex HTML files from '{zh_folder}'")
+
+        html_files_zh_merged = glob.glob(
+            f"data/zhlex/{zh_folder}/**/**/*-merged.html",
+            recursive=True,
+        )
+        html_files_zh_orig = glob.glob(
+            f"data/zhlex/{zh_folder}/**/**/*-original.html",
+            recursive=True,
+        )
+        # Include site elements
+        html_site_elements = glob.glob(
+            "src/static_files/html/*.html",
+            recursive=True,
+        )
+        # Combine
+        html_files_zh = list(
+            set(html_files_zh_merged + html_files_zh_orig + html_site_elements)
+        )
+
+        if not html_files_zh:
+            logging.info("No ZH-Lex files found. Proceeding anyway...")
+        else:
+            error_counter_zh = process_html_files(
+                html_files_zh,
+                COLLECTION_DATA_ZH,
+                COLLECTION_PATH_ZH,
+                law_origin="zh",
+            )
+            logging.info(f"ZH-Lex: encountered {error_counter_zh} errors.")
+
+    # -------------------------------------------------------------------------
+    # 3) Process FedLex HTML files (if requested)
+    # -------------------------------------------------------------------------
+    if process_ch:
         logging.info("Loading FedLex HTML files")
 
         html_files_ch_merged = glob.glob(
@@ -227,7 +234,6 @@ def main(folder_choice, dataset_trigger, placeholders_trigger):
             "data/fedlex/fedlex_files/**/**/*-original.html",
             recursive=True,
         )
-
         html_files_ch = list(set(html_files_ch_merged + html_files_ch_orig))
 
         if not html_files_ch:
@@ -240,19 +246,17 @@ def main(folder_choice, dataset_trigger, placeholders_trigger):
                 law_origin="ch",
             )
             logging.info(f"FedLex: encountered {error_counter_ch} errors.")
-    else:
-        logging.info("Skipping FedLex (test_files mode).")
 
     # -------------------------------------------------------------------------
-    # 4) Build MD datasets if requested (for the collections we processed)
+    # 4) Build MD datasets if requested (for whichever we processed)
     # -------------------------------------------------------------------------
     if dataset_trigger.lower() == "yes":
-        logging.info("Building dataset for ZH-Lex ...")
-        # If test_files, still pass that folder to build_markdown:
-        build_markdown.main(f"data/zhlex/{zh_folder}", STATIC_PATH)
-        logging.info("Finished building dataset for ZH-Lex")
+        if process_zh and zh_folder:
+            logging.info(f"Building dataset for ZH-Lex (folder: {zh_folder})")
+            build_markdown.main(f"data/zhlex/{zh_folder}", STATIC_PATH)
+            logging.info("Finished building dataset for ZH-Lex")
 
-        if process_fed:
+        if process_ch:
             logging.info("Building dataset for FedLex ...")
             build_markdown.main("data/fedlex/fedlex_files", STATIC_PATH)
             logging.info("Finished building dataset for FedLex")
@@ -260,7 +264,7 @@ def main(folder_choice, dataset_trigger, placeholders_trigger):
     # -------------------------------------------------------------------------
     # 5) Create placeholders for ZH-Lex only if requested
     # -------------------------------------------------------------------------
-    if placeholders_trigger.lower() == "yes":
+    if placeholders_trigger.lower() == "yes" and process_zh:
         # Load ZH data
         with open(COLLECTION_DATA_ZH, "r", encoding="utf-8") as file:
             zhlex_data_processed = json.load(file)
@@ -286,30 +290,28 @@ def main(folder_choice, dataset_trigger, placeholders_trigger):
             )
 
     # -------------------------------------------------------------------------
-    # 6) Copy static markup, server scripts, and metadata JSON for whichever
-    #    collections have been built
+    # 6) Copy static markup, server scripts, and relevant metadata JSON
     # -------------------------------------------------------------------------
-    # Copy markup (CSS, JS, etc.)
+    # Copy markup (CSS, JS, etc.) to public
     shutil.copytree(
         "src/static_files/markup/",
         STATIC_PATH,
         dirs_exist_ok=True,
     )
 
-    # Copy redirect script to ZH
-    shutil.copy(
-        "src/server_scripts/redirect.php",
-        COLLECTION_PATH_ZH,
-    )
+    # If ZH was processed, copy redirect script & metadata for ZH
+    if process_zh:
+        shutil.copy(
+            "src/server_scripts/redirect.php",
+            COLLECTION_PATH_ZH,
+        )
+        shutil.copy(
+            COLLECTION_DATA_ZH,
+            os.path.join(STATIC_PATH, "collection-metadata-zh.json"),
+        )
 
-    # Copy and rename ZH metadata into public root
-    shutil.copy(
-        COLLECTION_DATA_ZH,
-        os.path.join(STATIC_PATH, "collection-metadata-zh.json"),
-    )
-
-    # If we processed FedLex, copy those as well
-    if process_fed:
+    # If FedLex was processed, copy redirect script & metadata for CH
+    if process_ch:
         shutil.copy(
             "src/server_scripts/redirect.php",
             COLLECTION_PATH_CH,
@@ -342,9 +344,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--folder",
         type=str,
-        default="all_folders",
-        choices=["all_folders", "test_files"],
-        help="Choose between 'all_folders' (ZH + CH) and 'test_files' (ZH only).",
+        default="all_files",
+        choices=["zhlex_files", "ch_files", "all_files", "test_files"],
+        help=(
+            "Choose which collection(s) to build:\n"
+            "'zhlex_files' (only ZH-Lex), "
+            "'ch_files' (only FedLex), "
+            "'all_files' (both), "
+            "'test_files' (ZH test set only)."
+        ),
     )
     parser.add_argument(
         "--db-build",
@@ -358,7 +366,7 @@ if __name__ == "__main__":
         type=str,
         default="yes",
         choices=["yes", "no"],
-        help="Create placeholders (ZH-Lex only)",
+        help="Create placeholders (ZH-Lex only).",
     )
     args = parser.parse_args()
 

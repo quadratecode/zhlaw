@@ -289,23 +289,29 @@ def insert_combined_table(
         ]:
             value = format_date(value) if value != "N/A" else "N/A"
             value_div.string = value
+
         elif key == "erlasstitel":
             value_div.string = value
             value_div.attrs["data-pagefind-meta"] = "title"
             value_div.attrs["data-pagefind-weight"] = "10"
+
         elif key == "kurztitel":
             value_div.string = value
             value_div.attrs["data-pagefind-meta"] = "Kurztitel"
+
         elif key == "abkuerzung":
             value_div.string = value
             value_div.attrs["data-pagefind-meta"] = "Abkürzung"
             value_div.attrs["data-pagefind-weight"] = "10"
+
         elif key == "ordnungsnummer":
             value_div.string = value
             value_div.attrs["data-pagefind-meta"] = "Ordnungsnummer"
+
         elif key == "nachtragsnummer":
             value_div.string = value
             value_div.attrs["data-pagefind-meta"] = "Nachtragsnummer"
+
         elif key == "law_page_url":
             if value != "N/A":
                 link = soup.new_tag("a", href=value, target="_blank")
@@ -313,14 +319,20 @@ def insert_combined_table(
                 value_div.append(link)
             else:
                 value_div.string = value
+
         elif key == "in_force":
-            value_div.string = "Ja" if value == True else "Nein"
-            value_div.attrs["data-pagefind-meta"] = "Text in Kraft"
-            value_div.attrs["data-pagefind-filter"] = "Text in Kraft"
-        elif law_origin:
-            value.div.string = "ZH" if law_origin == "zh" else "CH"
-            value.div.attrs["data-pagefind-meta"] = "Gesetzessammlung"
-            value.div.attrs["data-pagefind-filter"] = "Gesetzessammlung"
+            # If doc is in force
+            if value is True:
+                value_div.string = "Ja"
+                value_div.attrs["data-pagefind-meta"] = "Text in Kraft"
+                # Instead of just "Text in Kraft", include "Text in Kraft:Ja"
+                value_div.attrs["data-pagefind-filter"] = "Text in Kraft:Ja"
+            else:
+                value_div.string = "Nein"
+                value_div.attrs["data-pagefind-meta"] = "Text in Kraft"
+                # For not in force
+                value_div.attrs["data-pagefind-filter"] = "Text in Kraft:Nein"
+
         else:
             value_div.string = str(value)
 
@@ -328,13 +340,35 @@ def insert_combined_table(
         item_div.append(label_div)
         item_div.append(value_div)
 
-        # Add separator if not the last item
+        # Add separator if not the last item in this list
         if key != metadata_fields[-1][0]:
             separator = soup.new_tag("div", **{"class": "metadata-separator"})
             item_div.append(separator)
 
         # Add item to metadata content
         metadata_content.append(item_div)
+
+    law_origin_div = soup.new_tag("div", **{"class": "metadata-item"})
+    law_origin_label = soup.new_tag("div", **{"class": "metadata-label"})
+    law_origin_label.string = "Gesetzessammlung"
+    law_origin_value = soup.new_tag("div", **{"class": "metadata-value"})
+
+    # Simply display the passed-in law_origin argument
+    if law_origin:
+        law_origin_value.string = "Kanton Zürich" if law_origin == "zh" else "Bund"
+        law_origin_value.attrs["data-pagefind-meta"] = "Gesetzessammlung"
+        law_origin_value.attrs["data-pagefind-filter"] = "Gesetzessammlung"
+    else:
+        law_origin_value.string = "N/A"
+
+    law_origin_div.append(law_origin_label)
+    law_origin_div.append(law_origin_value)
+
+    # Optional: separator line if desired
+    separator = soup.new_tag("div", **{"class": "metadata-separator"})
+    law_origin_div.append(separator)
+
+    metadata_content.append(law_origin_div)
 
     # Create versions section
     versions_container = soup.new_tag(
@@ -365,7 +399,8 @@ def insert_versions_and_update_navigation(
     soup, versions, ordnungsnummer, current_nachtragsnummer
 ):
     """
-    Updates version information and navigation buttons.
+    Updates version information in the 'Versionen' display and
+    updates navigation buttons (prev/next/new). Returns (soup, all_versions).
     """
     # Check if key "older_versions" or "newer_versions" exists in versions
     if "older_versions" in versions:
@@ -381,11 +416,12 @@ def insert_versions_and_update_navigation(
             if version["nachtragsnummer"] == current_nachtragsnummer:
                 version["current"] = True
 
+    # Sort all versions by natural alphanumeric on nachtragsnummer
     all_versions = sorted(
         all_versions, key=lambda x: alphanum_key(x["nachtragsnummer"])
     )
 
-    # Find the versions value container
+    # Populate 'Versionen:' display
     versions_value = soup.find("div", {"class": "versions-value"})
     if versions_value:
         for version in all_versions:
@@ -400,13 +436,13 @@ def insert_versions_and_update_navigation(
             span.string = version["nachtragsnummer"]
             versions_value.append(span)
 
-            # Add separator between versions
+            # Add separator
             if version != all_versions[-1]:
                 separator = soup.new_tag("span", **{"class": "version-separator"})
                 separator.string = "∗"
                 versions_value.append(separator)
 
-    # Update navigation buttons
+    # Figure out prev, next, and newest version for the navigation buttons
     prev_ver, next_ver, new_ver = None, None, None
     current_index = next(
         (i for i, v in enumerate(all_versions) if v.get("current", False)), None
@@ -420,14 +456,15 @@ def insert_versions_and_update_navigation(
         if all_versions[-1]["nachtragsnummer"] != current_nachtragsnummer:
             new_ver = all_versions[-1]["nachtragsnummer"]
 
-    # Update button links
+    # Update navigation buttons
     if prev_ver:
         soup.find("button", id="prev_ver")["onclick"] = (
             f"location.href='{ordnungsnummer}-{prev_ver}.html';"
         )
     else:
         button = soup.find("button", id="prev_ver")
-        button["disabled"] = True
+        if button:
+            button["disabled"] = True
 
     if next_ver:
         soup.find("button", id="next_ver")["onclick"] = (
@@ -435,7 +472,8 @@ def insert_versions_and_update_navigation(
         )
     else:
         button = soup.find("button", id="next_ver")
-        button["disabled"] = True
+        if button:
+            button["disabled"] = True
 
     if new_ver:
         soup.find("button", id="new_ver")["onclick"] = (
@@ -443,9 +481,11 @@ def insert_versions_and_update_navigation(
         )
     else:
         button = soup.find("button", id="new_ver")
-        button["disabled"] = True
+        if button:
+            button["disabled"] = True
 
-    return soup
+    # Return both soup and the sorted list of versions
+    return soup, all_versions
 
 
 def insert_footer(soup):
@@ -660,28 +700,23 @@ def wrap_subprovisions(soup):
 
 
 def main(soup, html_file, doc_info, type, law_origin):
-    """
-    Loads HTML content, applies transformations, and returns the modified soup.
-    If law_origin is provided ("zh" or "ch"), we add a meta tag in <head> for Pagefind filtering.
-    """
-
     if type != "site_element":
-        erlasstitel = doc_info.get("erlasstitel")
-        ordnungsnummer = doc_info.get("ordnungsnummer")
-        current_nachtragsnummer = doc_info.get("nachtragsnummer")
+        erlasstitel = doc_info.get("erlasstitel", "")
+        ordnungsnummer = doc_info.get("ordnungsnummer", "")
+        current_nachtragsnummer = doc_info.get("nachtragsnummer", "")
         in_force_status = doc_info.get("in_force", False)
         versions = doc_info.get("versions", {})
 
-        # First consolidate enum paragraphs
+        # 1) Consolidate enum paragraphs
         soup = consolidate_enum_paragraphs(soup)
 
-        # Then wrap subprovisions
+        # 2) Wrap subprovisions
         soup = wrap_subprovisions(soup)
 
-        # Modify basic HTML structure first
+        # 3) Modify basic HTML structure
         soup = modify_html(soup, erlasstitel)
 
-        # Insert combined table (doc-info and status message) into sidebar
+        # 4) Insert doc-info table & status
         soup = insert_combined_table(
             soup,
             doc_info,
@@ -691,23 +726,43 @@ def main(soup, html_file, doc_info, type, law_origin):
             law_origin,
         )
 
-        # Insert navigation buttons and status message into version-container
+        # 5) Insert navigation buttons
         sidebar = soup.find("div", id="sidebar")
         if sidebar:
             nav_div = create_nav_buttons(soup)
             version_container = soup.new_tag("div", id="version-container")
+
             status_div = soup.find("div", id="status-message")
             if status_div:
                 status_div.extract()
+
             version_container.append(status_div)
             version_container.append(nav_div)
             sidebar.insert(1, version_container)
 
-        soup = insert_versions_and_update_navigation(
+        # 6) Insert version links + update navigation, capturing the list
+        soup, all_versions = insert_versions_and_update_navigation(
             soup, versions, ordnungsnummer, current_nachtragsnummer
         )
 
-    # Insert header and footer (always, unless it's a site element we want to skip—but we do it anyway for site pages)
+        # 7) Determine if this version is newest
+        if all_versions:
+            newest_nachtragsnummer = all_versions[-1]["nachtragsnummer"]
+            is_newest = newest_nachtragsnummer == current_nachtragsnummer
+        else:
+            is_newest = True
+
+        # 8) Mark law container with data-pagefind-filter
+        law_div = soup.find("div", id="law")
+        if law_div:
+            if is_newest:
+                # Mark it for both "all" and "newest"
+                law_div["data-pagefind-filter"] = "Versionen:Nur neuste Versionen"
+            else:
+                # Do nothing
+                pass
+
+    # Insert header and footer (applies even if type == "site_element")
     soup = insert_header(soup)
     soup = insert_footer(soup)
 

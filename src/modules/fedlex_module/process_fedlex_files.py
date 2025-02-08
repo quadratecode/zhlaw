@@ -29,7 +29,10 @@ Usage:
 import os
 import re
 import glob
-from bs4 import BeautifulSoup, Comment, formatter
+from bs4 import BeautifulSoup, Comment, formatter, NavigableString, Tag
+from src.modules.law_pdf_module.create_hyperlinks import (
+    hyperlink_provisions_and_subprovisions,
+)
 
 # Define the base input directory (the raw files are stored here in subfolders)
 INPUT_DIR = os.path.join("data", "fedlex", "fedlex_files")
@@ -37,24 +40,26 @@ INPUT_DIR = os.path.join("data", "fedlex", "fedlex_files")
 
 def get_classes_to_remove():
     """
-    Return a list of class names that should be removed from the document.
-    TODO: Fill in the classes you want to remove.
+    Return a list of class names (or patterns) that should be removed from the document.
+    This configuration removes any elements with classes starting with "absatz".
     """
-    # Replace the list below with the actual class names you want removed.
-    return ["class-to-remove-1", "class-to-remove-2"]
+    # Use a compiled regular expression to match classes that start with "absatz"
+    return [re.compile(r"^absatz")]
 
 
 def remove_elements_with_classes(soup, classes):
     """
-    Remove all elements that have any class in the given list.
+    Remove all elements that have any class matching any pattern in the given list.
     The element with class "erlasstitel" is not removed so that its content
     can be used to update the metadata.
     """
-    for class_name in classes:
-        # Skip removal for "erlasstitel" so that metadata can be updated.
-        if class_name == "erlasstitel":
-            continue
-        for tag in soup.find_all(class_=class_name):
+    for pattern in classes:
+        for tag in soup.find_all(class_=pattern):
+            # Preserve elements that have the class "erlasstitel" among others
+            if tag.has_attr("class") and any(
+                cls == "erlasstitel" for cls in tag["class"]
+            ):
+                continue
             tag.decompose()
 
 
@@ -73,6 +78,119 @@ def remove_empty_tags(soup_obj):
     for tag in to_remove:
         tag.decompose()
     return len(to_remove)
+
+
+def transform_headings(soup):
+    """
+    Transforms <h6 class="heading"> elements by:
+      - extracting 'numbering' (from <b>/<i>/<sup> or from the first anchor(s))
+      - extracting heading text (either from the last anchor if multiple <a> exist,
+        or from non-<b>/<i>/<sup> text if only one <a> exists)
+      - converting the original <h6> into a <p class="provision" ...> for the numbering
+      - inserting a new <h6 ...> above it for the heading text
+      - preserving <sup> tags (with their inner <a> if any)
+      - unwrapping <a>, <b>, and <i> into plain text
+    """
+
+    # Find all <h6 class="heading"> elements
+    h6_tags = soup.find_all("h6", class_="heading")
+
+    for h6 in h6_tags:
+        # Grab all *direct* children so we can see if there are multiple <a> at the top level
+        top_children = list(h6.children)
+        # Filter just <a> tags in the top level
+        a_tags = [child for child in top_children if child.name == "a"]
+
+        if not a_tags:
+            # No anchors found; skip or handle differently if needed
+            continue
+
+        # --- 1) Compute the provision ID from the first anchor (#art_... => provision-...)
+        first_a = a_tags[0]
+        href = first_a.get("href", "")
+        match = re.match(r"#art_(.*)", href)
+        provision_id = None
+        if match:
+            # e.g. #art_29_a -> "29_a" -> "29-a" -> "provision-29-a"
+            raw_id_part = match.group(1).replace("_", "-")
+            provision_id = f"provision-{raw_id_part}"
+
+        # We'll define placeholders for heading text and numbering text (HTML)
+        heading_text = ""
+        numbering_fragments = []  # we will build HTML strings, preserving <sup>
+
+        # --- 2) Different logic if multiple <a> or single <a>
+        if len(a_tags) > 1:
+            # Case: More than one <a> tag
+            #  - The last <a> is heading text
+            #  - Everything else (anchors + any intervening sup or text) is numbering
+            heading_anchor = a_tags[-1]  # last anchor
+            heading_text = heading_anchor.get_text(strip=True)
+
+            # Gather everything from the start up until that last anchor into numbering
+            for child in top_children:
+                if child == heading_anchor:
+                    # stop before last anchor (that anchor is heading text)
+                    break
+
+                if child.name in ("a", "b", "i"):
+                    # unwrap to plain text
+                    numbering_fragments.append(child.get_text(strip=False))
+                elif child.name == "sup":
+                    # keep <sup> as is
+                    numbering_fragments.append(str(child))
+                elif isinstance(child, NavigableString):
+                    # direct text
+                    numbering_fragments.append(child)
+                else:
+                    # fallback for any other tags
+                    numbering_fragments.append(child.get_text(strip=False))
+
+        else:
+            # Case: Exactly one <a> tag
+            anchor = a_tags[0]
+
+            # We want to separate out the text inside that anchor into:
+            #   - text in <b>, <i>, <sup> => numbering
+            #   - everything else => heading text
+            for child in anchor.children:
+                if child.name in ("b", "i", "a"):
+                    # unwrap these into numbering
+                    numbering_fragments.append(child.get_text(strip=False))
+                elif child.name == "sup":
+                    # keep <sup> as is in numbering
+                    numbering_fragments.append(str(child))
+                elif isinstance(child, NavigableString):
+                    # plain text -> heading
+                    heading_text += child
+                else:
+                    # fallback if there's any other tag we haven't handled
+                    heading_text += child.get_text(strip=False)
+
+            # Be tidy
+            heading_text = heading_text.strip()
+
+        # Build the final numbering string (HTML)
+        numbering_html = "".join(numbering_fragments).strip()
+
+        # --- 3) Create the new <h6> for the heading text
+        new_h6 = soup.new_tag("h6", attrs={"class": "heading", "role": "heading"})
+        new_h6.string = heading_text
+
+        # --- 4) Create the new <p class="provision"> for the numbering
+        new_p = soup.new_tag("p", attrs={"class": "provision"})
+        if provision_id:
+            new_p["id"] = provision_id
+
+        # Because numbering_html may contain <sup> tags (which we want to keep),
+        # we parse it as HTML and then move its children into new_p
+        numbering_soup = BeautifulSoup(numbering_html, "html.parser")
+        for elem in numbering_soup.contents:
+            new_p.append(elem)
+
+        # --- 5) Insert the new heading above, replace the old h6 with the new p
+        h6.insert_before(new_h6)
+        h6.replace_with(new_p)
 
 
 def process_html(html):
@@ -142,9 +260,6 @@ def process_html(html):
     for tag in soup.find_all(class_="srnummer"):
         tag.decompose()
 
-    # 7.6 Remove elements with classes specified by get_classes_to_remove()
-    remove_elements_with_classes(soup, get_classes_to_remove())
-
     # 8. Delete any <br> tags.
     for br in soup.find_all("br"):
         br.decompose()
@@ -158,8 +273,29 @@ def process_html(html):
     # 10. Modify hyperlinks: any <a> with href starting with "#fn-" gets href="#footnote-line" and no id.
     for a in soup.find_all("a", href=True):
         if a["href"].startswith("#fn-"):
+            # 1. Modify the href
             a["href"] = "#footnote-line"
+            # 2. Remove any 'id' attribute if present
             a.attrs.pop("id", None)
+            # 3. Wrap the content of the <a> in square brackets
+            original_text = a.get_text(strip=True)
+            a.string = f"[{original_text}]"
+
+            # 4. Unwrap parent <span> elements
+            #   We'll look *up* the tree and unwrap any <span>
+            #   If you only want to remove the *immediate* parent span, you can do that instead.
+            for parent in a.parents:
+                if parent.name == "span":
+                    parent.unwrap()
+                # We stop once we reach the <body> or None
+                # (or any container beyond which we don't expect the chain to continue)
+                if parent.name in ("body", "[document]"):
+                    break
+
+            # 5. Give the parent <sup> a class "footnote-ref"
+            sup_parent = a.find_parent("sup")
+            if sup_parent:
+                sup_parent["class"] = sup_parent.get("class", []) + ["footnote-ref"]
 
     # 11. Process <p> tags that start with a <sup> tag (without an <a> inside)
     #     but only if the <p> is NOT inside a <div class="footnotes">.
@@ -174,23 +310,40 @@ def process_html(html):
                 new_p.append(sup_tag)
                 p.insert_before(new_p)
 
-    # 12. Process <h6 class="heading" role="heading"> tags that contain an <a> with a <b> element.
-    for h6 in soup.find_all("h6", class_="heading", attrs={"role": "heading"}):
-        a_tag = h6.find("a")
-        if a_tag:
-            b_tag = a_tag.find("b")
-            if b_tag:
-                provision_text = b_tag.get_text(strip=True)
-                b_tag.extract()
-                a_tag.unwrap()
-                new_prov = soup.new_tag("p", **{"class": "provision"})
-                new_prov.string = provision_text
-                h6.insert_after(new_prov)
+    # 12. Transform headings
+    transform_headings(soup)
+
+    # Assign subprovision id
+    last_provision_id = None
+    # Iterate over all paragraphs in document order
+    for p in soup.find_all("p"):
+        # 1) If this paragraph's ID looks like a main provision (e.g. provision-64-a)
+        #    and not a subprovision ID, record it as the current "last_provision_id".
+        pid = p.get("id", "")
+        if pid.startswith("provision-") and "-subprovision-" not in pid:
+            # Example: pid = "provision-64-a" -> last_provision_id = "64-a"
+            last_provision_id = pid.replace("provision-", "", 1)
+
+        # 2) If the paragraph is a 'subprovision'...
+        if "subprovision" in p.get("class", []):
+            # Look for a <sup> tag containing only digits
+            sup_tag = p.find("sup")
+            if sup_tag:
+                sup_text = sup_tag.get_text(strip=True)
+                if re.match(r"^\d+$", sup_text) and last_provision_id:
+                    # Construct a new ID: provision-<last_provision_id>-subprovision-<sup_number>
+                    p["id"] = f"provision-{last_provision_id}-subprovision-{sup_text}"
+
+    # 12.7 Hyperlink provisions and suprovisions
+    soup = hyperlink_provisions_and_subprovisions(soup)
 
     # 13. Convert all remaining <h6 class="heading" role="heading"> to <p class="marginalia">.
     for h6 in soup.find_all("h6", class_="heading", attrs={"role": "heading"}):
         h6.name = "p"
         h6["class"] = "marginalia"
+
+    # 7.6 Remove elements with classes specified by get_classes_to_remove()
+    remove_elements_with_classes(soup, get_classes_to_remove())
 
     # 14. Remove all empty tags (except <html> and <body>).
     while remove_empty_tags(soup) > 0:
@@ -227,7 +380,8 @@ def process_html(html):
     # 16.5 Additional cleanup:
     #      - Unwrap all <b> and <i> tags.
     #      - Remove any role="heading" attribute.
-    #      - Unwrap all <a> tags linking to an id (href starting with "#"), except those with href="#footnote-line".
+    #      - Unwrap all <a> tags linking to an id (href starting with "#"),
+    #        except those with href="#footnote-line" or links to ids starting with "provision".
     additional_soup = BeautifulSoup(final_html, "lxml")
     for tag in additional_soup.find_all("b"):
         tag.unwrap()
@@ -238,7 +392,7 @@ def process_html(html):
             del tag["role"]
     for a in additional_soup.find_all("a", href=True):
         href = a["href"]
-        if href.startswith("#") and href != "#footnote-line":
+        if href.startswith("#") and href != "#footnote-line" and not href.startswith("#provision"):
             a.unwrap()
 
     # 16.6 Scale down heading levels based on aria-level.
@@ -376,24 +530,6 @@ def process_files():
             out_f.write(processed_html)
 
         print(f"Processed file {filepath} -> {output_filepath}")
-
-        # # Update metadata file if it exists.
-        # metadata_filepath = filepath.replace("-raw.html", "-metadata.json")
-        # if os.path.exists(metadata_filepath):
-        #     # Parse the processed HTML to find the erlasstitel element.
-        #     soup_for_meta = BeautifulSoup(processed_html, "lxml")
-        #     erlasstitel_element = soup_for_meta.find(class_="erlasstitel")
-        #     if erlasstitel_element:
-        #         new_erlasstitel_text = erlasstitel_element.get_text(strip=True)
-        #         with open(metadata_filepath, "r", encoding="utf-8") as meta_file:
-        #             metadata = json.load(meta_file)
-        #         if "doc_info" in metadata:
-        #             metadata["doc_info"]["erlasstitel"] = new_erlasstitel_text
-        #         else:
-        #             metadata["erlasstitel"] = new_erlasstitel_text
-        #         with open(metadata_filepath, "w", encoding="utf-8") as meta_file:
-        #             json.dump(metadata, meta_file, ensure_ascii=False, indent=4)
-        #         print(f"Updated metadata erlasstitel in {metadata_filepath}")
 
 
 def main():

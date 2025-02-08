@@ -36,40 +36,68 @@ def refine_footnotes(soup):
 
 
 def find_subprovisions(soup):
-    # Initialize a variable to keep track of the last provision number
+    """
+    Processes <p> elements in a BeautifulSoup object to identify:
+      1. 'provisions' with IDs in the format 'provision-<number>[optional_letter]'.
+      2. 'subprovisions' which are paragraphs containing only a single numeric string.
+
+    For each 'provision' paragraph found:
+      - We capture its numeric part (and optional letter).
+      - Update 'last_provision_id' so subsequent 'subprovisions' can reference it.
+
+    For each 'subprovision':
+      - We assign the class 'subprovision'.
+      - Set an ID like 'provision-<provision_id>-subprovision-<number>'.
+
+    Returns:
+        The modified soup object.
+    """
+
+    # Keep track of the last seen provision ID to anchor subprovisions
     last_provision_id = None
 
-    # Iterate through all paragraph elements in the soup object
+    # Look through all <p> tags that:
+    # 1) Do NOT have data-text-color="LinkBlue"
+    # 2) Have a numeric data-font-size > 5
     for paragraph in soup.find_all(
         "p",
         attrs={
             "data-text-color": lambda x: x != "LinkBlue",
-            "data-font-size": lambda x: x is not None
-            and x.replace(".", "", 1).isdigit()
-            and float(x) > 5,
+            "data-font-size": lambda x: (
+                x is not None and x.replace(".", "", 1).isdigit() and float(x) > 5
+            ),
         },
     ):
+        # Extract the visible text from the paragraph, stripping leading/trailing whitespace
         text = paragraph.get_text(strip=True)
 
-        # Check if paragraph is a provision and capture its number and possible letter
+        # Check if the paragraph has an ID of the form:
+        # "provision-<number>" or "provision-<number>_<letter>"
         provision_match = re.match(
             r"^provision-(\d+)(?:_([a-zA-Z]))?", paragraph.get("id", "")
         )
         if provision_match:
-            # Construct the provision id from captured groups
+            # If we match, we capture the numeric part (num) and an optional letter
             num, letter = provision_match.groups()
+            # Build the last_provision_id as "number-letter" if letter exists, else just "number"
             last_provision_id = f"{num}{f'-{letter}' if letter else ''}"
 
-        # Check if paragraph contains only a superscript number
+        # If the paragraph text consists solely of digits (e.g., "3", "10", etc.),
+        # we treat it as a subprovision of the last known provision.
         if re.match(r"^\d+$", text):
+            # Mark it with the CSS class "subprovision"
             paragraph["class"] = ["subprovision"]
-            # Check if we have a valid last_provision_id to reference
+
+            # Only assign an ID if we actually have a parent provision identified
             if last_provision_id:
+                # Extract the numeric portion (same as 'text' because it is purely digits).
                 subprovision_number = re.match(r"^(\d+)", text).group(1)
+                # Set the ID in the format: provision-<provision_id>-subprovision-<digits>
                 paragraph["id"] = (
                     f"provision-{last_provision_id}-subprovision-{subprovision_number}"
                 )
 
+    # Return the modified soup object
     return soup
 
 
@@ -130,8 +158,10 @@ def find_enumerations(soup):
     number_pattern = re.compile(r"^\d{1,2}\.$")
 
     paragraphs = [
-        p for p in soup.find_all("p")
-        if not p.find_parent(["h1", "h2", "h3", "h4", "h5", "h6"]) and "marginalia" not in p.get("class", [])
+        p
+        for p in soup.find_all("p")
+        if not p.find_parent(["h1", "h2", "h3", "h4", "h5", "h6"])
+        and "marginalia" not in p.get("class", [])
     ]
     previous_enum_type = None
     current_level_class = "first-level"
