@@ -258,6 +258,33 @@ def convert_bounds_to_pymupdf(elements):
 
 
 def sort_elements(elements, margin_ratio=0.005):
+    """
+    Sorts elements by grouping them into pages and vertical clusters, then orders them by horizontal positions.
+
+    This function first groups elements by the page they belong to. For each page, it creates vertical clusters
+    of elements based on overlapping vertical spans determined by a margin (computed as a ratio of the page height).
+    Within each cluster, elements are sorted by their first horizontal position (the left-most coordinate),
+    ensuring that text elements are ordered naturally (top-to-bottom and left-to-right).
+
+    Parameters:
+        elements (List[dict]): A list of element dictionaries. Each dictionary must contain:
+            - "Page": the page number the element appears on.
+            - "Bounds": a list representing the element's bounding box (used if "CharBounds" is absent).
+            - "CharBounds" (optional): a list of bounding boxes for individual characters (if present, used for computing vertical span and horizontal position).
+            - "page_height": the height of the page (assumed to be the same for all elements on the page).
+        margin_ratio (float, optional): The ratio (relative to the page height) used to determine the vertical clustering margin.
+            Defaults to 0.005.
+
+    Returns:
+        List[dict]: A list of elements sorted first by page, then by their vertical cluster (top-to-bottom) and finally
+        by the horizontal position (left-to-right) within each cluster.
+
+    Notes:
+        - For elements with "CharBounds", the top is computed as the minimum y-coordinate among all characters,
+          and the bottom as the maximum y-coordinate. Otherwise, the "Bounds" list is used.
+        - The first horizontal position is taken from the first coordinate of "CharBounds" if available, or from "Bounds".
+        - All elements on the same page are assumed to have the same "page_height" attribute.
+    """
     def get_vertical_span(element):
         if "CharBounds" in element:
             top = min(bounds[1] for bounds in element["CharBounds"])
