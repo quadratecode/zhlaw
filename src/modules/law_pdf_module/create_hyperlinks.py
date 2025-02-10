@@ -82,19 +82,21 @@ def find_subprovisions(soup):
             # Build the last_provision_id as "number-letter" if letter exists, else just "number"
             last_provision_id = f"{num}{f'-{letter}' if letter else ''}"
 
-        # If the paragraph text consists solely of digits (e.g., "3", "10", etc.),
+        # If the paragraph text consists solely of digits or digits followed by specific strings (e.g., "7bis", "10ter", etc.),
         # we treat it as a subprovision of the last known provision.
-        if re.match(r"^\d+$", text):
+        subprovision_pattern = re.compile(r"^(\d+)(bis|ter|quater|quinquies|sexies|septies|octies)?$", re.IGNORECASE)
+        if subprovision_pattern.match(text):
             # Mark it with the CSS class "subprovision"
             paragraph["class"] = ["subprovision"]
 
             # Only assign an ID if we actually have a parent provision identified
             if last_provision_id:
-                # Extract the numeric portion (same as 'text' because it is purely digits).
-                subprovision_number = re.match(r"^(\d+)", text).group(1)
-                # Set the ID in the format: provision-<provision_id>-subprovision-<digits>
+                subprov_match = subprovision_pattern.match(text)
+                subprovision_number = subprov_match.group(1)
+                suffix = subprov_match.group(2) if subprov_match.group(2) else ""
+                # Set the ID in the format: provision-<provision_id>-subprovision-<digits><suffix>
                 paragraph["id"] = (
-                    f"provision-{last_provision_id}-subprovision-{subprovision_number}"
+                    f"provision-{last_provision_id}-subprovision-{subprovision_number}{suffix.lower()}"
                 )
 
     # Return the modified soup object

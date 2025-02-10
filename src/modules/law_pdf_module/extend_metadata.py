@@ -253,96 +253,65 @@ def convert_bounds_to_pymupdf(elements):
 
 
 def sort_elements(elements, margin_ratio=0.005):
-    """
-    Sorts elements by grouping them into pages and vertical clusters, then orders them by horizontal positions.
-
-    This function first groups elements by the page they belong to. For each page, it creates vertical clusters
-    of elements based on overlapping vertical spans determined by a margin (computed as a ratio of the page height).
-    Within each cluster, elements are sorted by their first horizontal position (the left-most coordinate),
-    ensuring that text elements are ordered naturally (top-to-bottom and left-to-right).
-
-    Parameters:
-        elements (List[dict]): A list of element dictionaries. Each dictionary must contain:
-            - "Page": the page number the element appears on.
-            - "Bounds": a list representing the element's bounding box (used if "CharBounds" is absent).
-            - "CharBounds" (optional): a list of bounding boxes for individual characters (if present, used for computing vertical span and horizontal position).
-            - "page_height": the height of the page (assumed to be the same for all elements on the page).
-        margin_ratio (float, optional): The ratio (relative to the page height) used to determine the vertical clustering margin.
-            Defaults to 0.005.
-
-    Returns:
-        List[dict]: A list of elements sorted first by page, then by their vertical cluster (top-to-bottom) and finally
-        by the horizontal position (left-to-right) within each cluster.
-
-    Notes:
-        - For elements with "CharBounds", the top is computed as the minimum y-coordinate among all characters,
-          and the bottom as the maximum y-coordinate. Otherwise, the "Bounds" list is used.
-        - The first horizontal position is taken from the first coordinate of "CharBounds" if available, or from "Bounds".
-        - All elements on the same page are assumed to have the same "page_height" attribute.
-    """
-
     def get_vertical_span(element):
         if "CharBounds" in element:
-            top = min(bounds[1] for bounds in element["CharBounds"])
-            bottom = max(bounds[3] for bounds in element["CharBounds"])
+            top = min(b[1] for b in element["CharBounds"])
+            bottom = max(b[3] for b in element["CharBounds"])
         else:
-            top = element["Bounds"][1]
-            bottom = element["Bounds"][3]
+            top = element["Bounds"][1]  # y1
+            bottom = element["Bounds"][3]  # y2
         return top, bottom
 
-    def get_midpoint(element, vertical_span):
-        return (vertical_span[0] + vertical_span[1]) / 2
+    def get_midpoint(top, bottom):
+        return (top + bottom) / 2.0
 
     def get_first_horizontal_position(element):
         if "CharBounds" in element:
-            return element["CharBounds"][0][0]  # First tuple, first element (min_x)
+            return element["CharBounds"][0][0]  # left-most x
         else:
-            return element["Bounds"][0]  # min_x of the Bounds
+            return element["Bounds"][0]  # left-most x
 
-    # Group elements by page number
-    elements_by_page = {}
-    for element in elements:
-        page = element["Page"]
-        if page not in elements_by_page:
-            elements_by_page[page] = []
-        elements_by_page[page].append(element)
+    # Group by page
+    pages = {}
+    for e in elements:
+        pages.setdefault(e["Page"], []).append(e)
 
-    sorted_elements = []
-    for page in sorted(elements_by_page.keys()):
-        page_elements = elements_by_page[page]
-        clusters = []
-        page_height = page_elements[0][
-            "page_height"
-        ]  # Assuming all elements have the same page_height attribute
+    sorted_result = []
+    for page_no in sorted(pages.keys()):
+        page_elems = pages[page_no]
+        page_height = page_elems[0]["page_height"]
         margin = page_height * margin_ratio
 
-        # Form clusters based on overlapping vertical spans
-        for element in page_elements:
+        # Create clusters
+        clusters = []
+        for elem in page_elems:
+            top, bottom = get_vertical_span(elem)
+            midpoint = get_midpoint(top, bottom)
+
             placed = False
-            vertical_span = get_vertical_span(element)
-            midpoint = get_midpoint(element, vertical_span)
             for cluster in clusters:
-                cluster_midpoint = get_midpoint(cluster["elements"][0], cluster["span"])
-                if abs(cluster_midpoint - midpoint) <= margin:
-                    # Midpoints are within margin
-                    cluster["elements"].append(element)
-                    cluster["span"] = (
-                        min(cluster["span"][0], vertical_span[0]),
-                        max(cluster["span"][1], vertical_span[1]),
-                    )
+                c_top, c_bottom = cluster["span"]
+                c_midpoint = get_midpoint(c_top, c_bottom)
+                # If the midpoints are close enough, same cluster
+                if abs(c_midpoint - midpoint) <= margin:
+                    cluster["elements"].append(elem)
+                    # Update the cluster's span
+                    cluster["span"] = (min(c_top, top), max(c_bottom, bottom))
                     placed = True
                     break
+
             if not placed:
-                clusters.append({"elements": [element], "span": vertical_span})
+                clusters.append({"elements": [elem], "span": (top, bottom)})
 
-        # Sort elements in each cluster by the first horizontal position
+        # Sort clusters by their midpoint (top+bottom)/2
+        clusters.sort(key=lambda c: get_midpoint(c["span"][0], c["span"][1]))
+
+        # Within each cluster, sort left-to-right
         for cluster in clusters:
-            sorted_cluster = sorted(
-                cluster["elements"], key=get_first_horizontal_position
-            )
-            sorted_elements.extend(sorted_cluster)
+            cluster["elements"].sort(key=get_first_horizontal_position)
+            sorted_result.extend(cluster["elements"])
 
-    return sorted_elements
+    return sorted_result
 
 
 def check_blue_color(document_path, elements, margin=5, dpi=300):
