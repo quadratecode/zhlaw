@@ -235,24 +235,19 @@ def convert_bounds_to_pymupdf(elements):
     for element in elements:
         if "page_height" in element:
             page_height = element["page_height"]
-            converted_element = (
-                element.copy()
-            )  # Make a shallow copy of the element to preserve all existing data
-            if "Bounds" in element:
-                converted_element["Bounds"] = convert(element["Bounds"], page_height)
-            if "CharBounds" in element:
-                converted_element["CharBounds"] = [
-                    convert(bounds, page_height) for bounds in element["CharBounds"]
-                ]
-            converted_elements.append(
-                converted_element
-            )  # Add the converted element to the list
         else:
-            # TODO: Add more information to warning -> Log event
-            print("Warning: Element missing 'page_height' key, cannot convert bounds.")
-            converted_elements.append(
-                element
-            )  # Optionally handle or skip elements without page height
+            page_height = 595.0
+            logger.warning("Element missing 'page_height' key, defaulting to 595.0")
+        converted_element = (
+            element.copy()
+        )  # Make a shallow copy of the element to preserve all existing data
+        if "Bounds" in element:
+            converted_element["Bounds"] = convert(element["Bounds"], page_height)
+        if "CharBounds" in element:
+            converted_element["CharBounds"] = [
+                convert(bounds, page_height) for bounds in element["CharBounds"]
+            ]
+        converted_elements.append(converted_element)
 
     return converted_elements
 
@@ -285,6 +280,7 @@ def sort_elements(elements, margin_ratio=0.005):
         - The first horizontal position is taken from the first coordinate of "CharBounds" if available, or from "Bounds".
         - All elements on the same page are assumed to have the same "page_height" attribute.
     """
+
     def get_vertical_span(element):
         if "CharBounds" in element:
             top = min(bounds[1] for bounds in element["CharBounds"])
