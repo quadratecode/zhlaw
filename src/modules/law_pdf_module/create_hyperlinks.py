@@ -84,7 +84,9 @@ def find_subprovisions(soup):
 
         # If the paragraph text consists solely of digits or digits followed by specific strings (e.g., "7bis", "10ter", etc.),
         # we treat it as a subprovision of the last known provision.
-        subprovision_pattern = re.compile(r"^(\d+)(bis|ter|quater|quinquies|sexies|septies|octies)?$", re.IGNORECASE)
+        subprovision_pattern = re.compile(
+            r"^(\d+)(bis|ter|quater|quinquies|sexies|septies|octies)?$", re.IGNORECASE
+        )
         if subprovision_pattern.match(text):
             # Mark it with the CSS class "subprovision"
             paragraph["class"] = ["subprovision"]
@@ -158,6 +160,8 @@ def find_enumerations(soup):
     letter_pattern = re.compile(r"^[a-zA-Z]{1,2}\.$")
     # Pattern to match single or double digits followed by a period
     number_pattern = re.compile(r"^\d{1,2}\.$")
+    # Pattern to match "–" at the beginning of th string followed by a space
+    dash_pattern = re.compile(r"–")
 
     paragraphs = [
         p
@@ -165,8 +169,6 @@ def find_enumerations(soup):
         if not p.find_parent(["h1", "h2", "h3", "h4", "h5", "h6"])
         and "marginalia" not in p.get("class", [])
     ]
-    previous_enum_type = None
-    current_level_class = "first-level"
 
     for paragraph in paragraphs:
         # Extract all text nodes directly under the paragraph element, ignoring any text within <sup> tags
@@ -180,28 +182,16 @@ def find_enumerations(soup):
             # Add 'enum-lit' class to the paragraph
             if "enum-lit" not in existing_classes:
                 paragraph["class"] = existing_classes + ["enum-lit"]
-            current_enum_type = "enum-lit"
         elif number_pattern.match(text):
             # Add 'enum-ziff' class to the paragraph
             if "enum-ziff" not in existing_classes:
                 paragraph["class"] = existing_classes + ["enum-ziff"]
-            current_enum_type = "enum-ziff"
+        elif dash_pattern.match(text):
+            # Add 'enum-ziff' class to the paragraph
+            if "enum-dash" not in existing_classes:
+                paragraph["class"] = existing_classes + ["enum-dash"]
         else:
             continue
-
-        # Assign 'first-level' or 'second-level' class
-        if previous_enum_type is None or previous_enum_type == current_enum_type:
-            paragraph["class"] = paragraph.get("class", []) + [current_level_class]
-        else:
-            # Switch level class and apply to current paragraph
-            current_level_class = (
-                "second-level"
-                if current_level_class == "first-level"
-                else "first-level"
-            )
-            paragraph["class"] = paragraph.get("class", []) + [current_level_class]
-
-        previous_enum_type = current_enum_type
 
     return soup
 
@@ -347,51 +337,43 @@ def find_footnotes(soup):
     # Find all paragraph elements
     paragraphs = soup.find_all("p")
 
-    # Filter paragraphs that do not have excluded classes and are not under any headings
-    results = [
-        p
-        for p in paragraphs
-        if not p.find_parent(["h1", "h2", "h3", "h4", "h5", "h6"])
-        and not any(cls in p.get("class", []) for cls in excluded_classes)
-    ]
-
-    for paragraph in results:
-        # Get font data attributes from data-font-size and data-font-family
-        font_size = float(paragraph.get("data-font-size", 0))
-        # Check if paragraph contains sup tag with a number
-        if paragraph.find("sup") and contains_number_but_no_letter(
-            paragraph.get_text()
-        ):
-            has_sup = True
-        else:
-            has_sup = False
-
-        # Check if font size is below 9pt (non superscript) or below 5pt (superscript)
-        # Give class "footnote" to the paragraph
-        # Font family not relevant since some footnotes are in a different font
-        if (font_size < 9 and not has_sup) or (font_size < 5 and has_sup):
-            paragraph["class"] = ["footnote"]
-
-    return soup
-
-
-def remove_content_after_last_footnote(soup):
-
-    # Reading bottom to top, find the first occurence of class "footnote"
-    # Remove all siblings after the last footnote
-    last_footnote = soup.find_all("p", class_="footnote")[-1]
-    content_removed = False
-    for sibling in last_footnote.find_next_siblings():
-        sibling.decompose()
-        content_removed = True
-
-    # If content was removed, insert a warning paragraph
-    if content_removed:
-        warning_paragraph = soup.new_tag("p", **{"class": "missing-content"})
-        warning_paragraph.string = (
-            "Hinweis: Inhalt nach den Fussnoten automatisch entfernt."
+    results = []
+    for p in paragraphs:
+        # Skip paragraphs that are under any heading
+        if p.find_parent(["h1", "h2", "h3", "h4", "h5", "h6"]):
+            continue
+        # Skip paragraphs that have any of the excluded classes
+        if any(cls in p.get("class", []) for cls in excluded_classes):
+            continue
+        # Skip paragraphs that come after a heading containing "Anhang" or "Anhänge"
+        last_heading = next(
+            (
+                tag
+                for tag in p.find_all_previous(["h1", "h2", "h3", "h4", "h5", "h6"])
+                if re.search(r"\bAnhang(?:e)?\b", tag.get_text(), re.IGNORECASE)
+            ),
+            None,
         )
-        last_footnote.insert_after(warning_paragraph)
+        if last_heading:
+            continue
+
+        # Get font data attributes from data-font-size (defaulting to 0 if missing)
+        try:
+            font_size = float(p.get("data-font-size", 0))
+        except ValueError:
+            font_size = 0
+
+        # Check if paragraph contains a <sup> tag with a number
+        has_sup = False
+        if p.find("sup") and contains_number_but_no_letter(p.get_text()):
+            has_sup = True
+
+        # Check if font size is below 9pt (non-superscript) or below 5pt (superscript)
+        # Then give the paragraph the class "footnote"
+        if (font_size < 9 and not has_sup) or (font_size < 5 and has_sup):
+            p["class"] = ["footnote"]
+
+        results.append(p)
 
     return soup
 
@@ -404,6 +386,9 @@ def handle_footnotes_refs(soup):
         and tag.get("data-text-color") == "LinkBlue"
         and "provision"
         not in tag.get("class", [])  # Exclude sup numbers from provisions
+        and not re.search(
+            r"\d+\.", tag.get_text(strip=True)
+        )  # and does not contain a number followed by a period, so that Ziff-numbers are excluded
     )
 
     for ref in footnote_refs:
@@ -462,10 +447,6 @@ def main(merged_html_law, updated_json_file_law):
 
     # Update HTML file with hyperlinks
     soup = update_html_with_hyperlinks(hyperlinks, soup)
-
-    # Remove content after footnotes
-    # Does no longer work with current logic
-    # soup = remove_content_after_last_footnote(soup)
 
     # Save the updated HTML content back to the same file
     with open(merged_html_law, "w", encoding="utf-8") as file:
