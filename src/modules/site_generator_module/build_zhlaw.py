@@ -120,6 +120,7 @@ def insert_header(soup):
                     placeholder: "Gesetzessammlung durchsuchen",
                     zero_results: "Keine Treffer für [SEARCH_TERM]"
                 },
+                openFilters: ["Text in Kraft", "Versionen"],
                 autofocus: true,
                 showImages: false
             });
@@ -546,7 +547,9 @@ def process_enum_elements(soup):
     """
     # Find all paragraphs with enum-lit or enum-ziff classes
     enum_paragraphs = soup.find_all(
-        "p", class_=lambda x: x and ("enum-lit" in x or "enum-ziff" in x)
+        "p",
+        class_=lambda x: x
+        and ("enum-lit" in x or "enum-ziff" in x or "enum-dash" in x),
     )
 
     for p in enum_paragraphs:
@@ -561,7 +564,7 @@ def process_enum_elements(soup):
 
         if first_text:
             # Pattern for both letter and number enumerations
-            match = re.match(r"^([a-zA-Z0-9]+\.)", first_text)
+            match = re.match(r"^((?:[a-zA-Z0-9]+\.)|(?:– ))", first_text)
 
             if match:
                 number = match.group(1)
@@ -641,7 +644,7 @@ def wrap_subprovisions(soup):
     Handles multi-paragraph subprovisions by checking if subsequent paragraphs belong to the same subprovision.
     Preserves HTML structure including footnotes when consolidating paragraphs.
     """
-    paragraphs = soup.find_all("p")
+    paragraphs = [p for p in soup.find_all("p") if p.get("id") != "annex-info"]
 
     i = 0
     while i < len(paragraphs) - 1:
@@ -761,6 +764,26 @@ def main(soup, html_file, doc_info, type, law_origin):
             else:
                 # Do nothing
                 pass
+
+        # 9) Insert annex-callout
+        annex = soup.find("details", id="annex")
+        if annex:
+            annex_info = soup.new_tag("div", id="annex-info")
+            # If law_page_url exists, it should link to it
+            # Otherwise, just display "Originalquelle"
+            law_page_url = doc_info.get("law_page_url")
+            if law_page_url:
+                annex_info.clear()
+                annex_info.append(
+                    "Achtung: Anhänge weisen oft Konvertierungsfehler auf. Bitte überpürfe die "
+                )
+                link = soup.new_tag("a", href=law_page_url, target="_blank")
+                link.string = "Originalquelle"
+                annex_info.append(link)
+                annex_info.append(".")
+            else:
+                annex_info.string = "Achtung: Anhänge weisen oft Konvertierungsfehler auf. Bitte überpürfe die Originalquelle."
+            annex.insert(0, annex_info)
 
     # Insert header and footer (applies even if type == "site_element")
     soup = insert_header(soup)
