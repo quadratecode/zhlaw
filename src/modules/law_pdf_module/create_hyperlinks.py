@@ -59,10 +59,12 @@ def find_subprovisions(soup):
     # Look through all <p> tags that:
     # 1) Do NOT have data-text-color="LinkBlue"
     # 2) Have a numeric data-font-size > 5
+    # 3) Does not have data-sup-type="SquareCubic"
     for paragraph in soup.find_all(
         "p",
         attrs={
             "data-text-color": lambda x: x != "LinkBlue",
+            "data-sup-type": lambda x: x != "SquareCubic",
             "data-font-size": lambda x: (
                 x is not None and x.replace(".", "", 1).isdigit() and float(x) > 5
             ),
@@ -157,7 +159,7 @@ def find_enumerations(soup):
         BeautifulSoup: The modified BeautifulSoup object with enumeration paragraphs marked.
     """
     # Pattern to match single or double letters followed by a period
-    letter_pattern = re.compile(r"^[a-zA-Z]{1,2}\.$")
+    letter_pattern = re.compile(r"^[a-zA-Z]\.$")
     # Pattern to match single or double digits followed by a period
     number_pattern = re.compile(r"^\d{1,2}\.$")
     # Pattern to match "–" at the beginning of th string followed by a space
@@ -330,50 +332,105 @@ def contains_number_but_no_letter(text):
     return bool(re.search(r"\d", text)) and not bool(re.search(r"[a-zA-Z]", text))
 
 
+import re
+
+
 def find_footnotes(soup):
-    # Exclude these classes from the search
-    excluded_classes = ["provision", "subprovision", "enum", "marginalia"]
+    # Pattern for OS match: "OS" followed by a number, a comma, and a second number.
+    # (Whitespace is allowed between parts; this search is case-sensitive.)
+    os_pattern = re.compile(r"OS\s*\d+\s*,\s*\d+")
 
-    # Find all paragraph elements
-    paragraphs = soup.find_all("p")
+    # Pattern for annex match: look for any of the target words (case-insensitive).
+    annex_pattern = re.compile(
+        r"Anhang|Anhänge|Verzeichnis|Verzeichnisse", re.IGNORECASE
+    )
 
-    results = []
-    for p in paragraphs:
-        # Skip paragraphs that are under any heading
-        if p.find_parent(["h1", "h2", "h3", "h4", "h5", "h6"]):
-            continue
-        # Skip paragraphs that have any of the excluded classes
-        if any(cls in p.get("class", []) for cls in excluded_classes):
-            continue
-        # Skip paragraphs that come after a heading containing "Anhang" or "Anhänge"
-        last_heading = next(
-            (
-                tag
-                for tag in p.find_all_previous(["h1", "h2", "h3", "h4", "h5", "h6"])
-                if re.search(r"\bAnhang(?:e)?\b", tag.get_text(), re.IGNORECASE)
-            ),
-            None,
-        )
-        if last_heading:
-            continue
+    # Define heading tags.
+    heading_tags = ["h1", "h2", "h3", "h4", "h5", "h6"]
 
-        # Get font data attributes from data-font-size (defaulting to 0 if missing)
+    # 1. Get all headings in document order.
+    all_headings = soup.find_all(heading_tags)
+
+    # 2. Find the first heading that contains one of the annex strings.
+    annex_match = None
+    for h in all_headings:
+        if annex_pattern.search(h.get_text()):
+            annex_match = h
+            break
+
+    # 3. Find the very last heading in the document.
+    last_heading = all_headings[-1] if all_headings else None
+
+    # 4. If an annex_match was found, record the last heading occurring before it.
+    last_heading_before_annex = None
+    if annex_match:
+        for h in all_headings:
+            if h == annex_match:
+                break
+            last_heading_before_annex = h
+
+    # 5. Find the first OS match in paragraphs with font_size < 9.
+    os_match = None
+    all_paragraphs = soup.find_all("p")
+    for p in all_paragraphs:
+        try:
+            font_size = float(p.get("data-font-size", 0))
+        except ValueError:
+            font_size = 0
+        if font_size < 9:
+            if os_pattern.search(p.get_text()):
+                os_match = p
+                break
+
+    # 6. Determine the region in which to consider paragraphs as possible footnotes.
+    # Default: only paragraphs after the last heading.
+    region = "after_last_heading"
+    if os_match and annex_match:
+        # If os_match appears before annex_match, the annex is at the document’s end.
+        if os_match in annex_match.find_all_previous():
+            region = "between_last_heading_before_annex_and_annex_match"
+        else:
+            region = "after_last_heading"
+    # If either os_match or annex_match is missing, region remains "after_last_heading".
+
+    # 7. Process paragraphs that fall within the defined region.
+    for p in all_paragraphs:
+        # Region filtering:
+        if region == "after_last_heading":
+            # If there's a last heading, consider only paragraphs coming after it.
+            if last_heading is not None and last_heading not in p.find_all_previous():
+                continue
+        elif region == "between_last_heading_before_annex_and_annex_match":
+            # Consider only paragraphs after last_heading_before_annex...
+            if (
+                last_heading_before_annex is not None
+                and last_heading_before_annex not in p.find_all_previous()
+            ):
+                continue
+            # ...and before annex_match.
+            if annex_match is not None and annex_match not in p.find_all_next():
+                continue
+
+        # 8. Get the font size from the "data-font-size" attribute (default to 0 if missing).
         try:
             font_size = float(p.get("data-font-size", 0))
         except ValueError:
             font_size = 0
 
-        # Check if paragraph contains a <sup> tag with a number
+        # 9. Check for a <sup> tag with a number (and no letter).
         has_sup = False
         if p.find("sup") and contains_number_but_no_letter(p.get_text()):
             has_sup = True
 
-        # Check if font size is below 9pt (non-superscript) or below 5pt (superscript)
-        # Then give the paragraph the class "footnote"
-        if (font_size < 9 and not has_sup) or (font_size < 5 and has_sup):
+        # 10. Apply the footnote logic if the paragraph does not have the "provision", "subprovision", or "marginalia" class:
+        #    - If the paragraph’s font size is below 9 (when not superscript)
+        #    - Or below 5 (when it has a <sup> tag),
+        # then mark it as a footnote.
+        if ((font_size < 9 and not has_sup) or (font_size < 5 and has_sup)) and not any(
+            cls in p.get("class", [])
+            for cls in ["provision", "subprovision", "marginalia"]
+        ):
             p["class"] = ["footnote"]
-
-        results.append(p)
 
     return soup
 

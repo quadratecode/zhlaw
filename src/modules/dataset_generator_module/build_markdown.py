@@ -100,6 +100,16 @@ def convert_html_to_md(html_content, metadata, ordnungsnummer, nachtragsnummer):
     for footnote in soup.find_all(class_="footnote"):
         footnote.decompose()
 
+    # Remove element with id "footnote-line"
+    footnote_line = soup.find(id="footnote-line")
+    if footnote_line:
+        footnote_line.decompose()
+
+    # Remove element with id "annex"
+    annex = soup.find(id="annex")
+    if annex:
+        annex.decompose()
+
     # 3. Convert dynamic hyperlinks
     base_url = f"https://www.zhlaw.ch/col-zh/{ordnungsnummer}-{nachtragsnummer}.html"
     for link in soup.find_all("a", href=True):

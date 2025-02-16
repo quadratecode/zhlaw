@@ -314,6 +314,30 @@ def sort_elements(elements, margin_ratio=0.005):
     return sorted_result
 
 
+def mark_square_cubic_meters(elements):
+    """
+    Marks elements which contain a square or cubic meter number with the attribute "SupType": "SquareCubic".
+    Conditions:
+    - Text size above 5 but below 9
+    - Has attribute "TextPosition": "Sup"
+    - Does not have attribute "TextColor": "LinkBlue"
+    - Must contain number "2" or "3"
+    - Prceding element ends with lower case "m"
+    """
+    for i, element in enumerate(elements):
+        if (
+            element.get("attributes", {}).get("TextPosition") == "Sup"
+            and element.get("attributes", {}).get("TextColor") != "LinkBlue"
+            and element.get("TextSize", 0) > 5
+            and element.get("TextSize", 0) < 9
+            and any(char in element.get("Text", "") for char in ["2", "3"])
+            and i > 0
+            and elements[i - 1].get("Text", "").endswith("m")
+        ):
+            element["attributes"] = {"SupType": "SquareCubic"}
+    return elements
+
+
 def check_blue_color(document_path, elements, margin=5, dpi=300):
     """
     Checks for blue color within the bounds of text elements in a PDF document, optionally expanding the check area by a margin.
@@ -430,6 +454,9 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
 
     # Check for blue color in elements
     elements = check_blue_color(modified_pdf_path, elements)
+
+    # Mark square and cubic meters
+    elements = mark_square_cubic_meters(elements)
 
     # Add hyperlinks to extended_metadata
     if "extended_metadata" not in json_data:
