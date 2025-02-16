@@ -30,6 +30,8 @@
     --in-force-dark-green: darkgreen;
     --in-force-red: rgb(255, 207, 207);
     --in-force-dark-red: darkred;
+    --light-purple: #eee7ff;
+    --dark-purple: #280059;
     --disabled-grey: rgb(205, 205, 205);
 
     /* Font Weights */
@@ -239,6 +241,21 @@ body {
     color: var(--in-force-dark-red);
 }
 
+#annex summary {
+    cursor: pointer;
+}
+
+/* Styling the infobox for #annex-info */
+#annex-info {
+    background-color: var(--light-purple);
+    color: var(--dark-purple);
+    font-weight: var(--font-weight-bold);
+    padding: 1em;
+    margin-top: 0.5em;
+    line-height: 1.5;
+    font-size: 0.95em;
+}
+
 #doc-info {
     border: 1px solid var(--soft-black);
     position: static !important;
@@ -306,7 +323,8 @@ h2,
 h3,
 h4,
 h5,
-h6 {
+h6,
+#annex summary {
     font-family: var(--font-text);
     font-weight: var(--font-weight-bold);
     color: var(--dark-shade);
@@ -320,7 +338,8 @@ h1 {
     margin-top: 0;
 }
 
-h2 {
+h2,
+#annex summary {
     font-size: 1.75rem;
 }
 
@@ -656,7 +675,8 @@ body {
     text-decoration: none;
     font-family: var(--font-code);
     text-underline-offset: initial;
-    font-size: 0.8em;
+    font-size: 10px;
+    font-weight: var(--font-weight-regular);
 }
 
 /* Subprovision reference styling */
