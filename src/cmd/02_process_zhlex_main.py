@@ -3,14 +3,13 @@
 # §§
 
 # Import custom modules
-from src.modules.general_module import clean_html
-from src.modules.general_module import json_to_html
-
-from src.modules.law_pdf_module import extend_metadata
-from src.modules.law_pdf_module import merge_marginalia
-from src.modules.law_pdf_module import match_marginalia
-from src.modules.law_pdf_module import create_hyperlinks
-
+from src.modules.general_module import clean_html, json_to_html
+from src.modules.law_pdf_module import (
+    extend_metadata,
+    merge_marginalia,
+    match_marginalia,
+    create_hyperlinks,
+)
 
 # Import external modules
 import arrow
@@ -19,6 +18,8 @@ import glob
 import json
 from tqdm import tqdm
 import argparse
+import sys
+import concurrent.futures
 
 # Set up logging
 logging.basicConfig(
@@ -29,118 +30,144 @@ logging.basicConfig(
 )
 
 
-def main(folder):
+def generate_file_paths(pdf_file: str) -> dict:
+    """
+    Given an original PDF file path, generate and return a dictionary of derived file paths.
+    """
+    return {
+        "original_pdf_path": pdf_file,
+        "json_file_law": pdf_file.replace("-original.pdf", "-modified.json"),
+        "json_file_law_updated": pdf_file.replace(
+            "-original.pdf", "-modified-updated.json"
+        ),
+        "modified_pdf_path": pdf_file.replace("-original.pdf", "-modified.pdf"),
+        "json_file_marginalia": pdf_file.replace("-original.pdf", "-marginalia.json"),
+        "json_file_marginalia_updated": pdf_file.replace(
+            "-original.pdf", "-marginalia-updated.json"
+        ),
+        "modified_pdf_path_marginalia": pdf_file.replace(
+            "-original.pdf", "-marginalia.pdf"
+        ),
+        "metadata_file": pdf_file.replace("-original.pdf", "-metadata.json"),
+        "html_file_law": pdf_file.replace("-original.pdf", "-modified.html"),
+        "html_file_marginalia": pdf_file.replace("-original.pdf", "-marginalia.html"),
+        "merged_html_law": pdf_file.replace("-original.pdf", "-merged.html"),
+    }
 
-    # Initialize error counter
-    error_counter = 0
 
-    # Timestamp
-    timestamp = arrow.now().format("YYYYMMDD-HHmmss")
+def read_metadata(metadata_file: str) -> dict:
+    """Reads and returns the metadata from a JSON file."""
+    with open(metadata_file, "r") as f:
+        return json.load(f)
 
+
+def write_metadata(metadata_file: str, metadata: dict) -> None:
+    """Writes the updated metadata back to the JSON file."""
+    with open(metadata_file, "w") as f:
+        json.dump(metadata, f, indent=4, ensure_ascii=False)
+
+
+def process_pdf_file(pdf_file: str) -> bool:
+    """
+    Process a single PDF file by:
+      - Extending metadata (extracting color) for law and marginalia PDFs.
+      - Converting JSON to HTML for both law and marginalia.
+      - Merging marginalia, matching them with the law,
+        creating hyperlinks, and cleaning the final HTML.
+      - Updating metadata with a processing timestamp.
+    Returns True if processing succeeded; otherwise, False.
+    """
+    paths = generate_file_paths(pdf_file)
+    try:
+        metadata = read_metadata(paths["metadata_file"])
+
+        logging.info(f"Extracting color for law: {pdf_file}")
+        extend_metadata.main(
+            paths["original_pdf_path"],
+            paths["modified_pdf_path"],
+            paths["json_file_law"],
+            paths["json_file_law_updated"],
+        )
+        logging.info(f"Finished extracting color for law: {pdf_file}")
+
+        logging.info(f"Extracting color for marginalia: {pdf_file}")
+        extend_metadata.main(
+            paths["original_pdf_path"],
+            paths["modified_pdf_path_marginalia"],
+            paths["json_file_marginalia"],
+            paths["json_file_marginalia_updated"],
+        )
+        logging.info(f"Finished extracting color for marginalia: {pdf_file}")
+
+        logging.info(f"Converting law JSON to HTML: {pdf_file}")
+        json_to_html.main(
+            paths["json_file_law_updated"],
+            metadata,
+            paths["html_file_law"],
+            marginalia=False,
+        )
+        logging.info(f"Finished converting law JSON to HTML: {pdf_file}")
+
+        logging.info(f"Converting marginalia JSON to HTML: {pdf_file}")
+        json_to_html.main(
+            paths["json_file_marginalia_updated"],
+            metadata,
+            paths["html_file_marginalia"],
+            marginalia=True,
+        )
+        logging.info(f"Finished converting marginalia JSON to HTML: {pdf_file}")
+
+        logging.info(f"Merging marginalia: {pdf_file}")
+        merge_marginalia.main(paths["html_file_marginalia"])
+        logging.info(f"Finished merging marginalia: {pdf_file}")
+
+        logging.info(f"Matching marginalia: {pdf_file}")
+        match_marginalia.main(
+            paths["html_file_law"],
+            paths["html_file_marginalia"],
+            paths["merged_html_law"],
+        )
+        logging.info(f"Finished matching marginalia: {pdf_file}")
+
+        logging.info(f"Creating hyperlinks: {pdf_file}")
+        create_hyperlinks.main(paths["merged_html_law"], paths["json_file_law_updated"])
+        logging.info(f"Finished creating hyperlinks: {pdf_file}")
+
+        logging.info(f"Cleaning HTML: {pdf_file}")
+        clean_html.main(paths["merged_html_law"])
+        logging.info(f"Finished cleaning HTML: {pdf_file}")
+
+        # Add processing timestamp to metadata
+        timestamp = arrow.now().format("YYYYMMDD-HHmmss")
+        metadata.setdefault("process_steps", {})["generate_html"] = timestamp
+        write_metadata(paths["metadata_file"], metadata)
+        return True
+    except Exception as e:
+        timestamp = arrow.now().format("YYYYMMDD-HHmmss")
+        logging.error(f"Error in {__file__}: {e} at {timestamp}", exc_info=True)
+        return False
+
+
+def main(folder: str) -> None:
+    """
+    Process all PDF files in the specified folder in parallel.
+    """
     logging.info("Loading laws index")
-    pdf_files = glob.glob(
-        f"data/zhlex/{folder}/**/**/*-original.pdf",
-        recursive=True,
-    )
-    # Remove duplicates found from different junctions
+    pdf_files = glob.glob(f"data/zhlex/{folder}/**/**/*-original.pdf", recursive=True)
     pdf_files = list(set(pdf_files))
     if not pdf_files:
         logging.info("No PDF files found. Exiting.")
         return
 
-    for pdf_file in tqdm(pdf_files):
-        original_pdf_path = pdf_file
-        json_file_law = pdf_file.replace("-original.pdf", "-modified.json")
-        json_file_law_updated = pdf_file.replace(
-            "-original.pdf", "-modified-updated.json"
+    error_counter = 0
+    # Using ProcessPoolExecutor for CPU-bound tasks
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        # Map the process_pdf_file function to all pdf_files and wrap with tqdm for progress bar
+        results = list(
+            tqdm(executor.map(process_pdf_file, pdf_files), total=len(pdf_files))
         )
-        modified_pdf_path = pdf_file.replace("-original.pdf", "-modified.pdf")
-        json_file_marginalia = pdf_file.replace("-original.pdf", "-marginalia.json")
-        json_file_marginalia_updated = pdf_file.replace(
-            "-original.pdf", "-marginalia-updated.json"
-        )
-        modified_pdf_path_marginalia = pdf_file.replace(
-            "-original.pdf", "-marginalia.pdf"
-        )
-        metadata_file = pdf_file.replace("-original.pdf", "-metadata.json")
-        html_file_law = pdf_file.replace("-original.pdf", "-modified.html")
-        html_file_marginalia = pdf_file.replace("-original.pdf", "-marginalia.html")
-        merged_html_law = pdf_file.replace("-original.pdf", "-merged.html")
 
-        try:
-            with open(metadata_file, "r") as f:
-                metadata = json.load(f)
-
-            # Extract color from law PDF
-            logging.info(f"Extracting color for law: {pdf_file}")
-            extend_metadata.main(
-                original_pdf_path,
-                modified_pdf_path,
-                json_file_law,
-                json_file_law_updated,
-            )
-            logging.info(f"Finished extracting color for law: {pdf_file}")
-
-            # Extract color from marginalia PDF
-            logging.info(f"Extracting color for marginalia: {pdf_file}")
-            extend_metadata.main(
-                original_pdf_path,
-                modified_pdf_path_marginalia,
-                json_file_marginalia,
-                json_file_marginalia_updated,
-            )
-            logging.info(f"Finished extracting color for marginalia: {pdf_file}")
-
-            # Convert JSON to HTML
-            logging.info(f"Converting to HTML: {pdf_file}")
-            json_to_html.main(
-                json_file_law_updated, metadata, html_file_law, marginalia=False
-            )
-            logging.info(f"Finished converting to HTML: {pdf_file}")
-
-            # Converting marginalia to HTML
-            logging.info(f"Converting to HTML: {pdf_file}")
-            json_to_html.main(
-                json_file_marginalia_updated,
-                metadata,
-                html_file_marginalia,
-                marginalia=True,
-            )
-            logging.info(f"Finished converting to HTML: {pdf_file}")
-
-            # Merge marginalia which belong togehter
-            logging.info(f"Merging marginalia: {pdf_file}")
-            merge_marginalia.main(html_file_marginalia)
-            logging.info(f"Finished merging marginalia: {pdf_file}")
-
-            # Match marginalia with the law
-            logging.info(f"Matching marginalia: {pdf_file}")
-            match_marginalia.main(html_file_law, html_file_marginalia, merged_html_law)
-            logging.info(f"Finished matching marginalia: {pdf_file}")
-
-            # Match footnotes and hyperlinks
-            logging.info(f"Matching footnotes and links: {pdf_file}")
-            create_hyperlinks.main(merged_html_law, json_file_law_updated)
-            logging.info(f"Finished matching footnotes and links: {pdf_file}")
-
-            # Final Clean-Up
-            logging.info(f"Cleaning HTML: {pdf_file}")
-            clean_html.main(merged_html_law)
-            logging.info(f"Finished cleaning HTML: {pdf_file}")
-            # Add timestamp to metadata
-            metadata["process_steps"]["generate_html"] = timestamp
-
-            # Save the updated metadata
-            with open(metadata_file, "w") as f:
-                json.dump(metadata, f, indent=4, ensure_ascii=False)
-
-        except Exception as e:
-            logging.error(
-                f"Error during in {__file__}: {e} at {timestamp}", exc_info=True
-            )
-            error_counter += 1
-            continue
-
+    error_counter = results.count(False)
     logging.info(f"Finished processing HTML with {error_counter} errors")
 
 

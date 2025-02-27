@@ -11,9 +11,117 @@ import random
 # Get logger from main module
 logger = logging.getLogger(__name__)
 
+# Module-level constants for default values and magic numbers
+MM_TO_POINTS = 2.83465  # 1 mm ≈ 2.83465 points
+DEFAULT_PAGE_HEIGHT = 595.0
+DEBUG_DRAWING_COLOR = (1, 0, 0)  # Red color for debug drawing
+DEBUG_DRAWING_WIDTH = 1.5
+DPI_DEFAULT = 300
 
-# Function to unnest 'Kids' and add them as top-level elements
+
+# -----------------------------------------------------------------------------
+# Helper Functions
+# -----------------------------------------------------------------------------
+def get_vertical_span(element):
+    """
+    Returns the top and bottom vertical positions of an element.
+    Uses 'CharBounds' if available; otherwise, uses 'Bounds'.
+    """
+    if "CharBounds" in element and element["CharBounds"]:
+        top = min(bounds[1] for bounds in element["CharBounds"])
+        bottom = max(bounds[3] for bounds in element["CharBounds"])
+    else:
+        top = element["Bounds"][1]
+        bottom = element["Bounds"][3]
+    return top, bottom
+
+
+def expand_rect(rect, margin):
+    """
+    Expands a given fitz.Rect by a margin on all sides.
+    """
+    return fitz.Rect(
+        rect.x0 - margin,
+        rect.y0 - margin,
+        rect.x1 + margin,
+        rect.y1 + margin,
+    )
+
+
+def try_split_provision(elements, i):
+    """
+    Splits an element if its text matches a provision pattern.
+    Returns True if a split occurred.
+    """
+    text = elements[i]["Text"].strip()
+    match = re.match(r"^(§ \d+[a-zA-Z]?\.)(.*)$", text)
+    if match:
+        before, after = match.groups()
+        if after:
+            new_element = elements[i].copy()
+            new_element["Text"] = after.strip()
+            elements[i]["Text"] = before
+            bounds_key = "CharBounds" if "CharBounds" in elements[i] else "Bounds"
+            new_element[bounds_key] = elements[i].get(bounds_key, [])
+            elements.insert(i + 1, new_element)
+        return True
+    return False
+
+
+def try_merge_dash(elements, i):
+    """
+    Merges elements if the current element contains a dash ("-").
+    Returns True if a merge occurred.
+    """
+    text = elements[i]["Text"].strip()
+    if text == "-" and i > 0 and i < len(elements) - 1:
+        bounds_key = "CharBounds" if "CharBounds" in elements[i - 1] else "Bounds"
+        elements[i - 1]["Text"] += elements[i + 1]["Text"]
+        elements[i - 1][bounds_key] += elements[i + 1].get(bounds_key, [])
+        del elements[i : i + 2]
+        return True
+    return False
+
+
+def try_merge_comma(elements, i):
+    """
+    Merges elements if the current element contains a comma (",").
+    Returns True if a merge occurred.
+    """
+    text = elements[i]["Text"].strip()
+    if text == "," and i > 0 and i < len(elements) - 1:
+        bounds_key = "CharBounds" if "CharBounds" in elements[i - 1] else "Bounds"
+        elements[i - 1]["Text"] += ", " + elements[i + 1]["Text"]
+        elements[i - 1][bounds_key] += elements[i + 1].get(bounds_key, [])
+        del elements[i : i + 2]
+        return True
+    return False
+
+
+def try_merge_section(elements, i):
+    """
+    Merges elements if the current element is a section sign ("§").
+    Returns True if a merge occurred.
+    """
+    text = elements[i]["Text"].strip()
+    if text == "§" and i < len(elements) - 1:
+        bounds_key = "CharBounds" if "CharBounds" in elements[i] else "Bounds"
+        elements[i + 1]["Text"] = "§ " + elements[i + 1]["Text"]
+        elements[i + 1][bounds_key] = elements[i].get(bounds_key, []) + elements[
+            i + 1
+        ].get(bounds_key, [])
+        del elements[i]
+        return True
+    return False
+
+
+# -----------------------------------------------------------------------------
+# Core Functions
+# -----------------------------------------------------------------------------
 def flatten_elements(elements):
+    """
+    Unnests 'Kids' from elements and adds them as top-level elements.
+    """
     flat_list = []
     for element in elements:
         # Append the parent element first before its children
@@ -26,41 +134,33 @@ def flatten_elements(elements):
 
 
 def assign_unique_ids(elements):
+    """
+    Assigns a unique 20-digit random string ID to each element.
+    """
     for element in elements:
-        # Generate a random string of 20 digits
         unique_id = "".join(str(random.randint(0, 9)) for _ in range(20))
         element["unique_element_id"] = unique_id
     return elements
 
 
 def remove_header_footer(elements, header_mm=21, footer_mm=21):
-    mm_to_points = 2.83465  # 1 mm is approximately 2.83465 points
-
-    def get_vertical_span(element):
-        if "CharBounds" in element:
-            top = min(bounds[1] for bounds in element["CharBounds"])
-            bottom = max(bounds[3] for bounds in element["CharBounds"])
-        else:
-            top = element["Bounds"][1]
-            bottom = element["Bounds"][3]
-        return top, bottom
-
-    header_height = header_mm * mm_to_points
-    footer_height = footer_mm * mm_to_points
+    """
+    Removes elements that fall within the header or footer zones.
+    """
+    header_height = header_mm * MM_TO_POINTS
+    footer_height = footer_mm * MM_TO_POINTS
 
     filtered_elements = []
     for element in elements:
         page_height = element["page_height"]
-        vertical_span = get_vertical_span(element)
+        top, bottom = get_vertical_span(element)
 
         # Define header and footer zones
         header_zone = (0, header_height)
         footer_zone = (page_height - footer_height, page_height)
 
-        # Check if element is in the header or footer zone
-        if not (
-            vertical_span[1] <= header_zone[1] or vertical_span[0] >= footer_zone[0]
-        ):
+        # If the element is not fully in the header or footer zones, keep it
+        if not (bottom <= header_zone[1] or top >= footer_zone[0]):
             filtered_elements.append(element)
 
     return filtered_elements
@@ -69,13 +169,6 @@ def remove_header_footer(elements, header_mm=21, footer_mm=21):
 def add_page_heights_to_elements(document_path, elements):
     """
     Adds the height of each page to the elements based on their page number.
-
-    Args:
-    document_path (str): Path to the PDF document.
-    elements (list of dict): A list of dictionaries, each expected to contain at least a 'Page' key that indexes the page number.
-
-    Returns:
-    list of dict: The updated list of elements, each now including a 'PageHeight' key.
     """
     doc = fitz.open(document_path)  # Open the PDF file
     page_heights = [page.rect.height for page in doc]  # List of heights for each page
@@ -84,79 +177,49 @@ def add_page_heights_to_elements(document_path, elements):
         if "Page" in element:
             page_index = element["Page"]
             if page_index < len(page_heights):
-                element["page_height"] = page_heights[
-                    page_index
-                ]  # Add page height to the element
+                element["page_height"] = page_heights[page_index]
             else:
-                # TODO: Add more information to warning
-                print(
-                    f"Warning: Page index {page_index} out of range for document with {len(page_heights)} pages."
+                logger.warning(
+                    f"Page index {page_index} out of range for document with {len(page_heights)} pages."
                 )
         else:
-            print("Warning: Element missing 'Page' key, cannot assign page height.")
+            logger.warning("Element missing 'Page' key; cannot assign page height.")
 
     doc.close()  # Close the document to free resources
     return elements
 
 
 def merge_and_split_elements(elements):
+    """
+    Merges and splits elements based on specific text patterns.
+    """
     i = 0
     while i < len(elements):
-        text = elements[i]["Text"].strip()
+        # Try to split provision elements
+        if try_split_provision(elements, i):
+            i += 1
+            continue
 
-        # Check for § followed by a number, optional single letter, and period
-        match = re.match(r"^(§ \d+[a-zA-Z]?\.)(.*)$", text)
-        if match:
-            before, after = match.groups()
-            if after:
-                new_element = elements[i].copy()
-                new_element["Text"] = after.strip()
-                elements[i]["Text"] = before
+        # Try to merge dash elements
+        if try_merge_dash(elements, i):
+            continue
 
-                # Choose between CharBounds and Bounds
-                bounds_key = "CharBounds" if "CharBounds" in elements[i] else "Bounds"
-                new_element[bounds_key] = elements[i].get(bounds_key, [])
+        # Try to merge comma elements
+        if try_merge_comma(elements, i):
+            continue
 
-                elements.insert(i + 1, new_element)
-            i += 1  # Move to the next element (new or existing)
-            continue  # Skip the rest of the loop and continue with the new i
+        # Try to merge section sign elements
+        if try_merge_section(elements, i):
+            continue
 
-        if text == "-":
-            if i > 0 and i < len(elements) - 1:
-                bounds_key = (
-                    "CharBounds" if "CharBounds" in elements[i - 1] else "Bounds"
-                )
-                elements[i - 1]["Text"] += elements[i + 1]["Text"]
-                elements[i - 1][bounds_key] += elements[i + 1].get(bounds_key, [])
-                del elements[i : i + 2]  # Remove current and next element efficiently
-                continue  # Skip increment since we've changed the list size
-
-        elif text == ",":
-            if i > 0 and i < len(elements) - 1:
-                bounds_key = (
-                    "CharBounds" if "CharBounds" in elements[i - 1] else "Bounds"
-                )
-                elements[i - 1]["Text"] += ", " + elements[i + 1]["Text"]
-                elements[i - 1][bounds_key] += elements[i + 1].get(bounds_key, [])
-                del elements[i : i + 2]
-                continue
-
-        elif text == "§":
-            if i < len(elements) - 1:
-                bounds_key = "CharBounds" if "CharBounds" in elements[i] else "Bounds"
-                elements[i + 1]["Text"] = "§ " + elements[i + 1]["Text"]
-                elements[i + 1][bounds_key] = elements[i].get(
-                    bounds_key, []
-                ) + elements[i + 1].get(bounds_key, [])
-                del elements[i]
-                continue  # Adjusted for the case where the next element is modified
-
-        i += 1  # Normal increment to move to the next element
-
+        i += 1  # Normal increment
     return elements
 
 
 def extract_hyperlinks(pdf_path):
+    """
+    Extracts external hyperlinks from the PDF document.
+    """
     doc = fitz.open(pdf_path)
     text_with_links = []
 
@@ -164,21 +227,14 @@ def extract_hyperlinks(pdf_path):
         page = doc.load_page(page_num)
         links = page.get_links()  # Get links
 
-        # Process each link
         for link in links:
-            # "uri" key indicates an external hyperlink
             if "uri" in link:
                 link_rect = fitz.Rect(link["from"])
-                x = 0.02  # Padding value to expand the rect and capture surrounding text (0.5 has prooven too much)
-                expanded_rect = link_rect + (-x, -x, x, x)
-                link_text = page.get_textbox(
-                    expanded_rect
-                )  # Get text within the expanded rect
-
-                # Discard any text after a newline character
+                x = 0.02  # Padding value to expand the rect
+                expanded_rect = expand_rect(link_rect, x)
+                link_text = page.get_textbox(expanded_rect)
                 if "\n" in link_text:
                     link_text = link_text.split("\n")[0]
-
                 text_with_links.append(
                     {
                         "page_number": page_num,
@@ -187,18 +243,17 @@ def extract_hyperlinks(pdf_path):
                     }
                 )
 
-    # Discard any links where text does not contain a number
-    # Some footnotes stretch over multiple lines, which leads to inaccurate matches (e.g. for "ABl")
+    # Filter out links whose text does not contain any digits
     text_with_links = [
         link for link in text_with_links if any(char.isdigit() for char in link["text"])
     ]
 
-    # Remove any brackets or semi-colons from the text, strip whitespace
-    # Remove any trailing dots
+    # Clean up link text by removing brackets, semicolons, and trailing dots
     for link in text_with_links:
         link["text"] = re.sub(r"[();]", "", link["text"]).strip()
         link["text"] = re.sub(r"\.$", "", link["text"])
 
+    doc.close()
     return text_with_links
 
 
@@ -211,18 +266,10 @@ def del_empty_elements(elements):
 
 def convert_bounds_to_pymupdf(elements):
     """
-    Converts coordinate bounds from API format (origin at bottom-left) to PyMuPDF format (origin at top-left) for given elements,
-    while preserving all other data in the elements. This version uses page height stored in each element's metadata.
-    Converts original order of left, bottom, right, top to PyMuPDF of left, top, right, bottom.
-
-    Args:
-    elements (list of dict): A list of dictionaries, each of which may contain keys 'CharBounds' and 'Bounds', and should contain 'PageHeight'
-    indicating the height of the page to which the element belongs.
-
-    Returns:
-    list of dict: A list of dictionaries with all original data and bounds converted to the PyMuPDF coordinate system (x0, y0, x1, y1).
+    Converts coordinate bounds from the API format (origin at bottom-left)
+    to PyMuPDF format (origin at top-left) using page height metadata.
     """
-    converted_elements = []  # List to hold all converted elements
+    converted_elements = []
 
     def convert(bounds, page_height):
         left, bottom, right, top = bounds
@@ -233,14 +280,10 @@ def convert_bounds_to_pymupdf(elements):
         return (x0, y0, x1, y1)
 
     for element in elements:
-        if "page_height" in element:
-            page_height = element["page_height"]
-        else:
-            page_height = 595.0
-            logger.warning("Element missing 'page_height' key, defaulting to 595.0")
-        converted_element = (
-            element.copy()
-        )  # Make a shallow copy of the element to preserve all existing data
+        page_height = element.get("page_height", DEFAULT_PAGE_HEIGHT)
+        if "page_height" not in element:
+            logger.warning("Element missing 'page_height' key; defaulting to 595.0")
+        converted_element = element.copy()  # Shallow copy to preserve data
         if "Bounds" in element:
             converted_element["Bounds"] = convert(element["Bounds"], page_height)
         if "CharBounds" in element:
@@ -253,25 +296,21 @@ def convert_bounds_to_pymupdf(elements):
 
 
 def sort_elements(elements, margin_ratio=0.005):
-    def get_vertical_span(element):
-        if "CharBounds" in element:
-            top = min(b[1] for b in element["CharBounds"])
-            bottom = max(b[3] for b in element["CharBounds"])
-        else:
-            top = element["Bounds"][1]  # y1
-            bottom = element["Bounds"][3]  # y2
-        return top, bottom
+    """
+    Sorts elements first by page order, then clusters them by vertical positions,
+    and finally orders them left-to-right within clusters.
+    """
 
     def get_midpoint(top, bottom):
         return (top + bottom) / 2.0
 
     def get_first_horizontal_position(element):
-        if "CharBounds" in element:
-            return element["CharBounds"][0][0]  # left-most x
+        if "CharBounds" in element and element["CharBounds"]:
+            return element["CharBounds"][0][0]
         else:
-            return element["Bounds"][0]  # left-most x
+            return element["Bounds"][0]
 
-    # Group by page
+    # Group elements by page
     pages = {}
     for e in elements:
         pages.setdefault(e["Page"], []).append(e)
@@ -282,30 +321,25 @@ def sort_elements(elements, margin_ratio=0.005):
         page_height = page_elems[0]["page_height"]
         margin = page_height * margin_ratio
 
-        # Create clusters
+        # Create clusters based on vertical proximity
         clusters = []
         for elem in page_elems:
             top, bottom = get_vertical_span(elem)
             midpoint = get_midpoint(top, bottom)
-
             placed = False
             for cluster in clusters:
                 c_top, c_bottom = cluster["span"]
                 c_midpoint = get_midpoint(c_top, c_bottom)
-                # If the midpoints are close enough, same cluster
                 if abs(c_midpoint - midpoint) <= margin:
                     cluster["elements"].append(elem)
-                    # Update the cluster's span
                     cluster["span"] = (min(c_top, top), max(c_bottom, bottom))
                     placed = True
                     break
-
             if not placed:
                 clusters.append({"elements": [elem], "span": (top, bottom)})
 
-        # Sort clusters by their midpoint (top+bottom)/2
+        # Sort clusters by their vertical midpoint
         clusters.sort(key=lambda c: get_midpoint(c["span"][0], c["span"][1]))
-
         # Within each cluster, sort left-to-right
         for cluster in clusters:
             cluster["elements"].sort(key=get_first_horizontal_position)
@@ -316,13 +350,7 @@ def sort_elements(elements, margin_ratio=0.005):
 
 def mark_square_cubic_meters(elements):
     """
-    Marks elements which contain a square or cubic meter number with the attribute "SupType": "SquareCubic".
-    Conditions:
-    - Text size above 5 but below 9
-    - Has attribute "TextPosition": "Sup"
-    - Does not have attribute "TextColor": "LinkBlue"
-    - Must contain number "2" or "3"
-    - Prceding element ends with lower case "m"
+    Marks elements that likely represent square or cubic meters with the attribute "SupType": "SquareCubic".
     """
     for i, element in enumerate(elements):
         if (
@@ -338,36 +366,17 @@ def mark_square_cubic_meters(elements):
     return elements
 
 
-def check_blue_color(document_path, elements, margin=5, dpi=300):
+def check_blue_color(document_path, elements, margin=5, dpi=DPI_DEFAULT):
     """
-    Checks for blue color within the bounds of text elements in a PDF document, optionally expanding the check area by a margin.
-    Creates a high-resolution image for each element showing the checked area with red boxes, saved as separate images.
-
-    Args:
-    document_path (str): Path to the PDF document.
-    elements (list of dict): A list of dictionaries containing page, bounds data, and unique_element_id.
-    margin (int, optional): Number of points to expand the bounds by on all sides. Default is 5.
-    dpi (int, optional): Dots per inch for the output image resolution. Default is 300.
-
-    Returns:
-    list of dict: The elements list with added "attributes" key indicating the presence of blue color.
+    Checks for blue color within the bounds of text elements in a PDF document.
     """
-    doc = fitz.open(document_path)  # Open the PDF file
-    zoom = dpi / 72  # Calculate zoom based on the desired DPI
-    mat = fitz.Matrix(zoom, zoom)  # Create a matrix for this zoom
+    doc = fitz.open(document_path)
+    zoom = dpi / 72  # Calculate zoom factor
+    mat = fitz.Matrix(zoom, zoom)
 
     for element in elements:
-        page = doc.load_page(element["Page"])  # Load the page
-
-        # Define function to expand the bounds by the margin
-        def expand_rect(rect, margin):
-            return fitz.Rect(
-                rect.x0 - margin,  # left
-                rect.y0 - margin,  # top
-                rect.x1 + margin,  # right
-                rect.y1 + margin,  # bottom
-            )
-
+        page = doc.load_page(element["Page"])
+        # Process only elements that contain digits and no letters
         if re.search(r"\d", element.get("Text", "")) and not re.search(
             r"[a-zA-Z]", element.get("Text", "")
         ):
@@ -375,16 +384,16 @@ def check_blue_color(document_path, elements, margin=5, dpi=300):
             found_blue = False
 
             for bounds in bounds_list:
-                rect = fitz.Rect(*bounds)  # Create a rect for the bounds
-                expanded_rect = expand_rect(rect, margin)  # Expand the bounds by margin
-
-                # Draw a red rectangle directly on the page
-                page.draw_rect(expanded_rect, color=(1, 0, 0), width=1.5)
-
+                rect = fitz.Rect(*bounds)
+                expanded_rect = expand_rect(rect, margin)
+                # Draw debug rectangle on the page
+                page.draw_rect(
+                    expanded_rect, color=DEBUG_DRAWING_COLOR, width=DEBUG_DRAWING_WIDTH
+                )
                 clip_pix = page.get_pixmap(clip=expanded_rect, matrix=mat)
                 img = clip_pix.samples
 
-                # Check if any blue is present
+                # Check pixel data for blue dominance
                 for i in range(0, len(img), 3):
                     r, g, b = img[i], img[i + 1], img[i + 2]
                     if b > r and b > g and b > 100:
@@ -398,24 +407,6 @@ def check_blue_color(document_path, elements, margin=5, dpi=300):
                     element["attributes"] = {}
                 element["attributes"]["TextColor"] = "LinkBlue"
 
-            # Uncomment this block to visually track pdf scan for better debugging
-            # # Annotate with unique element ID
-            # text_spot = fitz.Point(rect.x0, rect.y0 - 10)
-            # fontsize = 4 * zoom  # Scale fontsize based on DPI
-            # page.insert_text(
-            #     text_spot,
-            #     element["unique_element_id"],
-            #     color=(1, 0, 0),
-            #     fontsize=fontsize,
-            # )
-
-            # # Generate a pixmap of the entire page to include the drawings
-            # pix = page.get_pixmap(matrix=mat)
-            # # Save the annotated page image for review
-            # pix.save(
-            #     f"{document_path}_annotated_element_{element['unique_element_id']}.png"
-            # )  # Save the image
-
     doc.close()
     return elements
 
@@ -426,52 +417,42 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     """
     hyperlinks = extract_hyperlinks(original_pdf_path)
 
-    with open(json_path, "r") as file:
+    with open(json_path, "r", encoding="utf-8") as file:
         json_data = json.load(file)
 
     elements = json_data["elements"]
 
     # Flatten elements
     elements = flatten_elements(elements)
-
     # Remove elements with no text
     elements = del_empty_elements(elements)
-
     # Add page heights to elements
     elements = add_page_heights_to_elements(modified_pdf_path, elements)
-
     # Assign unique IDs to elements
     elements = assign_unique_ids(elements)
-
     # Convert coordinates to PyMuPDF format
     elements = convert_bounds_to_pymupdf(elements)
-
     # Sort elements
     elements = sort_elements(elements)
-
-    # Remove headers and footers by coordinates
+    # Remove header and footer elements
     elements = remove_header_footer(elements)
-
     # Check for blue color in elements
     elements = check_blue_color(modified_pdf_path, elements)
-
     # Mark square and cubic meters
     elements = mark_square_cubic_meters(elements)
-
     # Add hyperlinks to extended_metadata
     if "extended_metadata" not in json_data:
         json_data["extended_metadata"] = {}
     json_data["extended_metadata"]["hyperlinks"] = hyperlinks
-
-    # Merge / seperate elements
+    # Merge and split elements
     elements = merge_and_split_elements(elements)
-
-    # Update elements in JSON data
+    # Update JSON data
     json_data["elements"] = elements
 
-    with open(updated_json_path, "w") as file:
+    with open(updated_json_path, "w", encoding="utf-8") as file:
         json.dump(json_data, file, indent=4, ensure_ascii=False)
 
 
 if __name__ == "__main__":
-    main()
+    # TODO: Allow command-line arguments
+    pass

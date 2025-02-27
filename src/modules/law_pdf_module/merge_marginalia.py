@@ -4,32 +4,52 @@
 
 from bs4 import BeautifulSoup, NavigableString
 import re
+from typing import Any, Dict
+
+# -----------------------------------------------------------------------------
+# Module-Level Constants
+# -----------------------------------------------------------------------------
+DATA_PAGE_COUNT = "data-page-count"
+DATA_VERTICAL_POSITION_BOTTOM = "data-vertical-position-bottom"
+DATA_VERTICAL_POSITION_TOP = "data-vertical-position-top"
+DATA_VERTICAL_POSITION_LEFT = "data-vertical-position-left"
+DATA_VERTICAL_POSITION_RIGHT = "data-vertical-position-right"
+
+DEFAULT_VERTICAL_THRESHOLD: int = 10  # Used in are_paragraphs_adjacent
+FLOAT_COMPARE_THRESHOLD: float = 0.1  # For small floating point differences
+MERGE_VERTICAL_THRESHOLD: int = 2  # Vertical threshold for merging paragraphs
+
+# Precompiled regex pattern to check for numbered paragraphs (Roman, Arabic, or single letter)
+COMBINED_PATTERN = re.compile(r"^(?:[IVXLC]+\.)|^(?:\d+\.)|^(?:[a-zA-Z]\.)")
 
 
-def clean_text(text):
+# -----------------------------------------------------------------------------
+# Helper Functions
+# -----------------------------------------------------------------------------
+def clean_text(text: str) -> str:
     """
     Clean text by removing specific patterns like "- " for hyphenation.
 
-    :param text: Text to clean
-    :return: Cleaned text
+    :param text: Text to clean.
+    :return: Cleaned text.
     """
     return text.replace("- ", "")
 
 
-def should_remove_paragraph(p):
+def should_remove_paragraph(p: Any) -> bool:
     """
-    Check if a paragraph should be removed based on criteria:
-    1. Empty paragraphs
-    2. Paragraphs containing only superscript
+    Determine if a paragraph should be removed based on:
+    1. Being empty.
+    2. Containing only superscript text.
 
-    :param p: BeautifulSoup paragraph element
-    :return: Boolean indicating if paragraph should be removed
+    :param p: BeautifulSoup paragraph element.
+    :return: True if the paragraph should be removed, False otherwise.
     """
-    # Check if paragraph is empty
+    # Remove if paragraph is empty.
     if not p.get_text().strip():
         return True
 
-    # Check if paragraph contains only superscript
+    # Remove if paragraph contains only superscript content.
     sup_tags = p.find_all("sup")
     if sup_tags and len(p.get_text().strip()) == len(
         "".join(sup.get_text() for sup in sup_tags)
@@ -39,133 +59,128 @@ def should_remove_paragraph(p):
     return False
 
 
-def is_numbered_paragraph(text):
+def is_numbered_paragraph(text: str) -> bool:
     """
-    Check if paragraph starts with roman numeral, arabic numeral, or letter followed by period.
+    Check if the text starts with a roman numeral, arabic numeral, or a letter followed by a period.
 
-    :param text: Text to check
-    :return: Boolean indicating if text matches the pattern
+    :param text: Text to check.
+    :return: True if text matches the pattern, False otherwise.
     """
-    # Remove leading whitespace
     text = text.strip()
-
-    # Roman numerals pattern (I. II. III. IV. V. etc.)
-    roman_pattern = r"^[IVXLC]+\."
-
-    # Arabic numerals pattern (1. 2. 3. etc.)
-    arabic_pattern = r"^\d+\."
-
-    # Single letter pattern (a. b. c. A. B. C. etc.)
-    letter_pattern = r"^[a-zA-Z]\."
-
-    # Combine patterns
-    combined_pattern = f"({roman_pattern}|{arabic_pattern}|{letter_pattern})"
-
-    return bool(re.match(combined_pattern, text))
+    return bool(COMBINED_PATTERN.match(text))
 
 
-def are_paragraphs_adjacent(p1, p2, vertical_threshold=10):
+def are_paragraphs_adjacent(
+    p1: Dict[str, float],
+    p2: Dict[str, float],
+    vertical_threshold: float = DEFAULT_VERTICAL_THRESHOLD,
+) -> bool:
     """
-    Check if two paragraphs should be considered adjacent based on their positions.
+    Check if two paragraphs should be considered adjacent based on their positional data.
 
-    :param p1: First paragraph data
-    :param p2: Second paragraph data
-    :param vertical_threshold: Maximum vertical distance to consider paragraphs adjacent
-    :return: Boolean indicating if paragraphs should be merged
+    :param p1: Positional data of the first paragraph.
+    :param p2: Positional data of the second paragraph.
+    :param vertical_threshold: Maximum vertical distance to consider paragraphs adjacent.
+    :return: True if paragraphs are adjacent, False otherwise.
     """
-    # Check if paragraphs are on the same page
     if p1["page"] != p2["page"]:
         return False
 
-    # Check if paragraphs start at the same vertical position
-    if (
-        abs(p1["top"] - p2["top"]) < 0.1
-    ):  # Small threshold for floating point comparison
+    # Check if paragraphs start at almost the same vertical position.
+    if abs(p1["top"] - p2["top"]) < FLOAT_COMPARE_THRESHOLD:
         return True
 
-    # Check if paragraphs are within vertical threshold
+    # Check if the vertical gap is within the threshold.
     if abs(p2["top"] - p1["bottom"]) < vertical_threshold:
         return True
 
     return False
 
 
-def merge_paragraphs(soup, vertical_threshold=2):
+def extract_positional_data(p: Any) -> Dict[str, float]:
     """
-    Merge paragraphs in a BeautifulSoup object that are on the same page and whose vertical distance
-    is less than the specified threshold. Adds an additional space between merged paragraphs.
-    Updates their positional attributes and returns the modified soup.
+    Extract positional attributes from a BeautifulSoup paragraph tag.
 
-    :param soup: BeautifulSoup object containing the paragraphs
-    :param vertical_threshold: The vertical distance threshold for merging paragraphs
-    :return: Modified BeautifulSoup object with merged paragraphs
+    :param p: BeautifulSoup paragraph element.
+    :return: Dictionary with positional data.
     """
-    # First, remove paragraphs that match removal criteria
+    return {
+        "element": p,
+        "page": int(p.get(DATA_PAGE_COUNT)),
+        "bottom": float(p.get(DATA_VERTICAL_POSITION_BOTTOM)),
+        "top": float(p.get(DATA_VERTICAL_POSITION_TOP)),
+        "left": float(p.get(DATA_VERTICAL_POSITION_LEFT)),
+        "right": float(p.get(DATA_VERTICAL_POSITION_RIGHT)),
+    }
+
+
+# -----------------------------------------------------------------------------
+# Core Functionality
+# -----------------------------------------------------------------------------
+def merge_paragraphs(
+    soup: BeautifulSoup, vertical_threshold: float = MERGE_VERTICAL_THRESHOLD
+) -> BeautifulSoup:
+    """
+    Merge paragraphs in the BeautifulSoup object that are on the same page and
+    whose vertical distance is less than the specified threshold. A space is added
+    between merged paragraphs and a line break is appended.
+
+    :param soup: BeautifulSoup object containing paragraph elements.
+    :param vertical_threshold: The vertical distance threshold for merging.
+    :return: Modified BeautifulSoup object with merged paragraphs.
+    """
+    # Remove paragraphs that meet the removal criteria.
     paragraphs = soup.find_all("p")
     for p in paragraphs:
         if should_remove_paragraph(p):
             p.decompose()
 
-    # Get remaining paragraphs after removal
+    # Retrieve remaining paragraphs.
     paragraphs = soup.find_all("p")
     current_paragraph = None
 
     for p in paragraphs:
-        # Extracting positional attributes
-        data = {
-            "element": p,
-            "page": int(p["data-page-count"]),
-            "bottom": float(p["data-vertical-position-bottom"]),
-            "top": float(p["data-vertical-position-top"]),
-            "left": float(p["data-vertical-position-left"]),
-            "right": float(p["data-vertical-position-right"]),
-        }
-
-        # Get the text content
+        data = extract_positional_data(p)
         current_text = data["element"].get_text().strip()
 
-        # If there's no current paragraph or if current paragraph starts with a number/letter,
-        # set it as the current paragraph and continue
+        # Start a new current paragraph if none exists or if the paragraph starts with a numbered pattern.
         if not current_paragraph or is_numbered_paragraph(current_text):
             current_paragraph = data
             continue
 
-        # Check if paragraphs should be merged
+        # If paragraphs are adjacent, merge the current paragraph with the new one.
         if are_paragraphs_adjacent(current_paragraph, data, vertical_threshold):
-            # Get the text from the next paragraph and clean it
             next_text = clean_text(data["element"].get_text())
-
-            # Append the cleaned text, separated by a space, to the current paragraph
-            current_paragraph["element"].append(
-                " "
-            )  # Add a space before appending text
+            # Append a space, the cleaned text, and a line break to the current paragraph.
+            current_paragraph["element"].append(" ")
             current_paragraph["element"].append(NavigableString(next_text))
-            current_paragraph["element"].append(BeautifulSoup("<br/>", "html.parser"))
-
-            # Update the bottom position
+            current_paragraph["element"].append(soup.new_tag("br"))
+            # Update the bottom position of the current paragraph.
             current_paragraph["bottom"] = data["bottom"]
-
-            # Remove the merged paragraph from the soup
+            # Remove the merged paragraph from the soup.
             data["element"].decompose()
         else:
-            # If paragraphs are not close enough, move to the new paragraph
+            # Move to the new paragraph if not adjacent.
             current_paragraph = data
 
     return soup
 
 
-def main(html_file_marginalia):
-    # Read and parse the HTML file
+def main(html_file_marginalia: str) -> None:
+    """
+    Read, process, and save the HTML file by merging adjacent paragraphs.
+
+    :param html_file_marginalia: Path to the HTML file.
+    """
     with open(html_file_marginalia, "r", encoding="utf-8") as file:
         soup = BeautifulSoup(file, "html.parser")
 
-    # Merge paragraphs
     merged_paragraphs = merge_paragraphs(soup)
 
-    # Save to file
     with open(html_file_marginalia, "w", encoding="utf-8") as file:
         file.write(str(merged_paragraphs))
 
 
 if __name__ == "__main__":
-    main()
+    # TODO: Allow command-line arguments
+    pass

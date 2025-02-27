@@ -1,109 +1,94 @@
-from bs4 import BeautifulSoup
+# §§
+# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+# §§
+
 import logging
-import arrow
 import re
+from typing import Any, Dict, List, Tuple, Union
+from bs4 import BeautifulSoup, Tag
+import arrow
 
 # Get logger from main module
 logger = logging.getLogger(__name__)
 
+# -----------------------------------------------------------------------------
+# Module-Level Constants
+# -----------------------------------------------------------------------------
+BUTTON_CONFIGS: List[Dict[str, str]] = [
+    {"symbol": "⇽", "text": "vorherige Version", "id": "prev_ver"},
+    {"symbol": "⇾", "text": "nächste Version", "id": "next_ver"},
+    {"symbol": "⇥", "text": "neuste Version", "id": "new_ver"},
+]
+ENUM_CLASSES: List[str] = ["enum-lit", "enum-ziff", "enum-dash"]
+EXCLUDED_MERGE_CLASSES = {"marginalia", "provision", "subprovision"}
+ANNEX_KEYWORDS: List[str] = ["Anhang", "Anhänge", "Verzeichnis"]
+FOOTNOTE_LINE_ID = "footnote-line"
 
-def create_nav_buttons(soup):
+
+# -----------------------------------------------------------------------------
+# Navigation and Header Functions
+# -----------------------------------------------------------------------------
+def create_nav_buttons(soup: BeautifulSoup) -> Tag:
     """
     Creates navigation buttons with separated symbols and text.
     """
-    # Create a new div to hold the buttons
-    nav_div = soup.new_tag("div", **{"class": "nav-buttons"})
-
-    # Define button configurations
-    buttons = [
-        {"symbol": "⇽", "text": "vorherige Version", "id": "prev_ver"},
-        {"symbol": "⇾", "text": "nächste Version", "id": "next_ver"},
-        {"symbol": "⇥", "text": "neuste Version", "id": "new_ver"},
-    ]
-
-    # Create buttons
-    for button_config in buttons:
-        # Create button container
-        button = soup.new_tag(
+    nav_div: Tag = soup.new_tag("div", **{"class": "nav-buttons"})
+    for config in BUTTON_CONFIGS:
+        button: Tag = soup.new_tag(
             "button",
             **{
                 "class": "nav-button",
-                "id": button_config["id"],
+                "id": config["id"],
                 "onclick": "location.href='#';",
             },
         )
-
-        # Add symbol
-        symbol = soup.new_tag("span", **{"class": "nav-symbol"})
-        symbol.string = button_config["symbol"]
+        symbol: Tag = soup.new_tag("span", **{"class": "nav-symbol"})
+        symbol.string = config["symbol"]
         button.append(symbol)
-
-        # Add text
-        text = soup.new_tag("span", **{"class": "nav-text"})
-        text.string = button_config["text"]
+        text: Tag = soup.new_tag("span", **{"class": "nav-text"})
+        text.string = config["text"]
         button.append(text)
-
         nav_div.append(button)
-
     return nav_div
 
 
-def alphanum_key(s):
-    """Turn a string into a list of string and number chunks.
-    "z23a" -> ["z", 23, "a"]
+def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
     """
-    return [
-        int(text) if text.isdigit() else text.lower()
-        for text in re.split("([0-9]+)", s)
-    ]
-
-
-def insert_header(soup):
+    Inserts a header with logo on the left and a search bar on the right.
+    Also adds Pagefind UI assets to the <head>.
     """
-    Inserts a header with logo on the left and a search bar on the right,
-    wrapped in a search-container. Pagefind UI assets go to <head>.
-    """
-    # Create the main header container
-    header = soup.new_tag("div", **{"id": "page-header"})
-
-    # Create the flex container for logo & search
-    header_content = soup.new_tag("div", **{"class": "header-content"})
+    header: Tag = soup.new_tag("div", **{"id": "page-header"})
+    header_content: Tag = soup.new_tag("div", **{"class": "header-content"})
     header.append(header_content)
 
-    # -- Add logo container --
-    logo_container = soup.new_tag("div", **{"class": "logo-container"})
-    logo_link = soup.new_tag("a", href="/")
-    logo_img = soup.new_tag(
-        "img",
-        src="/logo-zhlaw.svg",
-        alt="zhlaw.ch Logo",
-        **{"class": "header-logo"},
+    # Logo container
+    logo_container: Tag = soup.new_tag("div", **{"class": "logo-container"})
+    logo_link: Tag = soup.new_tag("a", href="/")
+    logo_img: Tag = soup.new_tag(
+        "img", src="/logo-zhlaw.svg", alt="zhlaw.ch Logo", **{"class": "header-logo"}
     )
     logo_link.append(logo_img)
     logo_container.append(logo_link)
     header_content.append(logo_container)
 
-    # -- Add search-container --
-    search_container = soup.new_tag("div", **{"class": "search-container"})
-    search_div = soup.new_tag("div", id="search")
+    # Search container
+    search_container: Tag = soup.new_tag("div", **{"class": "search-container"})
+    search_div: Tag = soup.new_tag("div", id="search")
     search_container.append(search_div)
     header_content.append(search_container)
 
-    # Insert the Pagefind UI references into <head> (if not already present)
-    head = soup.find("head")
+    # Insert Pagefind UI assets into <head>
+    head: Union[Tag, None] = soup.find("head")
     if head:
-        # Add Pagefind CSS
-        css_link = soup.new_tag(
+        css_link: Tag = soup.new_tag(
             "link", href="/pagefind/pagefind-ui.css", rel="stylesheet"
         )
         head.append(css_link)
-
-        # Add Pagefind JS
-        script_tag = soup.new_tag("script", src="/pagefind/pagefind-ui.js")
+        script_tag: Tag = soup.new_tag("script", src="/pagefind/pagefind-ui.js")
         head.append(script_tag)
 
-    # Create script for Pagefind initialization (in body)
-    search_script = soup.new_tag("script")
+    # Pagefind initialization script
+    search_script: Tag = soup.new_tag("script")
     search_script.string = """
         window.addEventListener('DOMContentLoaded', (event) => {
             new PagefindUI({
@@ -128,81 +113,124 @@ def insert_header(soup):
     """
     header.append(search_script)
 
-    # Finally place header at the top within body
-    body = soup.find("body")
+    body: Union[Tag, None] = soup.find("body")
     if body:
         body.insert(0, header)
-
     return soup
 
 
-def modify_html(soup, erlasstitel):
-    # Ensure the head exists
-    head = soup.head
+def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
+    """
+    Inserts a footer with links (including contact) and a disclaimer at the bottom of the HTML.
+    """
+    footer: Tag = soup.new_tag("div", **{"id": "page-footer"})
+    links_container: Tag = soup.new_tag("div", **{"class": "footer-links-container"})
+    links = [
+        ("Home", "/"),
+        ("Über zhlaw.ch", "/about.html"),
+        ("Datenschutz", "/privacy.html"),
+        ("Ratsversand", "/dispatch.html"),
+        ("Datensätze", "/data.html"),
+        ("Kontakt", "mailto:admin@zhlaw.ch"),
+    ]
+    for i, (text, href) in enumerate(links):
+        link: Tag = soup.new_tag("a", href=href, **{"class": "footer-links"})
+        link.string = text
+        links_container.append(link)
+        if i < len(links) - 1:
+            separator: Tag = soup.new_tag("span", **{"class": "footer-seperator"})
+            separator.string = "∗"
+            links_container.append(separator)
+    footer.append(links_container)
+    disclaimer: Tag = soup.new_tag("p", **{"id": "disclaimer"})
+    disclaimer.string = "Keine amtliche Veröffentlichung. Massgebend ist die Veröffentlichung durch die Staatskanzlei ZH."
+    footer.append(disclaimer)
+    body: Union[Tag, None] = soup.find("body")
+    if body:
+        body.append(footer)
+    return soup
+
+
+# -----------------------------------------------------------------------------
+# HTML Structure Modification Functions
+# -----------------------------------------------------------------------------
+def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
+    """
+    Modifies the HTML by adding stylesheet, favicon, meta tags, and reorganizing the body structure.
+    """
+    head: Union[Tag, None] = soup.head
     if head is None:
         head = soup.new_tag("head")
         soup.html.insert(0, head)
 
-    # Add the CSS stylesheet link
-    css_link = soup.new_tag("link", rel="stylesheet", href="../styles.css")
+    # Add CSS stylesheet
+    css_link: Tag = soup.new_tag("link", rel="stylesheet", href="../styles.css")
     head.append(css_link)
 
     # Add favicon links
-    shortcut_icon = soup.new_tag(
+    shortcut_icon: Tag = soup.new_tag(
         "link", rel="shortcut icon", href="../favicon.ico", type="image/x-icon"
     )
     head.append(shortcut_icon)
-
-    favicon = soup.new_tag(
+    favicon: Tag = soup.new_tag(
         "link", rel="icon", href="../favicon.ico", type="image/x-icon"
     )
     head.append(favicon)
 
     # Add title
-    title_tag = soup.new_tag("title")
+    title_tag: Tag = soup.new_tag("title")
     title_tag.string = erlasstitel
     head.append(title_tag)
 
-    # Add viewport meta tag
-    viewport_meta = soup.new_tag(
+    # Add viewport and charset meta tags
+    viewport_meta: Tag = soup.new_tag(
         "meta",
         attrs={"name": "viewport", "content": "width=device-width, initial-scale=1"},
     )
     head.append(viewport_meta)
-
-    # Add encoding meta tag
-    encoding_meta = soup.new_tag("meta", charset="utf-8")
+    encoding_meta: Tag = soup.new_tag("meta", charset="utf-8")
     head.append(encoding_meta)
 
-    # Modify the body structure
-    body = soup.body
+    # Reorganize body contents into structured containers
+    body: Union[Tag, None] = soup.body
     if body:
-        # Create main container for layout
-        main_container = soup.new_tag("div", **{"class": "main-container"})
-
-        # Create sidebar container with id instead of class
-        sidebar = soup.new_tag("div", id="sidebar")
-
-        # Create content container
-        content = soup.new_tag("div", **{"class": "content"})
-
-        # Create law container
-        law_div = soup.new_tag("div", **{"id": "law", "data-pagefind-body": None})
-
-        # Move existing body contents to law_div
+        main_container: Tag = soup.new_tag("div", **{"class": "main-container"})
+        sidebar: Tag = soup.new_tag("div", id="sidebar")
+        content: Tag = soup.new_tag("div", **{"class": "content"})
+        law_div: Tag = soup.new_tag("div", **{"id": "law", "data-pagefind-body": None})
         while body.contents:
             law_div.append(body.contents[0])
-
-        # Append containers in proper hierarchy
         content.append(law_div)
         main_container.append(sidebar)
         main_container.append(content)
         body.append(main_container)
-
     return soup
 
 
-def format_date(date_str):
+def remove_unwanted_attributes(soup: BeautifulSoup) -> BeautifulSoup:
+    """
+    Removes a list of unwanted data attributes from all tags.
+    """
+    unwanted_attrs = [
+        "data-vertical-position-bottom",
+        "data-vertical-position-top",
+        "data-vertical-position-left",
+        "data-vertical-position-right",
+        "data-page-count",
+        "data-font-family",
+        "data-font-size",
+        "data-font-weight",
+    ]
+    for attr in unwanted_attrs:
+        for tag in soup.find_all(attrs={attr: True}):
+            del tag[attr]
+    return soup
+
+
+# -----------------------------------------------------------------------------
+# Date and Sorting Functions
+# -----------------------------------------------------------------------------
+def format_date(date_str: str) -> str:
     """
     Formats a date string from YYYYMMDD to DD.MM.YYYY.
     """
@@ -213,18 +241,31 @@ def format_date(date_str):
         return "N/A"
 
 
+def alphanum_key(s: str) -> List[Union[int, str]]:
+    """
+    Splits a string into a list of number and non-number chunks for natural sorting.
+    """
+    return [
+        int(text) if text.isdigit() else text.lower()
+        for text in re.split("([0-9]+)", s)
+    ]
+
+
+# -----------------------------------------------------------------------------
+# Metadata, Versions, and Navigation Functions
+# -----------------------------------------------------------------------------
 def insert_combined_table(
-    soup,
-    doc_info,
-    in_force_status,
-    ordnungsnummer,
-    current_nachtragsnummer,
-    law_origin,
-):
+    soup: BeautifulSoup,
+    doc_info: Dict[str, Any],
+    in_force_status: bool,
+    ordnungsnummer: str,
+    current_nachtragsnummer: str,
+    law_origin: str,
+) -> BeautifulSoup:
     """
-    Inserts metadata with vertical layout and status information.
+    Inserts a metadata table and status message into the document.
     """
-    status_div = soup.new_tag(
+    status_div: Tag = soup.new_tag(
         "div",
         **{
             "id": "status-message",
@@ -237,22 +278,18 @@ def insert_combined_table(
         else f"Text nicht in Kraft ({ordnungsnummer}-{current_nachtragsnummer})"
     )
 
-    # Create collapsible container for detailed information with sticky positioning
-    details = soup.new_tag(
+    details: Tag = soup.new_tag(
         "details",
         **{
             "id": "doc-info",
             "style": "position:sticky; top:0; background:white; z-index:10;",
         },
     )
-    summary = soup.new_tag("summary")
+    summary: Tag = soup.new_tag("summary")
     summary.string = "Basisinformationen"
     details.append(summary)
+    metadata_content: Tag = soup.new_tag("div", **{"class": "metadata-content"})
 
-    # Create metadata content container
-    metadata_content = soup.new_tag("div", **{"class": "metadata-content"})
-
-    # Define metadata fields and their labels
     metadata_fields = [
         ("erlasstitel", "Titel"),
         ("kurztitel", "Kurztitel"),
@@ -268,20 +305,13 @@ def insert_combined_table(
     ]
 
     for key, label in metadata_fields:
-        # Create item container
-        item_div = soup.new_tag("div", **{"class": "metadata-item"})
-
-        # Create label
-        label_div = soup.new_tag("div", **{"class": "metadata-label"})
+        item_div: Tag = soup.new_tag("div", **{"class": "metadata-item"})
+        label_div: Tag = soup.new_tag("div", **{"class": "metadata-label"})
         label_div.string = f"{label}:"
-
-        # Create value
-        value_div = soup.new_tag("div", **{"class": "metadata-value"})
-        value = doc_info.get(key)
+        value_div: Tag = soup.new_tag("div", **{"class": "metadata-value"})
+        value: Any = doc_info.get(key)
         if not value:
             value = "N/A"
-
-        # Handle different types of metadata
         if key in [
             "erlassdatum",
             "inkraftsetzungsdatum",
@@ -290,124 +320,98 @@ def insert_combined_table(
         ]:
             value = format_date(value) if value != "N/A" else "N/A"
             value_div.string = value
-
         elif key == "erlasstitel":
             value_div.string = value
             value_div.attrs["data-pagefind-meta"] = "title"
             value_div.attrs["data-pagefind-weight"] = "10"
-
         elif key == "kurztitel":
             value_div.string = value
             value_div.attrs["data-pagefind-meta"] = "Kurztitel"
-
         elif key == "abkuerzung":
             value_div.string = value
             value_div.attrs["data-pagefind-meta"] = "Abkürzung"
             value_div.attrs["data-pagefind-weight"] = "10"
-
         elif key == "ordnungsnummer":
             value_div.string = value
             value_div.attrs["data-pagefind-meta"] = "Ordnungsnummer"
-
         elif key == "nachtragsnummer":
             value_div.string = value
             value_div.attrs["data-pagefind-meta"] = "Nachtragsnummer"
-
         elif key == "law_page_url":
             if value != "N/A":
-                link = soup.new_tag("a", href=value, target="_blank")
+                link: Tag = soup.new_tag("a", href=value, target="_blank")
                 link.string = "Link"
                 value_div.append(link)
             else:
                 value_div.string = value
-
         elif key == "in_force":
-            # If doc is in force
             if value is True:
                 value_div.string = "Ja"
                 value_div.attrs["data-pagefind-meta"] = "Text in Kraft"
-                # Instead of just "Text in Kraft", include "Text in Kraft:Ja"
                 value_div.attrs["data-pagefind-filter"] = "Text in Kraft:Ja"
             else:
                 value_div.string = "Nein"
                 value_div.attrs["data-pagefind-meta"] = "Text in Kraft"
-                # For not in force
                 value_div.attrs["data-pagefind-filter"] = "Text in Kraft:Nein"
-
         else:
             value_div.string = str(value)
-
-        # Append label and value to item container
         item_div.append(label_div)
         item_div.append(value_div)
-
-        # Add separator if not the last item in this list
         if key != metadata_fields[-1][0]:
-            separator = soup.new_tag("div", **{"class": "metadata-separator"})
+            separator: Tag = soup.new_tag("div", **{"class": "metadata-separator"})
             item_div.append(separator)
-
-        # Add item to metadata content
         metadata_content.append(item_div)
 
-    law_origin_div = soup.new_tag("div", **{"class": "metadata-item"})
-    law_origin_label = soup.new_tag("div", **{"class": "metadata-label"})
+    law_origin_div: Tag = soup.new_tag("div", **{"class": "metadata-item"})
+    law_origin_label: Tag = soup.new_tag("div", **{"class": "metadata-label"})
     law_origin_label.string = "Gesetzessammlung"
-    law_origin_value = soup.new_tag("div", **{"class": "metadata-value"})
-
-    # Simply display the passed-in law_origin argument
+    law_origin_value: Tag = soup.new_tag("div", **{"class": "metadata-value"})
     if law_origin:
         law_origin_value.string = "Kanton Zürich" if law_origin == "zh" else "Bund"
         law_origin_value.attrs["data-pagefind-meta"] = "Gesetzessammlung"
         law_origin_value.attrs["data-pagefind-filter"] = "Gesetzessammlung"
     else:
         law_origin_value.string = "N/A"
-
     law_origin_div.append(law_origin_label)
     law_origin_div.append(law_origin_value)
-
-    # Optional: separator line if desired
     separator = soup.new_tag("div", **{"class": "metadata-separator"})
     law_origin_div.append(separator)
-
     metadata_content.append(law_origin_div)
 
-    # Create versions section
-    versions_container = soup.new_tag(
+    versions_container: Tag = soup.new_tag(
         "div", **{"class": "metadata-item versions-container"}
     )
-    versions_label = soup.new_tag("div", **{"class": "metadata-label"})
+    versions_label: Tag = soup.new_tag("div", **{"class": "metadata-label"})
     versions_label.string = "Versionen:"
     versions_container.append(versions_label)
-
-    # Add versions container to save space for later
-    versions_value = soup.new_tag("div", **{"class": "metadata-value versions-value"})
+    versions_value: Tag = soup.new_tag(
+        "div", **{"class": "metadata-value versions-value"}
+    )
     versions_container.append(versions_value)
     metadata_content.append(versions_container)
 
-    # Append metadata content to details
     details.append(metadata_content)
-
-    # Find the sidebar and insert the details and status message
-    sidebar = soup.find("div", id="sidebar")
+    sidebar: Union[Tag, None] = soup.find("div", id="sidebar")
     if sidebar:
         sidebar.insert(0, details)
         sidebar.insert(1, status_div)
-
     return soup
 
 
 def insert_versions_and_update_navigation(
-    soup, versions, ordnungsnummer, current_nachtragsnummer
-):
+    soup: BeautifulSoup,
+    versions: Any,
+    ordnungsnummer: str,
+    current_nachtragsnummer: str,
+) -> Tuple[BeautifulSoup, List[Dict[str, Any]]]:
     """
-    Updates version information in the 'Versionen' display and
-    updates navigation buttons (prev/next/new). Returns (soup, all_versions).
+    Updates version information in the 'Versionen' display and navigation buttons.
+    Returns the modified soup and the sorted list of all versions.
     """
-    # Check if key "older_versions" or "newer_versions" exists in versions
     if "older_versions" in versions:
-        all_versions = versions.get("older_versions", []) + versions.get(
-            "newer_versions", []
-        )
+        all_versions: List[Dict[str, Any]] = versions.get(
+            "older_versions", []
+        ) + versions.get("newer_versions", [])
         all_versions.append(
             {"nachtragsnummer": current_nachtragsnummer, "current": True}
         )
@@ -417,16 +421,13 @@ def insert_versions_and_update_navigation(
             if version["nachtragsnummer"] == current_nachtragsnummer:
                 version["current"] = True
 
-    # Sort all versions by natural alphanumeric on nachtragsnummer
     all_versions = sorted(
         all_versions, key=lambda x: alphanum_key(x["nachtragsnummer"])
     )
-
-    # Populate 'Versionen:' display
-    versions_value = soup.find("div", {"class": "versions-value"})
+    versions_value: Union[Tag, None] = soup.find("div", {"class": "versions-value"})
     if versions_value:
         for version in all_versions:
-            if "current" in version:
+            if version.get("current", False):
                 span = soup.new_tag("span", **{"class": "version-current"})
             else:
                 span = soup.new_tag(
@@ -436,19 +437,14 @@ def insert_versions_and_update_navigation(
                 )
             span.string = version["nachtragsnummer"]
             versions_value.append(span)
-
-            # Add separator
             if version != all_versions[-1]:
                 separator = soup.new_tag("span", **{"class": "version-separator"})
                 separator.string = "∗"
                 versions_value.append(separator)
-
-    # Figure out prev, next, and newest version for the navigation buttons
     prev_ver, next_ver, new_ver = None, None, None
     current_index = next(
         (i for i, v in enumerate(all_versions) if v.get("current", False)), None
     )
-
     if current_index is not None:
         if current_index > 0:
             prev_ver = all_versions[current_index - 1]["nachtragsnummer"]
@@ -456,8 +452,6 @@ def insert_versions_and_update_navigation(
             next_ver = all_versions[current_index + 1]["nachtragsnummer"]
         if all_versions[-1]["nachtragsnummer"] != current_nachtragsnummer:
             new_ver = all_versions[-1]["nachtragsnummer"]
-
-    # Update navigation buttons
     if prev_ver:
         soup.find("button", id="prev_ver")["onclick"] = (
             f"location.href='{ordnungsnummer}-{prev_ver}.html';"
@@ -466,7 +460,6 @@ def insert_versions_and_update_navigation(
         button = soup.find("button", id="prev_ver")
         if button:
             button["disabled"] = True
-
     if next_ver:
         soup.find("button", id="next_ver")["onclick"] = (
             f"location.href='{ordnungsnummer}-{next_ver}.html';"
@@ -475,7 +468,6 @@ def insert_versions_and_update_navigation(
         button = soup.find("button", id="next_ver")
         if button:
             button["disabled"] = True
-
     if new_ver:
         soup.find("button", id="new_ver")["onclick"] = (
             f"location.href='{ordnungsnummer}-{new_ver}.html';"
@@ -484,182 +476,135 @@ def insert_versions_and_update_navigation(
         button = soup.find("button", id="new_ver")
         if button:
             button["disabled"] = True
-
-    # Return both soup and the sorted list of versions
     return soup, all_versions
 
 
-def insert_footer(soup):
-    """
-    Inserts a footer with links including contact at the bottom of the HTML document.
-    """
-    footer = soup.new_tag("div", **{"id": "page-footer"})
-    links_container = soup.new_tag("div", **{"class": "footer-links-container"})
-
-    links = [
-        ("Home", "/"),
-        ("Über zhlaw.ch", "/about.html"),
-        ("Datenschutz", "/privacy.html"),
-        ("Ratsversand", "/dispatch.html"),
-        ("Datensätze", "/data.html"),
-        ("Kontakt", "mailto:admin@zhlaw.ch"),
-    ]
-
-    for i, (text, href) in enumerate(links):
-        # Create link
-        link = soup.new_tag("a", href=href, **{"class": "footer-links"})
-        link.string = text
-        links_container.append(link)
-
-        # Add separator if not the last link
-        if i < len(links) - 1:
-            separator = soup.new_tag("span", **{"class": "footer-seperator"})
-            separator.string = "∗"
-            links_container.append(separator)
-
-    # Add the links container to the footer
-    footer.append(links_container)
-
-    # Add disclaimer
-    disclaimer = soup.new_tag("p", **{"id": "disclaimer"})
-    disclaimer.string = "Keine amtliche Veröffentlichung. Massgebend ist die Veröffentlichung durch die Staatskanzlei ZH."
-    footer.append(disclaimer)
-
-    # Insert the footer
-    body = soup.find("body")
-    if body:
-        body.append(footer)
-
-    return soup
-
-
-def process_enum_elements(soup):
+# -----------------------------------------------------------------------------
+# Enumeration and Subprovision Processing
+# -----------------------------------------------------------------------------
+def process_enum_elements(soup: BeautifulSoup) -> BeautifulSoup:
     """
     Processes enumerated paragraphs to separate list numbers from content.
-    Handles both letter (a., b., c.) and number (1., 2., 3.) enumerations.
-    Preserves HTML tags, including footnote references in superscript.
-
-    Args:
-        soup: BeautifulSoup object containing the HTML
-
-    Returns:
-        BeautifulSoup object with processed enumeration elements
+    Handles both letter and number enumerations while preserving HTML tags.
     """
-    # Find all paragraphs with enum-lit or enum-ziff classes
-    enum_paragraphs = soup.find_all(
+    enum_paragraphs: List[Tag] = soup.find_all(
         "p",
-        class_=lambda x: x
-        and ("enum-lit" in x or "enum-ziff" in x or "enum-dash" in x),
+        class_=lambda x: x and any(cls in x for cls in ENUM_CLASSES),
     )
-
     for p in enum_paragraphs:
-        # Instead of get_text(), we'll work with the contents directly
-
-        # Find the first text node that contains the enumeration number
         first_text = None
         for content in p.contents:
             if isinstance(content, str) and content.strip():
                 first_text = content
                 break
-
         if first_text:
-            # Pattern for both letter and number enumerations
             match = re.match(r"^((?:[a-zA-Z0-9]+\.)|(?:– ))", first_text)
-
             if match:
                 number = match.group(1)
-                # Replace the matched text with empty string in the original node
                 new_text = first_text[len(number) :].lstrip()
                 if new_text:
                     first_text.replace_with(new_text)
                 else:
                     first_text.extract()
-
-                # Create number span
-                number_span = soup.new_tag("span", **{"class": "enum-enumerator"})
+                number_span: Tag = soup.new_tag("span", **{"class": "enum-enumerator"})
                 number_span.string = number
-
-                # Create content span
-                content_span = soup.new_tag("span", **{"class": "enum-content"})
-
-                # Move all existing contents to the content span
+                content_span: Tag = soup.new_tag("span", **{"class": "enum-content"})
                 while p.contents:
                     content_span.append(p.contents[0])
-
-                # Add both spans to the paragraph
                 p.append(number_span)
                 p.append(content_span)
-
     return soup
 
 
-def consolidate_enum_paragraphs(soup):
+def consolidate_enum_paragraphs(soup: BeautifulSoup) -> BeautifulSoup:
     """
-    Identifies and consolidates paragraphs that belong to enum-lit or enum-ziff elements.
-    Now includes separation of list numbers from content while preserving HTML tags.
+    Consolidates paragraphs that belong to enumerations (enum-lit or enum-ziff).
+    Merges subsequent paragraphs without a class into the content of the current enumeration,
+    but stops merging if there is any heading element (<h1> through <h6>) between them.
     """
-    # First process the enumeration elements to separate numbers from content
     soup = process_enum_elements(soup)
-
-    paragraphs = soup.find_all("p")
-
+    paragraphs: List[Tag] = soup.find_all("p")
     i = 0
     while i < len(paragraphs) - 1:
         current = paragraphs[i]
-
+        # Check if the current paragraph is an enumeration paragraph (either enum-lit or enum-ziff)
         if current.get("class") and any(
             c in current.get("class") for c in ["enum-lit", "enum-ziff"]
         ):
             next_idx = i + 1
-
             while next_idx < len(paragraphs):
                 next_p = paragraphs[next_idx]
+                # Check for any heading element between the current enumeration paragraph and the next paragraph.
+                heading_found = False
+                next_element = current.find_next()
+                while next_element is not None and next_element != next_p:
+                    if next_element.name in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+                        heading_found = True
+                        break
+                    next_element = next_element.find_next()
+                # If a heading is found between, stop merging further paragraphs.
+                if heading_found:
+                    break
 
+                # Stop merging if the next paragraph has a class attribute.
                 if next_p.get("class"):
                     break
 
-                # Get the content span from current paragraph
+                # Find the span that holds the enumeration content.
                 content_span = current.find("span", class_="enum-content")
                 if content_span and len(content_span.contents) > 0:
+                    # Append a space if the span already has content.
                     content_span.append(" ")
-
-                # Move all content from next_p to the content span
-                while len(next_p.contents) > 0:
+                # Move all child elements from the next paragraph to the content span.
+                while next_p.contents:
                     content_span.append(next_p.contents[0])
-
+                # Remove the now empty paragraph from the DOM.
                 next_p.decompose()
                 next_idx += 1
-
+            # Update the index to the next unmerged paragraph.
             i = next_idx
             continue
-
         i += 1
-
     return soup
 
 
-def wrap_subprovisions(soup):
+def wrap_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
     """
-    Identifies and wraps subprovisions and their corresponding paragraphs in container divs.
-    Handles multi-paragraph subprovisions by checking if subsequent paragraphs belong to the same subprovision.
-    Preserves HTML structure including footnotes when consolidating paragraphs.
+    Wraps subprovisions and their corresponding paragraphs in container divs.
+    Handles multi-paragraph subprovisions by grouping consecutive paragraphs without certain classes.
+    Excludes content from within annex sections to prevent incorrect merging.
     """
-    paragraphs = [p for p in soup.find_all("p") if p.get("id") != "annex-info"]
+    # Get all paragraphs except those with id="annex-info" and those inside the annex section
+    paragraphs: List[Tag] = [
+        p
+        for p in soup.find_all("p")
+        if p.get("id") != "annex-info" and not p.find_parent("details", id="annex")
+    ]
 
+    # First pass: Identify subprovisions and group them with related paragraphs
     i = 0
     while i < len(paragraphs) - 1:
         current = paragraphs[i]
-
+        # Check if current paragraph is a subprovision
         if current.get("class") and "subprovision" in current.get("class"):
+            # Create a new container div for this subprovision group
             container = soup.new_tag("div", **{"class": "subprovision-container"})
+            # Insert the container before the current paragraph in the DOM
             current.insert_before(container)
+            # Move the subprovision paragraph into the container
             container.append(current)
 
+            # Look ahead to find paragraphs that belong to this subprovision
             next_idx = i + 1
-
             while next_idx < len(paragraphs):
                 next_p = paragraphs[next_idx]
 
+                # Skip if the next paragraph is inside the annex section
+                if next_p.find_parent("details", id="annex"):
+                    next_idx += 1
+                    continue
+
+                # Stop if we encounter another subprovision or enumeration
                 if next_p.get("class") and (
                     "subprovision" in next_p.get("class")
                     or "enum-lit" in next_p.get("class")
@@ -667,59 +612,84 @@ def wrap_subprovisions(soup):
                 ):
                     break
 
+                # Stop if we encounter a provision or marginalia
                 if next_p.get("class") and (
                     "provision" in next_p.get("class")
                     or "marginalia" in next_p.get("class")
                 ):
                     break
 
+                # Include paragraphs without classes (content paragraphs)
                 if not next_p.get("class"):
                     container.append(next_p)
                     next_idx += 1
                     continue
 
+                # If we reach here, we've found a paragraph that doesn't belong
                 break
 
+            # Update index to continue from next unprocessed paragraph
             i = next_idx
             continue
 
+        # Move to next paragraph if current is not a subprovision
         i += 1
 
+    # Second pass: Merge content paragraphs within containers
     for container in soup.find_all("div", class_="subprovision-container"):
-        paragraphs = container.find_all("p")
-        if len(paragraphs) > 2:
-            first_content_p = paragraphs[1]
+        paragraphs_in_container = container.find_all("p")
 
-            for p in paragraphs[2:]:
+        # If container has more than 2 paragraphs (subprovision + content paragraphs)
+        if len(paragraphs_in_container) > 2:
+            # First content paragraph (index 1) will contain all merged content
+            first_content_p = paragraphs_in_container[1]
+
+            # Merge all subsequent paragraphs into the first content paragraph
+            for p in paragraphs_in_container[2:]:
+                # Skip any paragraphs that are inside the annex section
+                if p.find_parent("details", id="annex"):
+                    continue
+
+                # Add space between merged paragraph contents
                 if len(first_content_p.contents) > 0:
                     first_content_p.append(" ")
 
-                while len(p.contents) > 0:
+                # Move all contents from current paragraph to first content paragraph
+                while p.contents:
                     first_content_p.append(p.contents[0])
 
+                # Remove the now-empty paragraph from the DOM
                 p.decompose()
 
+    # Return the modified BeautifulSoup object
     return soup
 
 
-def main(soup, html_file, doc_info, type, law_origin):
-    if type != "site_element":
-        erlasstitel = doc_info.get("erlasstitel", "")
-        ordnungsnummer = doc_info.get("ordnungsnummer", "")
-        current_nachtragsnummer = doc_info.get("nachtragsnummer", "")
-        in_force_status = doc_info.get("in_force", False)
-        versions = doc_info.get("versions", {})
+# -----------------------------------------------------------------------------
+# Main Processing Function
+# -----------------------------------------------------------------------------
+def main(
+    soup: BeautifulSoup,
+    html_file: str,
+    doc_info: Dict[str, Any],
+    type_str: str,
+    law_origin: str,
+) -> BeautifulSoup:
+    """
+    Processes the HTML soup.
+    If type_str is not "site_element", performs document-specific processing.
+    Always inserts header and footer.
+    """
+    if type_str != "site_element":
+        erlasstitel: str = doc_info.get("erlasstitel", "")
+        ordnungsnummer: str = doc_info.get("ordnungsnummer", "")
+        current_nachtragsnummer: str = doc_info.get("nachtragsnummer", "")
+        in_force_status: bool = doc_info.get("in_force", False)
+        versions: Any = doc_info.get("versions", {})
 
-        # 1) Consolidate enum paragraphs
         soup = consolidate_enum_paragraphs(soup)
-
-        # 2) Wrap subprovisions
         soup = wrap_subprovisions(soup)
-
-        # 3) Modify basic HTML structure
         soup = modify_html(soup, erlasstitel)
-
-        # 4) Insert doc-info table & status
         soup = insert_combined_table(
             soup,
             doc_info,
@@ -728,56 +698,37 @@ def main(soup, html_file, doc_info, type, law_origin):
             current_nachtragsnummer,
             law_origin,
         )
-
-        # 5) Insert navigation buttons
-        sidebar = soup.find("div", id="sidebar")
+        sidebar: Union[Tag, None] = soup.find("div", id="sidebar")
         if sidebar:
-            nav_div = create_nav_buttons(soup)
-            version_container = soup.new_tag("div", id="version-container")
-
-            status_div = soup.find("div", id="status-message")
+            nav_div: Tag = create_nav_buttons(soup)
+            version_container: Tag = soup.new_tag("div", id="version-container")
+            status_div: Union[Tag, None] = soup.find("div", id="status-message")
             if status_div:
                 status_div.extract()
-
             version_container.append(status_div)
             version_container.append(nav_div)
             sidebar.insert(1, version_container)
-
-        # 6) Insert version links + update navigation, capturing the list
         soup, all_versions = insert_versions_and_update_navigation(
             soup, versions, ordnungsnummer, current_nachtragsnummer
         )
-
-        # 7) Determine if this version is newest
         if all_versions:
-            newest_nachtragsnummer = all_versions[-1]["nachtragsnummer"]
-            is_newest = newest_nachtragsnummer == current_nachtragsnummer
+            newest_nachtragsnummer: str = all_versions[-1]["nachtragsnummer"]
+            is_newest: bool = newest_nachtragsnummer == current_nachtragsnummer
         else:
             is_newest = True
-
-        # 8) Mark law container with data-pagefind-filter
-        law_div = soup.find("div", id="law")
-        if law_div:
-            if is_newest:
-                # Mark it for both "all" and "newest"
-                law_div["data-pagefind-filter"] = "Versionen:Nur neuste Versionen"
-            else:
-                # Do nothing
-                pass
-
-        # 9) Insert annex-callout
-        annex = soup.find("details", id="annex")
+        law_div: Union[Tag, None] = soup.find("div", id="law")
+        if law_div and is_newest:
+            law_div["data-pagefind-filter"] = "Versionen:Nur neuste Versionen"
+        annex: Union[Tag, None] = soup.find("details", id="annex")
         if annex:
-            annex_info = soup.new_tag("div", id="annex-info")
-            # If law_page_url exists, it should link to it
-            # Otherwise, just display "Originalquelle"
-            law_page_url = doc_info.get("law_page_url")
+            annex_info: Tag = soup.new_tag("div", id="annex-info")
+            law_page_url: Any = doc_info.get("law_page_url")
             if law_page_url:
                 annex_info.clear()
                 annex_info.append(
                     "Achtung: Anhänge weisen oft Konvertierungsfehler auf. Bitte überpürfe die "
                 )
-                link = soup.new_tag("a", href=law_page_url, target="_blank")
+                link: Tag = soup.new_tag("a", href=law_page_url, target="_blank")
                 link.string = "Originalquelle"
                 annex_info.append(link)
                 annex_info.append(".")
@@ -785,14 +736,12 @@ def main(soup, html_file, doc_info, type, law_origin):
                 annex_info.string = "Achtung: Anhänge weisen oft Konvertierungsfehler auf. Bitte überpürfe die Originalquelle."
             annex.insert(0, annex_info)
 
-    # Insert header and footer (applies even if type == "site_element")
     soup = insert_header(soup)
     soup = insert_footer(soup)
-
     return soup
 
 
 if __name__ == "__main__":
-    # This module is intended to be imported and used by another script.
-    # If needed, you could place test code here.
+    # This module is intended to be imported by another script.
+    # For testing, you can create a BeautifulSoup object and call main() accordingly.
     pass
