@@ -105,7 +105,7 @@ def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
                     placeholder: "Gesetzessammlung durchsuchen",
                     zero_results: "Keine Treffer für [SEARCH_TERM]"
                 },
-                openFilters: ["Text in Kraft", "Versionen"],
+                openFilters: ["Text in Kraft"],
                 autofocus: true,
                 showImages: false
             });
@@ -157,6 +157,7 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
 def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
     """
     Modifies the HTML by adding stylesheet, favicon, meta tags, and reorganizing the body structure.
+    Note: No data-pagefind-body attribute is added here - it will be added selectively later.
     """
     head: Union[Tag, None] = soup.head
     if head is None:
@@ -197,7 +198,8 @@ def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
         main_container: Tag = soup.new_tag("div", **{"class": "main-container"})
         sidebar: Tag = soup.new_tag("div", id="sidebar")
         content: Tag = soup.new_tag("div", **{"class": "content"})
-        law_div: Tag = soup.new_tag("div", **{"id": "law", "data-pagefind-body": None})
+        # Create law_div without data-pagefind-body (will be added conditionally later)
+        law_div: Tag = soup.new_tag("div", **{"id": "law"})
         while body.contents:
             law_div.append(body.contents[0])
         content.append(law_div)
@@ -573,6 +575,7 @@ def wrap_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
     Wraps subprovisions and their corresponding paragraphs in container divs.
     Handles multi-paragraph subprovisions by grouping consecutive paragraphs without certain classes.
     Excludes content from within annex sections to prevent incorrect merging.
+    Stops merging when encountering headings (h1-h6) or another subprovision.
     """
     # Get all paragraphs except those with id="annex-info" and those inside the annex section
     paragraphs: List[Tag] = [
@@ -619,6 +622,20 @@ def wrap_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
                 ):
                     break
 
+                # Check for any heading element between the current container and the next paragraph
+                # This is critical for proper section handling
+                next_element = container.find_next()
+                while next_element and next_element != next_p:
+                    if next_element.name in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+                        # Found a heading - stop including paragraphs in this container
+                        next_p = None
+                        break
+                    next_element = next_element.find_next()
+
+                # If we found a heading, exit the loop
+                if next_p is None:
+                    break
+
                 # Include paragraphs without classes (content paragraphs)
                 if not next_p.get("class"):
                     container.append(next_p)
@@ -635,7 +652,8 @@ def wrap_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
         # Move to next paragraph if current is not a subprovision
         i += 1
 
-    # Second pass: Merge content paragraphs within containers
+    # Second pass: Only merge paragraphs within the same container
+    # This avoids merging content across headings/sections
     for container in soup.find_all("div", class_="subprovision-container"):
         paragraphs_in_container = container.find_all("p")
 
@@ -665,6 +683,62 @@ def wrap_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
+def create_links_display(
+    soup: BeautifulSoup, current_url: str, dynamic_url: str
+) -> Tag:
+    """
+    Creates a display of both static and dynamic URLs for copying.
+
+    Args:
+        soup: BeautifulSoup object for creating new tags
+        current_url: URL to the current version (static link)
+        dynamic_url: URL to the latest version (dynamic link)
+
+    Returns:
+        Tag: A div containing both link displays
+    """
+    # Create container for all links
+    links_container: Tag = soup.new_tag("div", **{"class": "links-container"})
+
+    # Create the container with border that contains all links
+    links_inner: Tag = soup.new_tag("div", **{"class": "links-inner"})
+    links_container.append(links_inner)
+
+    # Static Link Group
+    static_group: Tag = soup.new_tag("div", **{"class": "link-group"})
+    links_inner.append(static_group)
+
+    # Static Link Title
+    static_title: Tag = soup.new_tag("div", **{"class": "link-title"})
+    static_title.string = "Diese Version:"
+    static_group.append(static_title)
+
+    # Static Link URL
+    static_url: Tag = soup.new_tag("div", **{"class": "link-url"})
+    static_url.string = f"https://www.zhlaw.ch{current_url}"
+    static_group.append(static_url)
+
+    # Add separator
+    separator: Tag = soup.new_tag("hr", **{"class": "links-separator"})
+    links_inner.append(separator)
+
+    # Dynamic Link Group
+    dynamic_group: Tag = soup.new_tag("div", **{"class": "link-group"})
+    links_inner.append(dynamic_group)
+
+    # Dynamic Link Title
+    dynamic_title: Tag = soup.new_tag("div", **{"class": "link-title"})
+    dynamic_title.string = "Immer neuste Version:"
+    dynamic_group.append(dynamic_title)
+
+    # Dynamic Link URL
+    dynamic_url_tag: Tag = soup.new_tag("div", **{"class": "link-url"})
+    dynamic_url_tag.string = dynamic_url
+    dynamic_group.append(dynamic_url_tag)
+
+    return links_container
+
+
 # -----------------------------------------------------------------------------
 # Main Processing Function
 # -----------------------------------------------------------------------------
@@ -679,6 +753,7 @@ def main(
     Processes the HTML soup.
     If type_str is not "site_element", performs document-specific processing.
     Always inserts header and footer.
+    Only adds data-pagefind-body to the newest version.
     """
     if type_str != "site_element":
         erlasstitel: str = doc_info.get("erlasstitel", "")
@@ -686,6 +761,7 @@ def main(
         current_nachtragsnummer: str = doc_info.get("nachtragsnummer", "")
         in_force_status: bool = doc_info.get("in_force", False)
         versions: Any = doc_info.get("versions", {})
+        dynamic_url: str = doc_info.get("zhlaw_url_dynamic", "")
 
         soup = consolidate_enum_paragraphs(soup)
         soup = wrap_subprovisions(soup)
@@ -700,25 +776,44 @@ def main(
         )
         sidebar: Union[Tag, None] = soup.find("div", id="sidebar")
         if sidebar:
+            # Create the current URL (static link) for this version
+            current_url = f"/col-zh/{ordnungsnummer}-{current_nachtragsnummer}.html"
+
+            # Create the links display with both static and dynamic URLs
+            links_display = create_links_display(soup, current_url, dynamic_url)
+
+            # Create nav buttons
             nav_div: Tag = create_nav_buttons(soup)
+
+            # Add the status message, links display, and nav buttons to version_container
             version_container: Tag = soup.new_tag("div", id="version-container")
             status_div: Union[Tag, None] = soup.find("div", id="status-message")
             if status_div:
                 status_div.extract()
             version_container.append(status_div)
-            version_container.append(nav_div)
+            version_container.append(links_display)  # Add links display
+            version_container.append(nav_div)  # Then nav buttons
             sidebar.insert(1, version_container)
-        soup, all_versions = insert_versions_and_update_navigation(
-            soup, versions, ordnungsnummer, current_nachtragsnummer
-        )
+
+            soup, all_versions = insert_versions_and_update_navigation(
+                soup, versions, ordnungsnummer, current_nachtragsnummer
+            )
+
+        # Check if this version is the newest
+        is_newest = False
         if all_versions:
             newest_nachtragsnummer: str = all_versions[-1]["nachtragsnummer"]
-            is_newest: bool = newest_nachtragsnummer == current_nachtragsnummer
+            is_newest = newest_nachtragsnummer == current_nachtragsnummer
         else:
             is_newest = True
+
+        # Apply attributes based on version status
         law_div: Union[Tag, None] = soup.find("div", id="law")
         if law_div and is_newest:
-            law_div["data-pagefind-filter"] = "Versionen:Nur neuste Versionen"
+            # Only add data-pagefind-body to newest version
+            law_div["data-pagefind-body"] = None
+            # No filter for "Versionen" is needed anymore
+
         annex: Union[Tag, None] = soup.find("details", id="annex")
         if annex:
             annex_info: Tag = soup.new_tag("div", id="annex-info")

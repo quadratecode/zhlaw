@@ -176,7 +176,7 @@ body {
     display: flex;
     flex-direction: row;
     gap: 1rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.5rem;
 }
 
 .nav-button {
@@ -219,6 +219,38 @@ body {
 
 .nav-button[disabled]:hover {
     background: transparent;
+}
+
+/* Links Display Styles */
+.links-container {
+    margin-bottom: 0.5rem;
+}
+
+.links-inner {
+    border: 1px solid var(--soft-black);
+    padding: 0.5rem;
+    font-family: var(--font-text);
+}
+
+.link-title {
+    font-weight: var(--font-weight-bold);
+    font-size: 0.8rem;
+}
+
+.link-url {
+    font-family: var(--font-code);
+    font-size: 0.875rem;
+    word-break: break-all;
+    user-select: all; /* Makes the URL text selected when clicked */
+    cursor: text;
+    background-color: #f8f8f8;
+    border-radius: 2px;
+}
+
+.links-separator {
+    border: 0;
+    border-top: 1px solid #ddd;
+    margin: 0.25rem 0;
 }
 
 /* -----------------------------
