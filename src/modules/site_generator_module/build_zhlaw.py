@@ -710,7 +710,7 @@ def create_links_display(
 
     # Static Link Title
     static_title: Tag = soup.new_tag("div", **{"class": "link-title"})
-    static_title.string = "Diese Version:"
+    static_title.string = "Zu dieser Version:"
     static_group.append(static_title)
 
     # Static Link URL
@@ -728,7 +728,7 @@ def create_links_display(
 
     # Dynamic Link Title
     dynamic_title: Tag = soup.new_tag("div", **{"class": "link-title"})
-    dynamic_title.string = "Immer neuste Version:"
+    dynamic_title.string = "Immer zur neusten Version:"
     dynamic_group.append(dynamic_title)
 
     # Dynamic Link URL
