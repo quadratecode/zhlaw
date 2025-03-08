@@ -98,7 +98,6 @@ def main(folder):
                     },
                     "process_steps": {
                         "scrape_law": timestamp,
-                        "enrich_metadata": "",
                         "crop_pdf": "",
                         "call_api_law": "",
                         "call_api_marginalia": "",

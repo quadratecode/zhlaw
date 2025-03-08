@@ -411,6 +411,69 @@ def check_blue_color(document_path, elements, margin=5, dpi=DPI_DEFAULT):
     return elements
 
 
+def map_tables_to_elements(elements):
+    """
+    Maps table elements to their corresponding CSV file IDs.
+    Adds a 'TableID' attribute to elements that belong to a table.
+
+    Args:
+        elements: List of elements from the JSON data
+
+    Returns:
+        The modified list of elements with table mappings added
+    """
+    # Step 1: Find all elements with filePaths referencing CSV files
+    table_maps = []
+    for element in elements:
+        if "filePaths" in element:
+            table_path = element.get("Path", "")
+
+            # For each file path that references a CSV
+            for file_path in element["filePaths"]:
+                if file_path.startswith("tables/fileoutpart") and file_path.endswith(
+                    ".csv"
+                ):
+                    # Extract the table ID from the filename (e.g., "tables/fileoutpart1.csv" -> 1)
+                    try:
+                        table_id = int(
+                            file_path.replace("tables/fileoutpart", "").replace(
+                                ".csv", ""
+                            )
+                        )
+                        table_maps.append({"path": table_path, "id": table_id})
+                        logger.info(
+                            f"Found table with path '{table_path}' mapped to CSV ID {table_id}"
+                        )
+                    except ValueError:
+                        logger.warning(
+                            f"Could not extract table ID from file path: {file_path}"
+                        )
+
+    logger.info(f"Found {len(table_maps)} table elements with CSV files")
+
+    # Step 2: Mark all elements that belong to any table with the corresponding TableID
+    marked_count = 0
+    for element in elements:
+        element_path = element.get("Path", "")
+
+        # Find if this element belongs to any table
+        for table_map in table_maps:
+            table_path = table_map["path"]
+
+            # Check if this element's path is or starts with the table path
+            # This includes the table element itself and any child elements
+            if element_path == table_path or element_path.startswith(table_path + "/"):
+                # Add or update the attributes dictionary with TableID
+                if "attributes" not in element:
+                    element["attributes"] = {}
+                element["attributes"]["TableID"] = table_map["id"]
+                marked_count += 1
+                break
+
+    logger.info(f"Marked {marked_count} elements with TableID attributes")
+    return elements
+
+
 def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     """
     Extracts color information and hyperlinks from the PDF and updates the JSON data.
@@ -424,6 +487,8 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
 
     # Flatten elements
     elements = flatten_elements(elements)
+    # Map tables to elements
+    elements = map_tables_to_elements(elements)
     # Remove elements with no text
     elements = del_empty_elements(elements)
     # Add page heights to elements

@@ -62,6 +62,9 @@ def main():
             with open(metadata_file, "r") as f:
                 metadata = json.load(f)
 
+            # TODO: Replacing this by checking for the existence of files instead would be more robust
+            # However, there are downstream dependencies (all operations with "doc_info")
+            # Due to inocorrect operation on live data, all timestamps before 20250308 have been set reset to this date
             if metadata["process_steps"]["crop_pdf"] == "":
                 logging.info(f"Cropping PDF: {pdf_file}")
                 crop_pdf.main(original_pdf_path, modified_pdf_path, marginalia_pdf_path)
