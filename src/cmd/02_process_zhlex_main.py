@@ -148,9 +148,37 @@ def process_pdf_file(pdf_file: str) -> bool:
         return False
 
 
-def main(folder: str) -> None:
+def process_files_concurrently(pdf_files):
+    """Process files in parallel using ProcessPoolExecutor"""
+    error_counter = 0
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        # Map the process_pdf_file function to all pdf_files and wrap with tqdm for progress bar
+        results = list(
+            tqdm(executor.map(process_pdf_file, pdf_files), total=len(pdf_files))
+        )
+
+    error_counter = results.count(False)
+    return error_counter
+
+
+def process_files_sequentially(pdf_files):
+    """Process files sequentially for easier debugging"""
+    error_counter = 0
+    for pdf_file in tqdm(pdf_files):
+        success = process_pdf_file(pdf_file)
+        if not success:
+            error_counter += 1
+
+    return error_counter
+
+
+def main(folder: str, concurrent_mode: bool) -> None:
     """
-    Process all PDF files in the specified folder in parallel.
+    Process all PDF files in the specified folder.
+
+    Args:
+        folder: The folder to process (zhlex_files or test_files)
+        concurrent_mode: If True, process files in parallel; otherwise, sequentially
     """
     logging.info("Loading laws index")
     pdf_files = glob.glob(f"data/zhlex/{folder}/**/**/*-original.pdf", recursive=True)
@@ -159,15 +187,15 @@ def main(folder: str) -> None:
         logging.info("No PDF files found. Exiting.")
         return
 
-    error_counter = 0
-    # Using ProcessPoolExecutor for CPU-bound tasks
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        # Map the process_pdf_file function to all pdf_files and wrap with tqdm for progress bar
-        results = list(
-            tqdm(executor.map(process_pdf_file, pdf_files), total=len(pdf_files))
-        )
+    logging.info(
+        f"Processing using {'concurrent' if concurrent_mode else 'sequential'} mode"
+    )
 
-    error_counter = results.count(False)
+    if concurrent_mode:
+        error_counter = process_files_concurrently(pdf_files)
+    else:
+        error_counter = process_files_sequentially(pdf_files)
+
     logging.info(f"Finished processing HTML with {error_counter} errors")
 
 
@@ -180,5 +208,14 @@ if __name__ == "__main__":
         choices=["zhlex_files", "test_files"],
         help="Folder to process",
     )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="concurrent",
+        choices=["concurrent", "sequential"],
+        help="Processing mode: concurrent (parallel) or sequential (for debugging)",
+    )
     args = parser.parse_args()
-    main(args.folder)
+
+    concurrent_mode = args.mode == "concurrent"
+    main(args.folder, concurrent_mode)
