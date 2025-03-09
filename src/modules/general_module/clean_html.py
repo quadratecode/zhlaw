@@ -203,16 +203,24 @@ def merge_other_conditions(soup: BeautifulSoup) -> BeautifulSoup:
                 prev_p.has_attr("class")
                 and any(cls in excluded_classes for cls in prev_p["class"])
             ):
-                # Check if there's any heading element (<h1> through <h6>) between prev_p and current_p.
-                heading_found = False
+                # Check if there's any heading element (<h1> through <h6>) or table between prev_p and current_p.
+                barrier_found = False
                 next_element = prev_p.find_next()
                 while next_element is not None and next_element != current_p:
-                    if next_element.name in {"h1", "h2", "h3", "h4", "h5", "h6"}:
-                        heading_found = True
+                    if next_element.name in {
+                        "h1",
+                        "h2",
+                        "h3",
+                        "h4",
+                        "h5",
+                        "h6",
+                        "table",
+                    }:
+                        barrier_found = True
                         break
                     next_element = next_element.find_next()
-                # If a heading is found between the paragraphs, skip merging for this pair.
-                if heading_found:
+                # If a heading or table is found between the paragraphs, skip merging for this pair.
+                if barrier_found:
                     continue
 
                 # Determine the first non-whitespace character of the current paragraph.
@@ -301,7 +309,7 @@ def remove_unwanted_attributes(soup: BeautifulSoup) -> BeautifulSoup:
         "data-font-family",
         "data-font-size",
         "data-font-weight",
-        "data-table-id",
+        "law-data-table",
     ]
     for attr in unwanted_attributes:
         tags: List[Tag] = soup.find_all(attrs={attr: True})

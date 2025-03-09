@@ -118,6 +118,68 @@ def identify_and_build_tables(elements, soup):
     return tables
 
 
+def merge_consecutive_tables_with_same_headers(soup):
+    """
+    Finds consecutive tables with identical headers and merges them.
+
+    Args:
+        soup: BeautifulSoup object containing the HTML
+
+    Returns:
+        Modified BeautifulSoup object with merged tables
+    """
+    tables = soup.find_all("table", class_="law-data-table")
+    i = 0
+
+    while i < len(tables) - 1:
+        current_table = tables[i]
+        next_table = tables[i + 1]
+
+        # Extract headers from both tables
+        current_headers = []
+        next_headers = []
+
+        current_thead = current_table.find("thead")
+        next_thead = next_table.find("thead")
+
+        if current_thead and next_thead:
+            current_tr = current_thead.find("tr")
+            next_tr = next_thead.find("tr")
+
+            if current_tr and next_tr:
+                current_headers = [
+                    th.get_text(strip=True) for th in current_tr.find_all("th")
+                ]
+                next_headers = [
+                    th.get_text(strip=True) for th in next_tr.find_all("th")
+                ]
+
+        # If headers match, merge tables
+        if current_headers and current_headers == next_headers:
+            # Get the tbody elements
+            current_tbody = current_table.find("tbody")
+            next_tbody = next_table.find("tbody")
+
+            if current_tbody and next_tbody:
+                # Move all rows from next table to current table
+                for tr in next_tbody.find_all("tr"):
+                    current_tbody.append(tr)
+
+                # Remove the next table
+                next_table.decompose()
+
+                # Update tables list after removing one
+                tables = soup.find_all("table", class_="law-data-table")
+
+                # Don't increment i since we've removed a table
+                continue
+
+        # Move to next table
+        i += 1
+
+    return soup
+
+
 def build_table(elements, soup, table_id):
     """
     Builds an HTML table from a group of elements with the same TableID.
@@ -132,12 +194,11 @@ def build_table(elements, soup, table_id):
     """
     # Create the table element
     table = soup.new_tag(
-        "table", **{"class": "data-table", "data-table-id": str(table_id)}
+        "table", **{"class": "law-data-table", "law-data-table-id": str(table_id)}
     )
 
     # 1. First pass: Extract table structure and organize by row/column
     rows = {}
-    header_signature = None  # Store header row signature to detect repeats
 
     for element in elements:
         path = element.get("Path", "")
@@ -260,8 +321,7 @@ def build_table(elements, soup, table_id):
                         attr_name
                     ] = attr_value
 
-    # 2. Detect repeating header rows and establish column boundaries
-    # TODO: Does not work reliably
+    # Check if rows exist
     if not rows:
         # Return empty table if no rows found
         return table
@@ -269,31 +329,6 @@ def build_table(elements, soup, table_id):
     # Find the first row (header row)
     first_row_index = min(rows.keys())
     first_row = rows[first_row_index]
-
-    # Create a signature for the header row to detect repeats
-    header_cells = [
-        (cell["tag"], "".join(cell["content"]), cell["positional_data"]["left"])
-        for cell in first_row["cells"].values()
-    ]
-    header_signature = str(sorted(header_cells))
-
-    # Create a set to track rows to skip (duplicate headers)
-    rows_to_skip = set()
-
-    # Check other rows to see if they match the header signature
-    for row_idx, row_data in rows.items():
-        if row_idx == first_row_index:
-            continue
-
-        row_cells = [
-            (cell["tag"], "".join(cell["content"]), cell["positional_data"]["left"])
-            for cell in row_data["cells"].values()
-        ]
-        row_signature = str(sorted(row_cells))
-
-        # If this row matches the header row, mark it to be skipped
-        if row_signature == header_signature:
-            rows_to_skip.add(row_idx)
 
     # Sort header cells by horizontal position for column boundaries
     header_cells = sorted(
@@ -310,19 +345,15 @@ def build_table(elements, soup, table_id):
     # Sort column boundaries by position
     column_boundaries = sorted(column_boundaries, key=lambda c: c["left_pos"])
 
-    # 3. Create thead and tbody
+    # Create thead and tbody
     thead = soup.new_tag("thead")
     tbody = soup.new_tag("tbody")
 
     # Extract column structure from first row
     is_header_row = any(cell["tag"] == "TH" for cell in first_row["cells"].values())
 
-    # 4. Generate the rows
+    # Generate the rows
     for row_index in sorted(rows.keys()):
-        # Skip duplicate header rows
-        if row_index in rows_to_skip:
-            continue
-
         row_data = rows[row_index]
         tr = soup.new_tag("tr")
 
@@ -406,7 +437,7 @@ def build_table(elements, soup, table_id):
                     cell.append(tag_element)
 
             # Add the cell to the row
-            cell["data-table-id"] = str(table_id)
+            cell["law-data-table-id"] = str(table_id)
             tr.append(cell)
 
         # Add the row to thead or tbody
@@ -415,7 +446,7 @@ def build_table(elements, soup, table_id):
         else:
             tbody.append(tr)
 
-    # 5. Add sections to table
+    # Add sections to table
     if thead.contents:
         table.append(thead)
     if tbody.contents:
@@ -664,6 +695,9 @@ def post_process_html(html_content):
                 next_p["class"].remove("provision")
                 if "data-provision-number" in next_p.attrs:
                     del next_p["data-provision-number"]
+
+    # Final step: Merge consecutive tables with identical headers
+    soup = merge_consecutive_tables_with_same_headers(soup)
 
     return soup
 

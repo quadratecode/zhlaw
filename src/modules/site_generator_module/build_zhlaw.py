@@ -537,15 +537,23 @@ def consolidate_enum_paragraphs(soup: BeautifulSoup) -> BeautifulSoup:
             while next_idx < len(paragraphs):
                 next_p = paragraphs[next_idx]
                 # Check for any heading element between the current enumeration paragraph and the next paragraph.
-                heading_found = False
+                barrier_found = False
                 next_element = current.find_next()
                 while next_element is not None and next_element != next_p:
-                    if next_element.name in {"h1", "h2", "h3", "h4", "h5", "h6"}:
-                        heading_found = True
+                    if next_element.name in {
+                        "h1",
+                        "h2",
+                        "h3",
+                        "h4",
+                        "h5",
+                        "h6",
+                        "table",
+                    }:
+                        barrier_found = True
                         break
                     next_element = next_element.find_next()
                 # If a heading is found between, stop merging further paragraphs.
-                if heading_found:
+                if barrier_found:
                     break
 
                 # Stop merging if the next paragraph has a class attribute.

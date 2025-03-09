@@ -127,19 +127,23 @@ def merge_html(modified_path, marginalia_path):
     return str(soup_modified)
 
 
-def clean_html(soup):
-
+def clean_html(soup: BeautifulSoup) -> None:
     for element in soup.find_all(["p", "h1", "h2", "h3", "h4", "h5", "h6"]):
         # Remove leading and trailing spaces
         if element.string:
             element.string = element.string.strip()
 
-        # Check if the element contains only a single number
-        if element.get_text(strip=True).isdigit() and not element.find("sup"):
+        # Check if the element contains only a single number and doesn't have sup or sub tags
+        if (
+            element.get_text(strip=True).isdigit()
+            and not element.find("sup")
+            and not element.find("sub")
+        ):
             # Save the text of the element
             element_text = element.get_text(strip=True)
-            # Wrap the entire element content in a <sup> tag
-            element.string = soup.new_string("")
+            # Clear element without losing structure
+            element.clear()
+            # Create and append new sup tag
             sup_tag = soup.new_tag("sup")
             sup_tag.string = element_text
             element.append(sup_tag)
