@@ -474,6 +474,104 @@ def map_tables_to_elements(elements):
     return elements
 
 
+def identify_fractions(elements):
+    """
+    Identifies and marks fractions in the document. A fraction is identified as:
+    1. An element with a small number (either with TextPosition:"Sup" or small TextSize or Path contains "/Reference")
+    2. Followed by an element with only a slash "/"
+    3. Followed by an element with a small number (either with TextPosition:"Sub" or small TextSize)
+
+    When identified, these elements are modified:
+    - "TextPosition" key is removed if present
+    - "Fraction" key is added with values "Numerator", "SLASH", or "Denominator"
+
+    Args:
+        elements: List of elements to process
+
+    Returns:
+        The modified list of elements
+    """
+    # Find the common text size to use as reference for determining small text
+    text_sizes = [elem.get("TextSize", 0) for elem in elements if "TextSize" in elem]
+    if text_sizes:
+        avg_text_size = sum(text_sizes) / len(text_sizes)
+        # Small text threshold (70% of average size could be super/subscript)
+        small_text_threshold = avg_text_size * 0.7
+    else:
+        small_text_threshold = 5.0  # Fallback value if no text sizes found
+
+    i = 0
+    while i < len(elements) - 2:  # Need at least 3 elements for a fraction
+        # Check if current element could be a numerator
+        current = elements[i]
+        text_current = current.get("Text", "").strip()
+
+        # Check various conditions that might indicate a numerator
+        is_current_superscript = (
+            current.get("attributes", {}).get("TextPosition") == "Sup"
+        )
+        is_small_text = current.get("TextSize", avg_text_size) < small_text_threshold
+
+        # Is this likely a numerator?
+        is_likely_numerator = text_current.isdigit() and (
+            is_current_superscript or is_small_text
+        )
+
+        # Check if next element is a slash
+        next_elem = elements[i + 1]
+        text_next = next_elem.get("Text", "").strip()
+        is_slash = text_next == "/"
+
+        # Check if next-next element could be a denominator
+        next_next_elem = elements[i + 2]
+        text_next_next = next_next_elem.get("Text", "").strip()
+
+        # Check various conditions that might indicate a denominator
+        is_next_next_subscript = (
+            next_next_elem.get("attributes", {}).get("TextPosition") == "Sub"
+        )
+        next_next_small_text = (
+            next_next_elem.get("TextSize", avg_text_size) < small_text_threshold
+        )
+        has_style_span_path = "/StyleSpan" in next_next_elem.get("Path", "")
+
+        # Is this likely a denominator?
+        is_likely_denominator = text_next_next.isdigit() and (
+            is_next_next_subscript or next_next_small_text or has_style_span_path
+        )
+
+        # If we've identified a likely fraction pattern
+        if is_likely_numerator and is_slash and is_likely_denominator:
+            # Modify the elements
+
+            # First element (numerator)
+            if "attributes" not in current:
+                current["attributes"] = {}
+            if "TextPosition" in current["attributes"]:
+                del current["attributes"]["TextPosition"]
+            current["attributes"]["Fraction"] = "Numerator"
+
+            # Second element (slash)
+            if "attributes" not in next_elem:
+                next_elem["attributes"] = {}
+            next_elem["attributes"]["Fraction"] = "SLASH"
+
+            # Third element (denominator)
+            if "attributes" not in next_next_elem:
+                next_next_elem["attributes"] = {}
+            if "TextPosition" in next_next_elem["attributes"]:
+                del next_next_elem["attributes"]["TextPosition"]
+            next_next_elem["attributes"]["Fraction"] = "Denominator"
+
+            # Skip the elements we've processed
+            i += 3
+        else:
+            # Move to next element
+            i += 1
+
+    return elements
+
+
 def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     """
     Extracts color information and hyperlinks from the PDF and updates the JSON data.
@@ -505,6 +603,8 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     elements = check_blue_color(modified_pdf_path, elements)
     # Mark square and cubic meters
     elements = mark_square_cubic_meters(elements)
+    # Check for fractions
+    elements = identify_fractions(elements)
     # Add hyperlinks to extended_metadata
     if "extended_metadata" not in json_data:
         json_data["extended_metadata"] = {}

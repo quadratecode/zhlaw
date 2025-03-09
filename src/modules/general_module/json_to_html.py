@@ -261,6 +261,7 @@ def build_table(elements, soup, table_id):
                     ] = attr_value
 
     # 2. Detect repeating header rows and establish column boundaries
+    # TODO: Does not work reliably
     if not rows:
         # Return empty table if no rows found
         return table
