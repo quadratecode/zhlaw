@@ -301,6 +301,7 @@ def remove_unwanted_attributes(soup: BeautifulSoup) -> BeautifulSoup:
         "data-font-family",
         "data-font-size",
         "data-font-weight",
+        "data-table-id",
     ]
     for attr in unwanted_attributes:
         tags: List[Tag] = soup.find_all(attrs={attr: True})

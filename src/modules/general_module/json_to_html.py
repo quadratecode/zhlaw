@@ -130,15 +130,17 @@ def build_table(elements, soup, table_id):
     Returns:
         BeautifulSoup Tag representing the HTML table
     """
-    # Create the HTML table element with appropriate classes and data attributes
+    # Create the table element
     table = soup.new_tag(
-        "table", **{"class": "data-table", "data-table-id": str(table_id)}
+        "table", **{"class": "law-data-table", "law-data-table-id": str(table_id)}
     )
 
-    # Extract table structure by organizing elements by TR (row), then TH/TD (cell)
+    # 1. First pass: Extract table structure and organize by row/column
     rows = {}
 
-    # Create a unique cell identifier using the full path up to TD/TH part
+    # Track leftmost positions and cell content for better column alignment
+    cell_positions = {}
+
     for element in elements:
         path = element.get("Path", "")
 
@@ -153,248 +155,210 @@ def build_table(elements, soup, table_id):
         if row_index not in rows:
             rows[row_index] = {"cells": {}, "attributes": {}}
 
-        # If this is the TR element itself, store its attributes
+        # If this is the TR element itself, store row attributes
         if re.search(r"/TR(?:\[\d+\])?$", path):
             for attr_name, attr_value in element.get("attributes", {}).items():
                 if attr_name != "TableID":
                     rows[row_index]["attributes"][attr_name] = attr_value
-            rows[row_index]["row_path"] = path  # Store the row path
             continue
 
-        # Extract cell information - include full path up to TH/TD for unique identification
-        cell_match = re.search(r"(.*?/(?:TH|TD)(?:\[(\d+)\])?)(?:/|$)", path)
+        # Extract cell information - get tag and index
+        cell_match = re.search(r"/(T[HD])(?:\[(\d+)\])?", path)
         if not cell_match:
             continue
 
-        # Use the full cell path as the identifier
-        cell_path = cell_match.group(1)
-        cell_type = "TH" if "/TH" in cell_path else "TD"
-        cell_index = int(cell_match.group(2)) if cell_match.group(2) else 1
+        cell_tag = cell_match.group(1)  # "TH" or "TD"
+        cell_index_str = cell_match.group(2)
 
-        # Create a compound key that includes both path and index
-        cell_key = f"{cell_path}_{cell_index}"
+        # Extract horizontal position for column ordering
+        # We'll use the left position from Bounds or CharBounds if available
+        bounds = element.get("Bounds", [])
+        char_bounds = element.get("CharBounds", [])
+
+        if char_bounds:
+            left_pos = char_bounds[0][0]  # leftmost position from first char
+        elif bounds:
+            left_pos = bounds[0]  # left position from bounds
+        else:
+            left_pos = None
+
+        # Create a unique cell identifier
+        if cell_index_str:
+            cell_index = int(cell_index_str)
+        else:
+            cell_index = 1  # default for cells without explicit index
+
+        cell_key = f"{row_index}_{cell_tag}_{cell_index}"
+
+        # Store the horizontal position
+        if left_pos is not None:
+            cell_positions[cell_key] = left_pos
 
         # Initialize cell if not exists
         if cell_key not in rows[row_index]["cells"]:
             rows[row_index]["cells"][cell_key] = {
-                "type": cell_type,
+                "type": cell_tag,
                 "content": [],
                 "attributes": {},
-                "cell_element": None,
-                "index": cell_index,  # Store the index for sorting
-                "path": cell_path,  # Store the cell path
+                "position": cell_index,
+                "left_pos": left_pos,
+                "tag": cell_tag,
             }
 
-        # Store element if it's a direct child of the cell (like P)
-        if "/P" in path or "/Sub" in path:
-            content_copy = element.copy()
-            content_copy["original_path"] = path  # Store the original path
-            rows[row_index]["cells"][cell_key]["content"].append(content_copy)
+        # Add text content
+        if "Text" in element:
+            content_element = {
+                "text": element.get("Text", "").strip(),
+                "is_superscript": element.get("attributes", {}).get("TextPosition")
+                == "Sup",
+                "metadata": {
+                    "page": element.get("Page", 0),
+                    "font_weight": element.get("Font", {}).get("weight", 400),
+                    "font_size": element.get("TextSize", 12),
+                    "font_family": element.get("Font", {}).get("family_name", ""),
+                    "text_color": element.get("attributes", {}).get("TextColor", ""),
+                },
+            }
+            rows[row_index]["cells"][cell_key]["content"].append(content_element)
 
-        # Store cell element if this is the actual cell element
-        elif path == cell_path:
-            rows[row_index]["cells"][cell_key]["cell_element"] = element
+        # Store cell element attributes if this is the actual cell element
+        if re.search(rf"/{cell_tag}(?:\[\d+\])?$", path):
             for attr_name, attr_value in element.get("attributes", {}).items():
-                # Skip TableID since we already used it
                 if attr_name != "TableID":
                     rows[row_index]["cells"][cell_key]["attributes"][
                         attr_name
                     ] = attr_value
 
-    # Create thead and tbody sections
+    # 2. Determine table dimensions and establish column boundaries
+    if not rows:
+        # Return empty table if no rows found
+        return table
+
+    # Find the first row (header row)
+    first_row_index = min(rows.keys())
+    first_row = rows[first_row_index]
+
+    # Sort header cells by horizontal position
+    header_cells = sorted(
+        first_row["cells"].values(),
+        key=lambda c: (
+            c.get("left_pos", float("inf"))
+            if c.get("left_pos") is not None
+            else float("inf")
+        ),
+    )
+
+    # Establish column boundaries based on header cells
+    column_boundaries = []
+    for i, cell in enumerate(header_cells):
+        if cell.get("left_pos") is not None:
+            column_boundaries.append(
+                {"index": i, "left_pos": cell["left_pos"], "cell_data": cell}
+            )
+
+    # Sort column boundaries by position
+    column_boundaries = sorted(column_boundaries, key=lambda c: c["left_pos"])
+
+    # 3. Create thead and tbody
     thead = soup.new_tag("thead")
     tbody = soup.new_tag("tbody")
-    has_header = False
 
-    # Sort rows by row index for proper order
+    # Extract column structure from first row
+    is_header_row = any(cell["tag"] == "TH" for cell in first_row["cells"].values())
+
+    # 4. Generate the rows
     for row_index in sorted(rows.keys()):
         row_data = rows[row_index]
         tr = soup.new_tag("tr")
 
-        # Add row attributes if available
+        # Add row attributes if any
         for attr_name, attr_value in row_data.get("attributes", {}).items():
             tr[attr_name] = attr_value
 
-        # Add row path for debugging
-        if "row_path" in row_data:
-            tr["data-original-path"] = row_data["row_path"]
-
-        # Sort cells by their original index for proper order
-        has_th_in_row = False
-
-        # Group cells by their index and sort
-        cell_groups = {}
+        # Create a dictionary of cells sorted by left position
+        cells_by_position = {}
         for cell_key, cell_data in row_data["cells"].items():
-            cell_index = cell_data["index"]
-            if cell_index not in cell_groups:
-                cell_groups[cell_index] = []
-            cell_groups[cell_index].append((cell_key, cell_data))
+            left_pos = cell_data.get("left_pos")
+            if left_pos is not None:
+                cells_by_position[left_pos] = cell_data
 
-        # Process cells in order of their index
-        for index in sorted(cell_groups.keys()):
-            for cell_key, cell_data in cell_groups[index]:
-                # Create TH or TD element
-                cell = soup.new_tag(cell_data["type"].lower())
+        # Create cells for each column boundary
+        for i, boundary in enumerate(column_boundaries):
+            boundary_pos = boundary["left_pos"]
 
-                # Mark if this row has any TH cells
-                if cell_data["type"] == "TH":
-                    has_th_in_row = True
+            # Find the cell closest to this boundary
+            closest_cell = None
+            min_distance = float("inf")
 
-                # Add cell attributes if available
-                for attr_name, attr_value in cell_data.get("attributes", {}).items():
+            for pos, cell in cells_by_position.items():
+                distance = abs(pos - boundary_pos)
+                # Consider cells within a reasonable distance (tolerance)
+                if (
+                    distance < min_distance and distance < 20
+                ):  # Use a reasonable tolerance
+                    min_distance = distance
+                    closest_cell = cell
+
+            # Create the appropriate cell tag (th for header row, td otherwise)
+            tag_name = "th" if row_index == first_row_index and is_header_row else "td"
+            cell = soup.new_tag(tag_name)
+
+            # If we found a cell close to this boundary, use its content/attributes
+            if closest_cell:
+                # Add cell attributes
+                for attr_name, attr_value in closest_cell.get("attributes", {}).items():
                     cell[attr_name] = attr_value
 
-                # Add TableID attribute
-                cell["data-table-id"] = str(table_id)
+                # Process cell content
+                normal_text = []
+                superscripts = []
 
-                # Add cell path for debugging
-                if "path" in cell_data:
-                    cell["data-original-path"] = cell_data["path"]
+                for content in closest_cell["content"]:
+                    if content["is_superscript"]:
+                        superscripts.append(content)
+                    else:
+                        normal_text.append(content)
 
-                # Add positional data and other metadata from cell element if available
-                cell_element = cell_data.get("cell_element")
-                if cell_element:
-                    # Add positional data if the get_positional_data function is available
-                    if "get_positional_data" in globals():
-                        positional_data = get_positional_data(cell_element)
-                        # Extract positional data attributes
-                        for attr_name, attr_value in [
-                            attr.split("='")
-                            for attr in positional_data.split()
-                            if "=" in attr
-                        ]:
-                            attr_value = attr_value.rstrip("'")
-                            cell[attr_name] = attr_value
+                # Add text content first, then superscripts
+                if normal_text:
+                    text_content = " ".join(
+                        item["text"] for item in normal_text if item["text"]
+                    )
+                    if text_content:
+                        cell.append(text_content)
 
-                    # Add page count
-                    if "Page" in cell_element:
-                        cell["data-page-count"] = str(cell_element["Page"])
-
-                    # Add font information
-                    font_info = cell_element.get("Font", {})
-                    if font_info:
-                        cell["data-font-weight"] = str(font_info.get("weight", 400))
-                        cell["data-font-family"] = font_info.get("family_name", "")
-
-                    # Add text size
-                    if "TextSize" in cell_element:
-                        cell["data-font-size"] = str(cell_element["TextSize"])
-
-                    # Add text color if available in attributes
-                    text_color = cell_element.get("attributes", {}).get("TextColor", "")
-                    if text_color:
-                        cell["data-text-color"] = text_color
-
-                # Process cell content without wrapping in paragraphs
-                for content_element in cell_data["content"]:
-                    text = content_element.get("Text", "").strip()
-
-                    # Check for special elements like superscripts
-                    if (
-                        "attributes" in content_element
-                        and content_element["attributes"].get("TextPosition") == "Sup"
-                    ):
+                # Add superscripts
+                for sup_content in superscripts:
+                    if sup_content["text"]:
                         sup = soup.new_tag("sup")
-                        sup.string = text
+                        sup.string = sup_content["text"]
 
-                        # Add original path to sup for debugging
-                        if "original_path" in content_element:
-                            sup["data-original-path"] = content_element["original_path"]
-
-                        # Add metadata to sup if available
-                        if "Font" in content_element:
-                            sup["data-font-weight"] = str(
-                                content_element["Font"].get("weight", 400)
-                            )
-                            sup["data-font-family"] = content_element["Font"].get(
-                                "family_name", ""
-                            )
-                        if "TextSize" in content_element:
-                            sup["data-font-size"] = str(content_element["TextSize"])
-                        if (
-                            "attributes" in content_element
-                            and "TextColor" in content_element["attributes"]
-                        ):
-                            sup["data-text-color"] = content_element["attributes"][
-                                "TextColor"
-                            ]
+                        # Add minimal metadata
+                        for key, value in sup_content["metadata"].items():
+                            if value and key in [
+                                "font_weight",
+                                "font_size",
+                                "font_family",
+                            ]:
+                                sup[f"data-{key.replace('_', '-')}"] = str(value)
 
                         cell.append(sup)
-                    else:
-                        # For normal text, check if we need to add a debug container
-                        if "original_path" in content_element:
-                            # Create a span with the path for debugging
-                            span = soup.new_tag("span")
-                            span["data-original-path"] = content_element[
-                                "original_path"
-                            ]
-                            span.string = text
 
-                            # If the cell already has content, add a space before
-                            if (
-                                len(cell.contents) > 0
-                                and not cell.contents[-1].name == "sup"
-                            ):
-                                cell.append(" ")
+            # Add the cell to the row
+            cell["data-table-id"] = str(table_id)
+            tr.append(cell)
 
-                            cell.append(span)
-                        else:
-                            # For normal text, just append directly to the cell
-                            if (
-                                len(cell.contents) > 0
-                                and not cell.contents[-1].name == "sup"
-                            ):
-                                cell.append(" ")
-                            cell.append(text)
-
-                        # Add metadata to the cell from the content element
-                        if (
-                            not cell.get("data-font-weight")
-                            and "Font" in content_element
-                        ):
-                            cell["data-font-weight"] = str(
-                                content_element["Font"].get("weight", 400)
-                            )
-                            cell["data-font-family"] = content_element["Font"].get(
-                                "family_name", ""
-                            )
-                        if (
-                            not cell.get("data-font-size")
-                            and "TextSize" in content_element
-                        ):
-                            cell["data-font-size"] = str(content_element["TextSize"])
-                        if (
-                            not cell.get("data-text-color")
-                            and "attributes" in content_element
-                            and "TextColor" in content_element["attributes"]
-                        ):
-                            cell["data-text-color"] = content_element["attributes"][
-                                "TextColor"
-                            ]
-                        if (
-                            not cell.get("data-page-count")
-                            and "Page" in content_element
-                        ):
-                            cell["data-page-count"] = str(content_element["Page"])
-
-                tr.append(cell)
-
-        # If this row has TH cells, consider it a header row
-        if has_th_in_row:
-            has_header = True
+        # Add the row to thead or tbody
+        if row_index == first_row_index and is_header_row:
             thead.append(tr)
         else:
             tbody.append(tr)
 
-    # Add the table paths to the root table element
-    table["data-table-id"] = str(table_id)
-
-    # Only add thead if there are header rows
-    if has_header:
+    # 5. Add sections to table
+    if thead.contents:
         table.append(thead)
-
-    # Always add tbody
-    table.append(tbody)
+    if tbody.contents:
+        table.append(tbody)
 
     return table
 
