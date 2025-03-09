@@ -132,14 +132,12 @@ def build_table(elements, soup, table_id):
     """
     # Create the table element
     table = soup.new_tag(
-        "table", **{"class": "law-data-table", "law-data-table-id": str(table_id)}
+        "table", **{"class": "data-table", "data-table-id": str(table_id)}
     )
 
     # 1. First pass: Extract table structure and organize by row/column
     rows = {}
-
-    # Track leftmost positions and cell content for better column alignment
-    cell_positions = {}
+    header_signature = None  # Store header row signature to detect repeats
 
     for element in elements:
         path = element.get("Path", "")
@@ -170,17 +168,21 @@ def build_table(elements, soup, table_id):
         cell_tag = cell_match.group(1)  # "TH" or "TD"
         cell_index_str = cell_match.group(2)
 
-        # Extract horizontal position for column ordering
-        # We'll use the left position from Bounds or CharBounds if available
+        # Get positional data from element
         bounds = element.get("Bounds", [])
         char_bounds = element.get("CharBounds", [])
 
         if char_bounds:
-            left_pos = char_bounds[0][0]  # leftmost position from first char
+            left = char_bounds[0][0]
+            top = char_bounds[0][1]
+            right = char_bounds[-1][2]
+            bottom = char_bounds[-1][3]
         elif bounds:
-            left_pos = bounds[0]  # left position from bounds
+            left, top, right, bottom = bounds
         else:
-            left_pos = None
+            left = top = right = bottom = 0
+
+        positional_data = {"left": left, "top": top, "right": right, "bottom": bottom}
 
         # Create a unique cell identifier
         if cell_index_str:
@@ -190,27 +192,16 @@ def build_table(elements, soup, table_id):
 
         cell_key = f"{row_index}_{cell_tag}_{cell_index}"
 
-        # Store the horizontal position
-        if left_pos is not None:
-            cell_positions[cell_key] = left_pos
-
         # Initialize cell if not exists
         if cell_key not in rows[row_index]["cells"]:
             rows[row_index]["cells"][cell_key] = {
                 "type": cell_tag,
                 "content": [],
+                "tags": [],  # Store special tags like <sup>, <sub>
                 "attributes": {},
                 "position": cell_index,
-                "left_pos": left_pos,
+                "positional_data": positional_data,
                 "tag": cell_tag,
-            }
-
-        # Add text content
-        if "Text" in element:
-            content_element = {
-                "text": element.get("Text", "").strip(),
-                "is_superscript": element.get("attributes", {}).get("TextPosition")
-                == "Sup",
                 "metadata": {
                     "page": element.get("Page", 0),
                     "font_weight": element.get("Font", {}).get("weight", 400),
@@ -219,7 +210,47 @@ def build_table(elements, soup, table_id):
                     "text_color": element.get("attributes", {}).get("TextColor", ""),
                 },
             }
-            rows[row_index]["cells"][cell_key]["content"].append(content_element)
+
+        # Add text content
+        if "Text" in element:
+            # Determine if this is a special tag like sup or sub
+            is_special_tag = False
+            tag_type = None
+
+            if element.get("attributes", {}).get("TextPosition") == "Sup":
+                is_special_tag = True
+                tag_type = "sup"
+            elif element.get("attributes", {}).get("TextPosition") == "Sub":
+                is_special_tag = True
+                tag_type = "sub"
+
+            if is_special_tag:
+                # Store special tag with its text and attributes
+                rows[row_index]["cells"][cell_key]["tags"].append(
+                    {
+                        "type": tag_type,
+                        "text": element.get("Text", "").strip(),
+                        "position": len(
+                            rows[row_index]["cells"][cell_key]["content"]
+                        ),  # Position relative to content
+                        "metadata": {
+                            "page": element.get("Page", 0),
+                            "font_weight": element.get("Font", {}).get("weight", 400),
+                            "font_size": element.get("TextSize", 12),
+                            "font_family": element.get("Font", {}).get(
+                                "family_name", ""
+                            ),
+                            "text_color": element.get("attributes", {}).get(
+                                "TextColor", ""
+                            ),
+                        },
+                    }
+                )
+            else:
+                # Regular text content
+                rows[row_index]["cells"][cell_key]["content"].append(
+                    element.get("Text", "").strip()
+                )
 
         # Store cell element attributes if this is the actual cell element
         if re.search(rf"/{cell_tag}(?:\[\d+\])?$", path):
@@ -229,7 +260,7 @@ def build_table(elements, soup, table_id):
                         attr_name
                     ] = attr_value
 
-    # 2. Determine table dimensions and establish column boundaries
+    # 2. Detect repeating header rows and establish column boundaries
     if not rows:
         # Return empty table if no rows found
         return table
@@ -238,23 +269,42 @@ def build_table(elements, soup, table_id):
     first_row_index = min(rows.keys())
     first_row = rows[first_row_index]
 
-    # Sort header cells by horizontal position
+    # Create a signature for the header row to detect repeats
+    header_cells = [
+        (cell["tag"], "".join(cell["content"]), cell["positional_data"]["left"])
+        for cell in first_row["cells"].values()
+    ]
+    header_signature = str(sorted(header_cells))
+
+    # Create a set to track rows to skip (duplicate headers)
+    rows_to_skip = set()
+
+    # Check other rows to see if they match the header signature
+    for row_idx, row_data in rows.items():
+        if row_idx == first_row_index:
+            continue
+
+        row_cells = [
+            (cell["tag"], "".join(cell["content"]), cell["positional_data"]["left"])
+            for cell in row_data["cells"].values()
+        ]
+        row_signature = str(sorted(row_cells))
+
+        # If this row matches the header row, mark it to be skipped
+        if row_signature == header_signature:
+            rows_to_skip.add(row_idx)
+
+    # Sort header cells by horizontal position for column boundaries
     header_cells = sorted(
-        first_row["cells"].values(),
-        key=lambda c: (
-            c.get("left_pos", float("inf"))
-            if c.get("left_pos") is not None
-            else float("inf")
-        ),
+        first_row["cells"].values(), key=lambda c: c["positional_data"]["left"]
     )
 
     # Establish column boundaries based on header cells
     column_boundaries = []
     for i, cell in enumerate(header_cells):
-        if cell.get("left_pos") is not None:
-            column_boundaries.append(
-                {"index": i, "left_pos": cell["left_pos"], "cell_data": cell}
-            )
+        column_boundaries.append(
+            {"index": i, "left_pos": cell["positional_data"]["left"], "cell_data": cell}
+        )
 
     # Sort column boundaries by position
     column_boundaries = sorted(column_boundaries, key=lambda c: c["left_pos"])
@@ -268,6 +318,10 @@ def build_table(elements, soup, table_id):
 
     # 4. Generate the rows
     for row_index in sorted(rows.keys()):
+        # Skip duplicate header rows
+        if row_index in rows_to_skip:
+            continue
+
         row_data = rows[row_index]
         tr = soup.new_tag("tr")
 
@@ -278,9 +332,8 @@ def build_table(elements, soup, table_id):
         # Create a dictionary of cells sorted by left position
         cells_by_position = {}
         for cell_key, cell_data in row_data["cells"].items():
-            left_pos = cell_data.get("left_pos")
-            if left_pos is not None:
-                cells_by_position[left_pos] = cell_data
+            left_pos = cell_data["positional_data"]["left"]
+            cells_by_position[left_pos] = cell_data
 
         # Create cells for each column boundary
         for i, boundary in enumerate(column_boundaries):
@@ -305,44 +358,51 @@ def build_table(elements, soup, table_id):
 
             # If we found a cell close to this boundary, use its content/attributes
             if closest_cell:
-                # Add cell attributes
+                # Add standard position data attributes
+                page = closest_cell["metadata"]["page"]
+                left = closest_cell["positional_data"]["left"]
+                top = closest_cell["positional_data"]["top"]
+                right = closest_cell["positional_data"]["right"]
+                bottom = closest_cell["positional_data"]["bottom"]
+
+                # Add all metadata attributes as data attributes
+                cell["data-page-count"] = str(page)
+                cell["data-vertical-position-left"] = str(left)
+                cell["data-vertical-position-top"] = str(top)
+                cell["data-vertical-position-right"] = str(right)
+                cell["data-vertical-position-bottom"] = str(bottom)
+                cell["data-font-weight"] = str(closest_cell["metadata"]["font_weight"])
+                cell["data-font-size"] = str(closest_cell["metadata"]["font_size"])
+                cell["data-font-family"] = closest_cell["metadata"]["font_family"]
+                if closest_cell["metadata"]["text_color"]:
+                    cell["data-text-color"] = closest_cell["metadata"]["text_color"]
+
+                # Add other cell attributes
                 for attr_name, attr_value in closest_cell.get("attributes", {}).items():
                     cell[attr_name] = attr_value
 
-                # Process cell content
-                normal_text = []
-                superscripts = []
+                # Process regular content
+                content_text = " ".join(closest_cell["content"])
+                if content_text:
+                    cell.append(content_text)
 
-                for content in closest_cell["content"]:
-                    if content["is_superscript"]:
-                        superscripts.append(content)
-                    else:
-                        normal_text.append(content)
+                # Process special tags (sup, sub, etc.)
+                for tag_info in closest_cell["tags"]:
+                    tag_type = tag_info["type"]
+                    tag_element = soup.new_tag(tag_type)
+                    tag_element.string = tag_info["text"]
 
-                # Add text content first, then superscripts
-                if normal_text:
-                    text_content = " ".join(
-                        item["text"] for item in normal_text if item["text"]
-                    )
-                    if text_content:
-                        cell.append(text_content)
+                    # Add metadata to tag
+                    for key, value in tag_info["metadata"].items():
+                        if value and key in [
+                            "font_weight",
+                            "font_size",
+                            "font_family",
+                            "text_color",
+                        ]:
+                            tag_element[f"data-{key.replace('_', '-')}"] = str(value)
 
-                # Add superscripts
-                for sup_content in superscripts:
-                    if sup_content["text"]:
-                        sup = soup.new_tag("sup")
-                        sup.string = sup_content["text"]
-
-                        # Add minimal metadata
-                        for key, value in sup_content["metadata"].items():
-                            if value and key in [
-                                "font_weight",
-                                "font_size",
-                                "font_family",
-                            ]:
-                                sup[f"data-{key.replace('_', '-')}"] = str(value)
-
-                        cell.append(sup)
+                    cell.append(tag_element)
 
             # Add the cell to the row
             cell["data-table-id"] = str(table_id)
