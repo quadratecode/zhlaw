@@ -1,0 +1,4 @@
+ErrorDocument 404 /404.html
+RewriteEngine On
+# Capture any numeric and period sequence followed by a hyphen and pass it to the PHP script
+RewriteRule ^col-zh/([0-9\.]+)$ /col-zh/redirect.php?ordnungsnummer=$1 [L]
