@@ -795,6 +795,15 @@ body {
         font-size: 16px;
     }
 
+    .logo-container {
+        transform-origin: left center;
+        transform: scale(0.9);
+    }
+    
+    #page-header:has(.pagefind-ui__results) .logo-container {
+        transform: translateX(-10px) scale(0.8);
+    }
+
     .main-container {
         padding: 0 1.5rem 0 3rem;
         margin: 1rem auto;
@@ -832,17 +841,6 @@ body {
 
     h2 {
         font-size: 1.25rem;
-    }
-
-    /* Responsive adjustments */
-@media (max-width: 768px) {
-    .logo-container {
-        transform-origin: left center;
-        transform: scale(0.9);
-    }
-    
-    #page-header:has(.pagefind-ui__results) .logo-container {
-        transform: translateX(-10px) scale(0.8);
     }
 }
 
