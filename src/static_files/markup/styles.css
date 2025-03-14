@@ -159,7 +159,11 @@ body {
     display: flex;
     align-items: flex-start;
     cursor: pointer;
-    transition: opacity 0.2s ease;
+    transition: all 0.3s ease;
+    opacity: 1;
+    width: auto;
+    overflow: hidden;
+    flex-shrink: 0;
 }
 
 .logo-container a:hover {
@@ -616,7 +620,9 @@ details.details-col summary:hover {
     align-items: flex-start;
     min-width: 0;
     margin-left: 1rem;
+    transition: all 0.3s ease;
 }
+
 
 #search {
     flex: 1;
@@ -638,11 +644,9 @@ body {
     --pagefind-ui-font: var(--font-text);
 }
 
+/* Ensure the input field expands properly */
 .pagefind-ui__search-input {
-    height: 40px;
-    line-height: 40px;
-    box-sizing: border-box;
-    padding: 0 0.5rem;
+    transition: width 0.3s ease;
     width: 100%;
 }
 
@@ -654,7 +658,15 @@ body {
 
 /* Hide logo if results are displayed (requires :has() support) */
 #page-header:has(.pagefind-ui__results) .logo-container {
-    display: none !important;
+    opacity: 0;
+    width: 0;
+    margin: 0;
+    transform: translateX(-20px);
+}
+
+#page-header:has(.pagefind-ui__results) .search-container {
+    margin-left: 0;
+    width: 100%;
 }
 
 /* Remove the black border from Pagefind search & results */
@@ -820,6 +832,17 @@ body {
 
     h2 {
         font-size: 1.25rem;
+    }
+
+    /* Responsive adjustments */
+@media (max-width: 768px) {
+    .logo-container {
+        transform-origin: left center;
+        transform: scale(0.9);
+    }
+    
+    #page-header:has(.pagefind-ui__results) .logo-container {
+        transform: translateX(-10px) scale(0.8);
     }
 }
 
