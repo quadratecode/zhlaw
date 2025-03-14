@@ -34,6 +34,25 @@
     --dark-purple: #280059;
     --disabled-grey: rgb(205, 205, 205);
 
+    /* Dark Mode Colors */
+    --dark-soft-white: #1c1c1c;
+    --dark-soft-black: #e6e6e6;
+    --dark-dark-shade: #f5f5f5;
+    --dark-link-blue: rgb(100, 149, 237);
+    --dark-hover-blue: #1a2e4a;
+    --dark-focus-outline-blue: #4d94ff;
+    --dark-line-grey: #555;
+    --dark-highlight-grey: #333;
+    --dark-subtle-grey: #2a2a2a;
+    --dark-hover-grey: #3d3d3d;
+    --dark-in-force-green: rgb(39, 85, 39);
+    --dark-in-force-dark-green: lightgreen;
+    --dark-in-force-red: rgb(85, 39, 39);
+    --dark-in-force-dark-red: lightcoral;
+    --dark-light-purple: #38236e;
+    --dark-dark-purple: #d3c5ff;
+    --dark-disabled-grey: rgb(100, 100, 100);
+
     /* Font Weights */
     --font-weight-regular: 400;
     --font-weight-medium: 500;
@@ -47,6 +66,60 @@
 
     /* Base Size */
     --base-font-size: 18px;
+}
+
+/* Dark mode class - applied when explicitly selected */
+.dark-mode {
+    --soft-white: var(--dark-soft-white);
+    --soft-black: var(--dark-soft-black);
+    --dark-shade: var(--dark-dark-shade);
+    --link-blue: var(--dark-link-blue);
+    --hover-blue: var(--dark-hover-blue);
+    --focus-outline-blue: var(--dark-focus-outline-blue);
+    --line-grey: var(--dark-line-grey);
+    --highlight-grey: var(--dark-highlight-grey);
+    --subtle-grey: var(--dark-subtle-grey);
+    --hover-grey: var(--dark-hover-grey);
+    --in-force-green: var(--dark-in-force-green);
+    --in-force-dark-green: var(--dark-in-force-dark-green);
+    --in-force-red: var(--dark-in-force-red);
+    --in-force-dark-red: var(--dark-in-force-dark-red);
+    --light-purple: var(--dark-light-purple);
+    --dark-purple: var(--dark-dark-purple);
+    --disabled-grey: var(--dark-disabled-grey);
+}
+
+/* Light mode is the default when no JavaScript is available */
+html {
+    /* Default light mode CSS variables are already defined in :root */
+}
+
+/* 
+ * System preference based dark mode - applied only when:
+ * 1. System prefers dark mode AND
+ * 2. JavaScript is disabled (meaning no .light-mode class can be added) AND
+ * 3. No .dark-mode class is present (to avoid conflicting with JS-based toggle)
+ */
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode):not(.dark-mode) {
+        --soft-white: var(--dark-soft-white);
+        --soft-black: var(--dark-soft-black);
+        --dark-shade: var(--dark-dark-shade);
+        --link-blue: var(--dark-link-blue);
+        --hover-blue: var(--dark-hover-blue);
+        --focus-outline-blue: var(--dark-focus-outline-blue);
+        --line-grey: var(--dark-line-grey);
+        --highlight-grey: var(--dark-highlight-grey);
+        --subtle-grey: var(--dark-subtle-grey);
+        --hover-grey: var(--dark-hover-grey);
+        --in-force-green: var(--dark-in-force-green);
+        --in-force-dark-green: var(--dark-in-force-dark-green);
+        --in-force-red: var(--dark-in-force-red);
+        --in-force-dark-red: var(--dark-in-force-dark-red);
+        --light-purple: var(--dark-light-purple);
+        --dark-purple: var(--dark-dark-purple);
+        --disabled-grey: var(--dark-disabled-grey);
+    }
 }
 
 /* -----------------------------
@@ -80,6 +153,7 @@ body {
     margin: 2rem auto;
     padding: 0 1rem;
     box-sizing: border-box;
+    transition: margin-top 0.3s ease;
 }
 
 #sidebar {
@@ -142,8 +216,18 @@ body {
     margin-right: -50vw;
     border-bottom: 2px solid var(--soft-black);
     z-index: 100;
+    transition: all 0.3s ease;
 }
 
+/* Header content with search results present */
+#page-header:has(.pagefind-ui__results) {
+    height: auto;
+    overflow: visible;
+    padding-bottom: 1rem;
+    background-color: var(--soft-white);
+}
+
+/* Updated header layout with search on left, toggle in middle, logo on right */
 .header-content {
     width: 100%;
     max-width: 50rem;
@@ -151,17 +235,43 @@ body {
     padding: 1rem;
     box-sizing: border-box;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
 }
 
+/* Search container now on the left */
+.search-container {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start; /* Align to the left */
+    justify-content: center;
+    min-width: 0;
+    margin-right: 1rem; /* Space after the search bar */
+    margin-left: 0; /* No margin on left since it's the first element */
+    transition: all 0.3s ease;
+    height: 64px;
+}
+
+/* Dark mode toggle in the middle */
+.dark-mode-toggle-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem; /* Space after the toggle */
+    transition: all 0.3s ease;
+    height: 64px;
+    flex-shrink: 0;
+}
+
+/* Logo container now on the right */
 .logo-container {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     cursor: pointer;
     transition: all 0.3s ease;
     opacity: 1;
-    width: auto;
+    height: 64px;
     overflow: hidden;
     flex-shrink: 0;
 }
@@ -174,6 +284,62 @@ body {
     display: block;
     height: 64px;
     width: auto;
+}
+
+/* Logo color handling for dark mode */
+.dark-mode .header-logo {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* When system preference is dark and JS is disabled */
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode):not(.dark-mode) .header-logo {
+        filter: invert(1) hue-rotate(180deg);
+    }
+}
+
+/* When search results are visible, hide toggle and logo */
+#page-header:has(.pagefind-ui__results) .dark-mode-toggle-container,
+#page-header:has(.pagefind-ui__results) .logo-container {
+    opacity: 0;
+    width: 0;
+    margin: 0;
+    transform: translateX(20px); /* Move right instead of left */
+    overflow: hidden;
+}
+
+/* Search container expands to full width when results are shown */
+#page-header:has(.pagefind-ui__results) .search-container {
+    margin-right: 0;
+    width: 100%;
+    height: auto;
+}
+
+/* Push down main content when search results appear */
+#page-header:has(.pagefind-ui__results) + .main-container {
+    margin-top: 1rem;
+}
+
+#dark-mode-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--soft-black);
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+#dark-mode-toggle svg {
+    width: 28px; /* Larger icon */
+    height: 28px; /* Larger icon */
+}
+
+#dark-mode-toggle:hover {
+    background-color: var(--hover-grey);
 }
 
 .nav-buttons {
@@ -613,21 +779,46 @@ details.details-col summary:hover {
 /* -----------------------------
    8. Search
 ----------------------------- */
-.search-container {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    align-items: flex-start;
-    min-width: 0;
-    margin-left: 1rem;
-    transition: all 0.3s ease;
+/* Ensure the input field expands properly */
+.pagefind-ui__search-input {
+    transition: width 0.3s ease;
+    width: 100% !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
 }
-
 
 #search {
     flex: 1;
     width: 100%;
     min-width: 0;
+}
+
+/* Ensure search results appear below the search input */
+.pagefind-ui__wrapper {
+    width: 100%;
+}
+
+.pagefind-ui__wrapper .pagefind-ui__form {
+    width: 100%;
+}
+
+.pagefind-ui__wrapper .pagefind-ui__search {
+    position: relative;
+    width: 100%;
+}
+
+/* Fix positioning of search results */
+.pagefind-ui__wrapper .pagefind-ui__search .pagefind-ui__results {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    margin-top: 0.75rem !important;
+    width: 100% !important;
+    z-index: 10;
+    box-shadow: none !important;
+    border: none !important;
+    background: var(--soft-white) !important;
 }
 
 body {
@@ -642,31 +833,6 @@ body {
     --pagefind-ui-image-box-ratio: 3 / 2;
     --pagefind-ui-scale: 1;
     --pagefind-ui-font: var(--font-text);
-}
-
-/* Ensure the input field expands properly */
-.pagefind-ui__search-input {
-    transition: width 0.3s ease;
-    width: 100%;
-}
-
-.pagefind-ui__wrapper .pagefind-ui__search .pagefind-ui__results {
-    position: static !important;
-    margin-top: 0.5rem;
-    width: 100%;
-}
-
-/* Hide logo if results are displayed (requires :has() support) */
-#page-header:has(.pagefind-ui__results) .logo-container {
-    opacity: 0;
-    width: 0;
-    margin: 0;
-    transform: translateX(-20px);
-}
-
-#page-header:has(.pagefind-ui__results) .search-container {
-    margin-left: 0;
-    width: 100%;
 }
 
 /* Remove the black border from Pagefind search & results */
@@ -686,6 +852,11 @@ body {
 .pagefind-ui__result a:hover,
 .pagefind-ui__result a:focus {
     background-color: var(--hover-blue) !important;
+}
+
+/* Dark mode fixes for search results */
+.dark-mode .pagefind-ui__results {
+    background-color: var(--soft-white) !important;
 }
 
 /* -----------------------------
@@ -757,8 +928,88 @@ body {
 }
 
 /* -----------------------------
-   10. Media Queries
+   10. Transitions and Theme Switching
 ----------------------------- */
+/* Adjust transition timing for smoother theme switching */
+body,
+#page-header,
+.main-container,
+#law, 
+.provision,
+.subprovision,
+a,
+#dark-mode-toggle,
+.search-container,
+.logo-container {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* -----------------------------
+   11. Media Queries
+----------------------------- */
+/* Responsive adjustments for dark mode toggle and header alignment */
+@media (max-width: 768px) {
+    .search-container {
+        margin-right: 0.5rem;
+        height: 50px;
+    }
+    
+    .dark-mode-toggle-container {
+        margin-right: 0.5rem;
+        height: 50px;
+    }
+    
+    #dark-mode-toggle {
+        padding: 0.4rem;
+    }
+    
+    #dark-mode-toggle svg {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .header-logo {
+        height: 50px; /* Match smaller height on mobile */
+    }
+    
+    .logo-container {
+        height: 50px;
+    }
+    
+    /* Handle the UI when search results are displayed */
+    #page-header:has(.pagefind-ui__results) .dark-mode-toggle-container {
+        transform: scale(0.9);
+    }
+}
+
+@media (max-width: 480px) {
+    .search-container {
+        height: 42px;
+    }
+    
+    .dark-mode-toggle-container {
+        height: 42px;
+        margin-right: 0.3rem;
+    }
+    
+    #dark-mode-toggle {
+        padding: 0.3rem;
+    }
+    
+    #dark-mode-toggle svg {
+        width: 22px;
+        height: 22px;
+    }
+    
+    .header-logo {
+        height: 42px; /* Match smaller height on very small screens */
+    }
+    
+    .logo-container {
+        height: 42px;
+    }
+}
+
 /* Large screens */
 @media (min-width: 1200px) {
     .main-container {
@@ -793,15 +1044,6 @@ body {
 @media (max-width: 768px) {
     html {
         font-size: 16px;
-    }
-
-    .logo-container {
-        transform-origin: left center;
-        transform: scale(0.9);
-    }
-    
-    #page-header:has(.pagefind-ui__results) .logo-container {
-        transform: translateX(-10px) scale(0.8);
     }
 
     .main-container {
@@ -841,6 +1083,12 @@ body {
 
     h2 {
         font-size: 1.25rem;
+    }
+
+    /* Responsive adjustments */
+    .logo-container {
+        transform-origin: right center;
+        transform: scale(0.9);
     }
 }
 

@@ -54,14 +54,48 @@ def create_nav_buttons(soup: BeautifulSoup) -> Tag:
 
 def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
     """
-    Inserts a header with logo on the left and a search bar on the right.
-    Also adds Pagefind UI assets to the <head>.
+    Inserts a header with search bar on the left, toggle in the middle, and logo on the right.
+    Also adds Pagefind UI assets to the <head> and dark mode toggle button.
     """
     header: Tag = soup.new_tag("div", **{"id": "page-header"})
     header_content: Tag = soup.new_tag("div", **{"class": "header-content"})
     header.append(header_content)
 
-    # Logo container
+    # Search container (now first)
+    search_container: Tag = soup.new_tag("div", **{"class": "search-container"})
+    search_div: Tag = soup.new_tag("div", id="search")
+    search_container.append(search_div)
+    header_content.append(search_container)
+
+    # Dark mode toggle container (now second)
+    dark_mode_container: Tag = soup.new_tag(
+        "div", **{"class": "dark-mode-toggle-container"}
+    )
+    dark_mode_toggle: Tag = soup.new_tag(
+        "button", id="dark-mode-toggle", **{"aria-label": "Toggle dark mode"}
+    )
+
+    # Use SVG for moon icon (default)
+    moon_svg = soup.new_tag(
+        "svg",
+        xmlns="http://www.w3.org/2000/svg",
+        width="28",
+        height="28",
+        viewBox="0 0 24 24",
+        fill="none",
+        stroke="currentColor",
+        **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round"},
+    )
+    moon_path = soup.new_tag(
+        "path", d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+    )
+    moon_svg.append(moon_path)
+    dark_mode_toggle.append(moon_svg)
+
+    dark_mode_container.append(dark_mode_toggle)
+    header_content.append(dark_mode_container)
+
+    # Logo container (now third/last)
     logo_container: Tag = soup.new_tag("div", **{"class": "logo-container"})
     logo_link: Tag = soup.new_tag("a", href="/")
     logo_img: Tag = soup.new_tag(
@@ -70,12 +104,6 @@ def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
     logo_link.append(logo_img)
     logo_container.append(logo_link)
     header_content.append(logo_container)
-
-    # Search container
-    search_container: Tag = soup.new_tag("div", **{"class": "search-container"})
-    search_div: Tag = soup.new_tag("div", id="search")
-    search_container.append(search_div)
-    header_content.append(search_container)
 
     # Insert Pagefind UI assets into <head>
     head: Union[Tag, None] = soup.find("head")
@@ -86,6 +114,10 @@ def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
         head.append(css_link)
         script_tag: Tag = soup.new_tag("script", src="/pagefind/pagefind-ui.js")
         head.append(script_tag)
+
+        # Add dark mode script
+        dark_mode_script: Tag = soup.new_tag("script", src="/dark-mode.js", defer=True)
+        head.append(dark_mode_script)
 
     # Pagefind initialization script
     search_script: Tag = soup.new_tag("script")
@@ -157,8 +189,14 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
 def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
     """
     Modifies the HTML by adding stylesheet, favicon, meta tags, and reorganizing the body structure.
+    Also adds dark mode support by including the dark mode script.
     Note: No data-pagefind-body attribute is added here - it will be added selectively later.
     """
+    # Add no-js class to html element for JavaScript detection
+    html_tag = soup.html
+    if html_tag:
+        html_tag["class"] = html_tag.get("class", []) + ["no-js", "light-mode"]
+
     head: Union[Tag, None] = soup.head
     if head is None:
         head = soup.new_tag("head")
@@ -192,6 +230,10 @@ def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
     encoding_meta: Tag = soup.new_tag("meta", charset="utf-8")
     head.append(encoding_meta)
 
+    # Add dark mode script
+    dark_mode_script: Tag = soup.new_tag("script", src="../dark-mode.js", defer=True)
+    head.append(dark_mode_script)
+
     # Reorganize body contents into structured containers
     body: Union[Tag, None] = soup.body
     if body:
@@ -206,26 +248,6 @@ def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
         main_container.append(sidebar)
         main_container.append(content)
         body.append(main_container)
-    return soup
-
-
-def remove_unwanted_attributes(soup: BeautifulSoup) -> BeautifulSoup:
-    """
-    Removes a list of unwanted data attributes from all tags.
-    """
-    unwanted_attrs = [
-        "data-vertical-position-bottom",
-        "data-vertical-position-top",
-        "data-vertical-position-left",
-        "data-vertical-position-right",
-        "data-page-count",
-        "data-font-family",
-        "data-font-size",
-        "data-font-weight",
-    ]
-    for attr in unwanted_attrs:
-        for tag in soup.find_all(attrs={attr: True}):
-            del tag[attr]
     return soup
 
 
