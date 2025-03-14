@@ -97,13 +97,13 @@ def find_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
         },
     ):
         text: str = paragraph.get_text(strip=True)
-        # Check if paragraph has an ID of the form "provision-<number>" or "provision-<number>_<letter>"
+        # Check if paragraph has an ID of the form "seq-X-prov-Y"
         provision_match = re.match(
-            r"^provision-(\d+)(?:_([a-zA-Z]))?", paragraph.get("id", "")
+            r"^seq-(\d+)-prov-(\d+)([a-zA-Z]*|[a-zA-Z]+er)$", paragraph.get("id", "")
         )
         if provision_match:
-            num, letter = provision_match.groups()
-            last_provision_id = f"{num}{f'-{letter}' if letter else ''}"
+            seq_num, num, suffix = provision_match.groups()
+            last_provision_id = f"{seq_num}-prov-{num}{suffix}"
 
         # If text matches subprovision pattern, mark it as subprovision
         if SUBPROVISION_PATTERN.match(text):
@@ -112,8 +112,9 @@ def find_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
                 subprov_match = SUBPROVISION_PATTERN.match(text)
                 subprovision_number = subprov_match.group(1)
                 suffix = subprov_match.group(2) if subprov_match.group(2) else ""
+                # Format without dash between number and word suffix
                 paragraph["id"] = (
-                    f"provision-{last_provision_id}-subprovision-{subprovision_number}{suffix.lower()}"
+                    f"seq-{seq_num}-prov-{num}{suffix}-sub-{subprovision_number}{suffix.lower()}"
                 )
 
     return soup

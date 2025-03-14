@@ -20,6 +20,12 @@ PROVISION_PATTERN = re.compile(
 )
 NUMBER_LETTER_PATTERN = re.compile(r"(\d+)\s*([a-zA-Z]?)")
 SUPER_SCRIPT_PATTERN = re.compile(r"^\s*<sup>\s*\d+\s*</sup>\s*$", re.IGNORECASE)
+provision_sequences = {}
+
+
+def reset_provision_sequences():
+    global provision_sequences
+    provision_sequences = {}
 
 
 def read_json(file_path):
@@ -736,16 +742,30 @@ def process_element(element, font_variants, marginalia, index, last_special_inde
     is_provision = PROVISION_PATTERN.match(text) and len(text) <= 20
     provision_attr = ' class="provision"' if is_provision else ""
 
+    # Global tracking of provision sequences
+    global provision_sequences
+
     if is_provision:
         # Extract number/letter information for provisions
         number_letter_match = NUMBER_LETTER_PATTERN.search(text)
         if number_letter_match:
             number = number_letter_match.group(1)
-            letter = number_letter_match.group(2)
-            data_provision_number = f"{number}-{letter}" if letter else number
-            provision_attr = (
-                f' class="provision" id="provision-{data_provision_number}"'
-            )
+            letter = number_letter_match.group(2) or ""
+
+            # Create base provision identifier (without dashes for letter/word suffixes)
+            prov_id = f"{number}{letter}"
+
+            # Track sequence number
+            if prov_id not in provision_sequences:
+                provision_sequences[prov_id] = 0
+            seq_num = provision_sequences[prov_id]
+
+            # Format ID with sequence, provision, and no subprovision part yet
+            provision_attr = f' class="provision" id="seq-{seq_num}-prov-{prov_id}"'
+
+            # Increment for next occurrence
+            provision_sequences[prov_id] += 1
+
         # Remove text color data for provisions
         text_color_data = ""
     else:
@@ -888,6 +908,7 @@ def assign_heading_level(font_variants, font_weight, font_size):
 
 
 def main(json_file_law_updated, metadata, html_file, marginalia):
+    reset_provision_sequences()
     json_data = read_json(json_file_law_updated)
     # Get title from metadata doc_info
     erlasstitel = metadata["doc_info"]["erlasstitel"]
