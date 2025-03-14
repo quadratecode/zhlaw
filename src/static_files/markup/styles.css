@@ -89,11 +89,6 @@
     --disabled-grey: var(--dark-disabled-grey);
 }
 
-/* Light mode is the default when no JavaScript is available */
-html {
-    /* Default light mode CSS variables are already defined in :root */
-}
-
 /* 
  * System preference based dark mode - applied only when:
  * 1. System prefers dark mode AND
@@ -412,7 +407,6 @@ body {
     word-break: break-all;
     user-select: all; /* Makes the URL text selected when clicked */
     cursor: text;
-    background-color: #f8f8f8;
     border-radius: 2px;
 }
 
