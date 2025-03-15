@@ -363,6 +363,7 @@ body {
 }
 
 .nav-symbol {
+    color: var(--soft-black);
     font-size: 2rem;
     line-height: 1;
     font-weight: var(--font-weight-bold);
@@ -370,6 +371,7 @@ body {
 
 .nav-text {
     font-size: 0.875rem;
+    color: var(--soft-black);
     font-weight: var(--font-weight-medium);
     text-align: center;
 }
