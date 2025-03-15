@@ -1036,6 +1036,11 @@ a,
 
 /* Tablet and smaller */
 @media (max-width: 768px) {
+
+    body {
+        --pagefind-ui-scale: 0.9;
+    }
+
     html {
         font-size: 16px;
     }
@@ -1048,6 +1053,8 @@ a,
     .header-content {
         padding: 0.75rem 1.5rem 0.75rem 3rem;
         gap: 0.75rem;
+        margin-top: 0.1rem;
+        margin-bottom: 0.3rem;
     }
 
     .subprovision-container .subprovision {
@@ -1082,7 +1089,7 @@ a,
     /* Responsive adjustments */
     .logo-container {
         transform-origin: right center;
-        transform: scale(0.9);
+        transform: scale(0.8);
     }
 }
 
@@ -1099,6 +1106,8 @@ a,
 
     .header-content {
         padding: 0.5rem 1rem 0.5rem 2.5rem;
+        margin-top: 0.1rem;
+        margin-bottom: 0.3rem;
     }
 
     .subprovision-container .subprovision {
@@ -1136,5 +1145,9 @@ a,
 
     .second-level .enum-enumerator {
         left: 2rem;
+    }
+
+    body {
+        --pagefind-ui-scale: 0.7;
     }
 }
