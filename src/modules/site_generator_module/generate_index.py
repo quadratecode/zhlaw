@@ -21,7 +21,7 @@ html_template = """
     <body>
         <div class="main-container">
             <div class="content">
-                <h1>Systematische Sammlung</h1>
+                <h1>Systematische Übersicht</h1>
                 <div id="tree">
                     {tree_structure}
                 </div>
