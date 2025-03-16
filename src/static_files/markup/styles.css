@@ -822,7 +822,7 @@ body {
     --pagefind-ui-text: var(--soft-black);
     --pagefind-ui-background: transparent;
     --pagefind-ui-border: var(--soft-black);
-    --pagefind-ui-tag: #eeeeee;
+    --pagefind-ui-tag: var(--subtle-grey);
     --pagefind-ui-border-width: 2px;
     --pagefind-ui-border-radius: 0px;
     --pagefind-ui-image-border-radius: 8px;

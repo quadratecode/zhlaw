@@ -74,12 +74,27 @@ def try_merge_comma(elements, i):
     Returns True if a merge occurred.
     """
     text = elements[i]["Text"].strip()
+
+    # Check if this is a comma and there are elements before and after it
     if text == "," and i > 0 and i < len(elements) - 1:
+        # Get the next element's text and strip whitespace
+        next_text = elements[i + 1]["Text"].strip()
+
+        # Define a pattern for enumeration markers (single character or roman numeral followed by period)
+        # This pattern matches patterns like "a.", "b.", "I.", "IV.", "1.", etc.
+        enum_pattern = re.compile(r"^([IVXLCDM]+|[a-zA-Z0-9])\.(\s.*)?$")
+
+        # If the next element starts with a single character/roman numeral followed by a period, don't merge
+        if enum_pattern.match(next_text):
+            return False
+
+        # If we get here, proceed with the merge as before
         bounds_key = "CharBounds" if "CharBounds" in elements[i - 1] else "Bounds"
         elements[i - 1]["Text"] += ", " + elements[i + 1]["Text"]
         elements[i - 1][bounds_key] += elements[i + 1].get(bounds_key, [])
         del elements[i : i + 2]
         return True
+
     return False
 
 
@@ -468,6 +483,121 @@ def map_tables_to_elements(elements):
     return elements
 
 
+def adjust_table_headers_with_section_sign(elements):
+    """
+    Identifies tables where the header row contains a § symbol or a single lowercase
+    letter followed by a period (e.g., "a.", "b.") and adjusts the table structure
+    so that the second row becomes the new header row.
+
+    Args:
+        elements: List of elements from the JSON data
+
+    Returns:
+        The modified list of elements
+    """
+    import re
+
+    # Step 1: Group elements by TableID and organize by row
+    tables = {}
+
+    for element in elements:
+        table_id = element.get("attributes", {}).get("TableID")
+        if table_id is None:
+            continue
+
+        path = element.get("Path", "")
+
+        # Extract row information from the path
+        row_match = re.search(r"/TR(?:\[(\d+)\])?", path)
+        if not row_match:
+            continue
+
+        # Get row index (defaulting to 1 if not explicitly specified)
+        row_index = int(row_match.group(1)) if row_match.group(1) else 1
+
+        # Initialize table structure if needed
+        if table_id not in tables:
+            tables[table_id] = {}
+
+        # Initialize row if needed
+        if row_index not in tables[table_id]:
+            tables[table_id][row_index] = []
+
+        # Add element to its row
+        tables[table_id][row_index].append(element)
+
+    # Step 2: Identify tables with § in the header row or single lowercase letter followed by a period
+    tables_to_adjust = []
+
+    for table_id, rows in tables.items():
+        if 1 in rows:  # If table has a first row
+            for elem in rows[1]:
+                text = elem.get("Text", "")
+                # Check if element contains §
+                if "§" in text:
+                    tables_to_adjust.append({"id": table_id, "reason": "section sign"})
+                    break
+                # Check if element starts with a single lowercase letter followed by a period
+                elif re.match(r"^\s*[a-z]\.\s*", text):
+                    tables_to_adjust.append(
+                        {"id": table_id, "reason": "letter enumeration"}
+                    )
+                    break
+
+    # Step 3: Adjust identified tables
+    for table_info in tables_to_adjust:
+        table_id = table_info["id"]
+        reason = table_info["reason"]
+        rows = tables[table_id]
+        logger.info(f"Adjusting table {table_id} - {reason} found in header row")
+
+        # Step 3a: Remove TableID from first row elements
+        for elem in rows.get(1, []):
+            if "attributes" in elem and "TableID" in elem["attributes"]:
+                del elem["attributes"]["TableID"]
+
+        # Step 3b: Convert second row to header row
+        if 2 in rows:
+            for elem in rows[2]:
+                path = elem.get("Path", "")
+
+                # Update row index in path (TR[2] -> TR or TR[1])
+                if "/TR[2]/" in path:
+                    new_path = path.replace("/TR[2]/", "/TR/")
+                else:
+                    # Fallback for other path patterns
+                    new_path = re.sub(r"/TR(?:\[2\])?/", "/TR/", path)
+
+                # Convert table cells from TD to TH if present
+                if "/TD/" in new_path:
+                    new_path = new_path.replace("/TD/", "/TH/")
+                elif "/TD[" in new_path:
+                    new_path = re.sub(r"/TD\[(\d+)\]/", r"/TH[\1]/", new_path)
+
+                # Update the element's path
+                elem["Path"] = new_path
+
+        # Step 3c: Update subsequent rows (decrement row numbers)
+        for row_index in sorted(rows.keys()):
+            if row_index <= 2:  # Skip first two rows (already processed)
+                continue
+
+            for elem in rows[row_index]:
+                path = elem.get("Path", "")
+
+                # Decrement row index
+                new_row_index = row_index - 1
+
+                # Update path with new row index
+                if f"/TR[{row_index}]/" in path:
+                    new_path = path.replace(
+                        f"/TR[{row_index}]/", f"/TR[{new_row_index}]/"
+                    )
+                    elem["Path"] = new_path
+
+    return elements
+
+
 def identify_fractions(elements):
     """
     Identifies and marks fractions in the document. A fraction is identified as:
@@ -583,6 +713,8 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     elements = flatten_elements(elements)
     # Map tables to elements
     elements = map_tables_to_elements(elements)
+    # Adjust tables with section signs in header
+    elements = adjust_table_headers_with_section_sign(elements)
     # Remove elements with no text
     elements = del_empty_elements(elements)
     # Add page heights to elements

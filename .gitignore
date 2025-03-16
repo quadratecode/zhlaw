@@ -156,6 +156,8 @@ credentials.json
 # Folders
 data
 public
+public_backup
+public_test
 **/static_files/*
 !**/static_files/markup/
 temp
