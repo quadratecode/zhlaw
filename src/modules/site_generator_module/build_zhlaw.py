@@ -174,9 +174,14 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
             separator.string = "∗"
             links_container.append(separator)
     footer.append(links_container)
-    disclaimer: Tag = soup.new_tag("p", **{"id": "disclaimer"})
-    disclaimer.string = "Keine amtliche Veröffentlichung. Massgebend ist die Veröffentlichung durch die Staatskanzlei ZH."
-    footer.append(disclaimer)
+    disclaimer_container: Tag = soup.new_tag("div", **{"id": "disclaimer"})
+    disclaimer_p1: Tag = soup.new_tag("p")
+    disclaimer_p1.string = "Dies ist keine amtliche Veröffentlichung. Massgebend ist die Veröffentlichung durch die Staatskanzlei ZH."
+    disclaimer_container.append(disclaimer_p1)
+    disclaimer_p2: Tag = soup.new_tag("p")
+    disclaimer_p2.string = "Es wird keine Gewähr für die Richtigkeit, Vollständigkeit oder Aktualität der hier zur Verfügung gestellten Inhalte übernommen."
+    disclaimer_container.append(disclaimer_p2)
+    footer.append(disclaimer_container)
     body: Union[Tag, None] = soup.find("body")
     if body:
         body.append(footer)
