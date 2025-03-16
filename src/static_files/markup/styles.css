@@ -354,7 +354,6 @@ body {
     border: 1px solid var(--soft-black);
     background: var(--subtle-grey);
     cursor: pointer;
-    transition: background-color 0.2s ease;
     font-family: var(--font-text);
 }
 
@@ -932,23 +931,6 @@ html, body {
 .law-data-table thead {
     background-color: var(--subtle-grey);
     font-weight: var(--font-weight-semibold);
-}
-
-/* -----------------------------
-   10. Transitions and Theme Switching
------------------------------ */
-/* Adjust transition timing for smoother theme switching */
-body,
-#page-header,
-.main-container,
-#law, 
-.provision,
-.subprovision,
-a,
-#dark-mode-toggle,
-.search-container,
-.logo-container {
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 /* -----------------------------
