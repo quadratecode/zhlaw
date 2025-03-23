@@ -134,20 +134,11 @@ def main():
                 json.dump(krzh_dispatch_data, f, indent=4, ensure_ascii=False)
 
         except Exception as e:
-            # Break if error occurred in adobe api module
-            if "quota" in str(e):
-                logging.error(
-                    f"Error during in {__file__}: {e} at {timestamp}", exc_info=True
-                )
-                break
-
-            # Else, continue with next file
-            else:
-                logging.error(
-                    f"Error during in {__file__}: {e} at {timestamp}", exc_info=True
-                )
-                error_counter += 1
-                continue
+            logging.error(
+                f"Error during in {__file__}: {e} at {timestamp}", exc_info=True
+            )
+            error_counter += 1
+            continue
 
     logging.info(f"Finished scraping krzh dispatch with {str(error_counter)} errors")
 
