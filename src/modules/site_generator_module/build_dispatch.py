@@ -65,7 +65,6 @@ def convert_to_html(data):
                         f"<tr><td>PDF-Orientierung:</td><td>{orientation}</td></tr>\n"
                     )
 
-                if 
                 steps = "<br>".join(
                     [
                         f"{arrow.get(step['affair_step_date']).format('DD.MM.YYYY')}: {step['affair_step_type']}"
@@ -104,9 +103,7 @@ def convert_to_html(data):
                     except Exception as e:
                         ai_output = affair["ai_changes"]
 
-                    html_content += (
-                        f"<tr><td>Änderungen (AI):</td><td>{ai_output}</td></tr>\n"
-                    )
+                    html_content += f"<tr><td>Änderungen (mit KI ermittelt):</td><td>{ai_output}</td></tr>\n"
 
                 # Add hyperlinks in second column (PDF-URL and Geschäfts-URL)
                 if affair.get("krzh_pdf_url") or affair.get("krzh_affair_url"):
