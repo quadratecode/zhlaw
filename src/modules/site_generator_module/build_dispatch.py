@@ -79,7 +79,7 @@ def convert_to_html(data):
                         ai_output = affair.get("ai_changes", {})
                         # if output contains "no changes found", include unchanged
                         if "info" in ai_output:
-                            pass
+                            ai_output = "Keine Änderungen gefunden."
                         # if output is info: no changes found, include unchanged
                         elif ai_output:
                             # Remove § and . from changes
@@ -103,7 +103,9 @@ def convert_to_html(data):
                     except Exception as e:
                         ai_output = affair["ai_changes"]
 
-                    html_content += f"<tr><td>Änderungen (mit KI ermittelt):</td><td>{ai_output}</td></tr>\n"
+                    html_content += (
+                        f"<tr><td>Änderungen (KI):</td><td>{ai_output}</td></tr>\n"
+                    )
 
                 # Add hyperlinks in second column (PDF-URL and Geschäfts-URL)
                 if affair.get("krzh_pdf_url") or affair.get("krzh_affair_url"):
