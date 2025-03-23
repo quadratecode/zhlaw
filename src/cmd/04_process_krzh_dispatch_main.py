@@ -17,6 +17,76 @@ import json
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 import shutil
+import os
+
+# -----------------------------------------------------------------------------
+# Module-Level Constants
+# -----------------------------------------------------------------------------
+# Data directories
+DATA_DIR = "data/krzh_dispatch"
+DISPATCH_DATA_DIR = f"{DATA_DIR}/krzh_dispatch_data"
+DISPATCH_FILES_DIR = f"{DATA_DIR}/krzh_dispatch_files"
+DISPATCH_SITE_DIR = f"{DATA_DIR}/krzh_dispatch_site"
+
+# Data files
+DISPATCH_DATA_FILE = f"{DISPATCH_DATA_DIR}/krzh_dispatch_data.json"
+DISPATCH_HTML_FILE = f"{DISPATCH_SITE_DIR}/dispatch.html"
+PUBLIC_HTML_FILE = "public/dispatch.html"
+
+# Affair type priorities (lower number = higher priority)
+AFFAIR_TYPE_PRIORITIES = {
+    "vorlage": 1,
+    "einzelinitiative": 2,
+    "behördeninitiative": 3,
+    "parlamentarische initiative": 4,
+}
+DEFAULT_PRIORITY = 5  # For other types
+NO_TYPE_PRIORITY = 6  # For no affair_type
+
+
+# -----------------------------------------------------------------------------
+# Sorting Functions
+# -----------------------------------------------------------------------------
+def sort_dispatches(dispatch_data):
+    """
+    Sort dispatches by date (newest first).
+
+    Args:
+        dispatch_data (list): List of dispatch data dictionaries
+
+    Returns:
+        list: Sorted dispatch data
+    """
+    # Sort by krzh_dispatch_date in descending order
+    return sorted(dispatch_data, key=lambda x: x["krzh_dispatch_date"], reverse=True)
+
+
+def sort_affairs(affairs):
+    """
+    Sort affairs by type according to priority order.
+
+    Args:
+        affairs (list): List of affair dictionaries
+
+    Returns:
+        list: Sorted affairs
+    """
+
+    def get_priority(affair):
+        # Get affair type and convert to lowercase
+        affair_type = affair.get("affair_type", "").lower()
+
+        # Check each priority category
+        for key, priority in AFFAIR_TYPE_PRIORITIES.items():
+            if key in affair_type:
+                return priority
+
+        # If affair_type exists but doesn't match any priority category
+        return DEFAULT_PRIORITY if affair_type else NO_TYPE_PRIORITY
+
+    # Sort by priority (lower number = higher priority)
+    return sorted(affairs, key=get_priority)
+
 
 # Set up logging
 logging.basicConfig(
@@ -36,17 +106,15 @@ def main():
     timestamp = arrow.now().format("YYYYMMDD-HHmmss")
 
     logging.info("Starting scraping krzh dispatch")
-    scrape_dispatch.main("data/krzh_dispatch/krzh_dispatch_data")
+    scrape_dispatch.main(DISPATCH_DATA_DIR)
     logging.info("Finished scraping krzh dispatch")
 
     logging.info("Starting downloading krzh dispatch")
-    download_entries.main("data/krzh_dispatch/krzh_dispatch_data")
+    download_entries.main(DISPATCH_DATA_DIR)
     logging.info("Finished downloading krzh dispatch")
 
     logging.info("Loading krzh dispatch index")
-    pdf_files = glob.glob(
-        "data/krzh_dispatch/krzh_dispatch_files/**/**/*-original.pdf", recursive=True
-    )
+    pdf_files = glob.glob(f"{DISPATCH_FILES_DIR}/**/**/*-original.pdf", recursive=True)
     # Remove duplicates found from different junctions
     pdf_files = list(set(pdf_files))
     if not pdf_files:
@@ -103,9 +171,7 @@ def main():
                 json.dump(metadata, f, indent=4, ensure_ascii=False)
 
             # Add certain metadata back to krzh_dispatch_data.json under the correct entry
-            krzh_dispatch_data_path = (
-                "data/krzh_dispatch/krzh_dispatch_data/krzh_dispatch_data.json"
-            )
+            krzh_dispatch_data_path = DISPATCH_DATA_FILE
             with open(krzh_dispatch_data_path, "r") as f:
                 krzh_dispatch_data = json.load(f)
 
@@ -144,10 +210,24 @@ def main():
 
     # Build page from kzrh_dispatch_data.json
     logging.info("Building page")
-    html_file_path = "data/krzh_dispatch/krzh_dispatch_site/dispatch.html"
+    html_file_path = DISPATCH_HTML_FILE
+    os.makedirs(os.path.dirname(html_file_path), exist_ok=True)
+
     logging.info(f"Starting page build")
-    with open(krzh_dispatch_data_path, "r") as f:
+    with open(DISPATCH_DATA_FILE, "r") as f:
         krzh_dispatch_data = json.load(f)
+
+    # Sort dispatches by date and affairs by type before building the page
+    logging.info("Sorting dispatch data for display")
+    # Sort dispatches by date (newest first)
+    krzh_dispatch_data = sort_dispatches(krzh_dispatch_data)
+    # Sort affairs within each dispatch by affair_type
+    for dispatch in krzh_dispatch_data:
+        dispatch["affairs"] = sort_affairs(dispatch["affairs"])
+    # Save the sorted data back to the file
+    with open(DISPATCH_DATA_FILE, "w") as f:
+        json.dump(krzh_dispatch_data, f, indent=4, ensure_ascii=False)
+    logging.info("Saved sorted dispatch data")
 
     # Build core of dispatch page
     with open(html_file_path, "w") as f:
@@ -167,7 +247,8 @@ def main():
 
     # Copy html file to public
     logging.info("Copying html file to public")
-    shutil.copy(html_file_path, "public/dispatch.html")
+    os.makedirs("public", exist_ok=True)
+    shutil.copy(html_file_path, PUBLIC_HTML_FILE)
 
 
 if __name__ == "__main__":
