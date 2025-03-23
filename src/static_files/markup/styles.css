@@ -32,6 +32,7 @@
     --in-force-dark-red: darkred;
     --light-purple: #eee7ff;
     --dark-purple: #280059;
+    --light-orange: #ff8800;
     --disabled-grey: rgb(205, 205, 205);
 
     /* Dark Mode Colors */
@@ -51,6 +52,7 @@
     --dark-in-force-dark-red: lightcoral;
     --dark-light-purple: #38236e;
     --dark-dark-purple: #d3c5ff;
+    --dark-orange: #ff9933;
     --dark-disabled-grey: rgb(100, 100, 100);
 
     /* Font Weights */
@@ -901,6 +903,10 @@ html, body {
     font-weight: var(--font-weight-semibold);
 }
 
+#dispatch-static {
+    font-variant-numeric: tabular-nums;
+}
+
 .dispatch-entry-table {
     width: 100%;
     margin-bottom: 20px;
@@ -928,6 +934,34 @@ details.dispatch-details summary h2 {
   display: inline;
 }
 
+/* RSS Feed Link */
+.rss-subscribe {
+    margin: 10px 0 20px 0;
+    text-align: right;
+}
+
+.rss-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px
+}
+
+.dispatch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 5px 0;
+}
+
+.update-info {
+    font-size: 0.9rem;
+    color: var(--soft-black);
+}
+
+.rss-subscribe {
+    margin: 0;
+}
 
 /* -----------------------------
    11. Media Queries

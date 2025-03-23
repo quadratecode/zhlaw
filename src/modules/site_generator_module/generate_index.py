@@ -16,7 +16,7 @@ html_template = """
         <link href="/favicon.ico" rel="icon" type="image/x-icon">
         <meta charset="UTF-8">
         <meta content="width=device-width, initial-scale=1.0" name="viewport">
-        <title>ZHLaw</title>
+        <title>zhlaw</title>
     </head>
     <body>
         <div class="main-container">

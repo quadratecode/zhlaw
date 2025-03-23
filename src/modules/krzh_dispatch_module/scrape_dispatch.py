@@ -79,7 +79,7 @@ def main(folder):
         # Entries younger than 2040-01-01 to catch latest entries
         "q": 'datum_start < "2040-01-01 00:00:00" sortBy datum_start/sort.descending',
         # Number of fetched entries, max is 1k
-        "m": "1",
+        "m": "20",
         # Language
         "l": "de-CH",
     }

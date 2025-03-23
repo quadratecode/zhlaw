@@ -13,12 +13,26 @@ def generate_html_page(content):
         <meta charset="UTF-8">
         <meta content="width=device-width, initial-scale=1.0" name="viewport">
         <link rel="stylesheet" type="text/css" href="styles.css">
+        <link rel="alternate" type="application/rss+xml" title="zhlaw.ch - KRZH Dispatch" href="/dispatch-feed.xml">
         <title>KRZH Dispatch</title>
     </head>
     <body>
         <div class="main-container">
             <div class="content">
                 <div id="dispatch-static">
+                <div class="dispatch-header">
+                    <div class="update-info">Letzte Aktualisierung: {arrow.now().format('DD.MM.YYYY')}</div>
+                    <div class="rss-subscribe">
+                        <a href="/dispatch-feed.xml" target="_blank" class="rss-link">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 11a9 9 0 0 1 9 9"></path>
+                                <path d="M4 4a16 16 0 0 1 16 16"></path>
+                                <circle cx="5" cy="19" r="1"></circle>
+                            </svg>
+                            RSS
+                        </a>
+                    </div>
+                </div>
                     {content}
                 </div>
             </div>
@@ -31,8 +45,8 @@ def generate_html_page(content):
 def convert_to_html(data):
     html_content = ""
 
-    # Add timestamp at the top of the page
-    html_content += f"<p id='update'>Letzte Aktualisierung: {arrow.now().format('DD.MM.YYYY HH:mm:ss')}</p>\n"
+    # Add timestamp and RSS display in the content section - REMOVED
+    # html_content += f"<p id='update'>Letzte Aktualisierung: {arrow.now().format('DD.MM.YYYY HH:mm:ss')}</p>\n"
 
     # Track if this is the first dispatch (newest one)
     is_first_dispatch = True
@@ -48,7 +62,7 @@ def convert_to_html(data):
             html_content += f'<details id="{dispatch["krzh_dispatch_date"]}" class="dispatch-details">\n'
 
         # Create summary with heading inside (arrow at the end)
-        html_content += f'<summary><h2>Ratsversand vom {dispatch_date} <a href="#{dispatch["krzh_dispatch_date"]}">&#8617</a></h2></summary>\n'
+        html_content += f"<summary><h2>{dispatch_date}: Versand KRZH</h2></summary>\n"
 
         if not dispatch["affairs"]:
             html_content += "<p>[Keine relevanten Geschäfte gefunden]</p>\n"

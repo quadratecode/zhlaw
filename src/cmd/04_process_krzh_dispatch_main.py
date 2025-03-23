@@ -8,6 +8,7 @@ from src.modules.krzh_dispatch_module import download_entries
 from src.modules.krzh_dispatch_module import call_openai_api
 from src.modules.site_generator_module import build_zhlaw
 from src.modules.site_generator_module import build_dispatch
+from src.modules.krzh_dispatch_module import build_rss
 
 # Import external modules
 import arrow
@@ -244,6 +245,16 @@ def main():
     with open(html_file_path, "w") as f:
         f.write(str(soup))
     logging.info("Finished page build")
+
+    # Generate RSS feed
+    logging.info("Generating RSS feed")
+    rss_feed = build_rss.main(krzh_dispatch_data, site_url="https://www.zhlaw.ch")
+
+    # Save RSS feed to public directory
+    rss_file_path = "public/dispatch-feed.xml"
+    with open(rss_file_path, "w", encoding="utf-8") as f:
+        f.write(rss_feed)
+    logging.info(f"RSS feed saved to {rss_file_path}")
 
     # Copy html file to public
     logging.info("Copying html file to public")
