@@ -586,6 +586,120 @@ def adjust_table_headers_with_section_sign(elements):
     return elements
 
 
+def try_merge_dash_elements(elements, i):
+    """
+    Merges three consecutive elements when the middle one is a dash (possibly with whitespace)
+    and all three have a font_weight above 400.
+    Returns True if a merge occurred.
+    """
+    # Check if current element exists and we have enough elements to check the pattern
+    if i < 0 or i >= len(elements) - 2:
+        return False
+
+    # Get the three consecutive elements
+    first_element = elements[i]
+    middle_element = elements[i + 1]
+    last_element = elements[i + 2]
+
+    # Check if all three elements have font_weight above 400
+    first_weight = first_element.get("Font", {}).get("weight", 400)
+    middle_weight = middle_element.get("Font", {}).get("weight", 400)
+    last_weight = last_element.get("Font", {}).get("weight", 400)
+
+    if first_weight <= 400 or middle_weight <= 400 or last_weight <= 400:
+        return False
+
+    # Check if the middle element is just a dash possibly with whitespace
+    middle_text = middle_element.get("Text", "")
+    # Strip and check if it's just a dash with possible whitespace
+    if middle_text.strip() != "-":
+        return False
+
+    # Merge the elements by concatenating the text without the dash
+    first_text = first_element.get("Text", "").rstrip()
+    last_text = last_element.get("Text", "").lstrip()
+
+    # Update the first element's text
+    first_element["Text"] = first_text + last_text
+
+    # Merge the CharBounds or Bounds
+    bounds_key = "CharBounds" if "CharBounds" in first_element else "Bounds"
+    if bounds_key in first_element and bounds_key in last_element:
+        first_element[bounds_key] += last_element.get(bounds_key, [])
+
+    # Delete the middle and last elements
+    del elements[i + 1 : i + 3]
+
+    return True
+
+
+def merge_dash_elements(elements):
+    """
+    Merges three consecutive elements where the middle element is a dash (possibly with whitespace)
+    and all three have a font_weight above 400.
+    The dash and surrounding whitespace are removed.
+    """
+    i = 0
+    while i < len(elements) - 2:  # We need at least 3 elements
+        # Try to merge dash elements
+        if try_merge_dash_elements(elements, i):
+            continue  # Don't increment i as the array has changed
+
+        i += 1  # Increment if no merge occurred
+
+    return elements
+
+
+def remove_section_elements_from_tables(elements):
+    """
+    Identifies elements within tables that start with the § symbol (ignoring whitespace)
+    and removes the TableID attribute from them and all subsequent elements with the same TableID
+    based on their position in the JSON array.
+
+    Args:
+        elements: List of elements from the JSON data
+
+    Returns:
+        The modified list of elements
+    """
+    logger.info("Checking for section symbols in tables...")
+    tables_with_section = {}
+    removed_count = 0
+
+    # Step 1: Iterate through elements in order and find where § starts
+    for i, element in enumerate(elements):
+        table_id = element.get("attributes", {}).get("TableID")
+        if table_id is None:
+            continue
+
+        text = element.get("Text", "").strip()
+        if text.startswith("§"):
+            if table_id not in tables_with_section:
+                tables_with_section[table_id] = i
+                logger.info(
+                    f"Found § in table {table_id} at element position {i}, text: '{text}'"
+                )
+
+    # Step 2: Remove TableID from elements after the § position
+    for i, element in enumerate(elements):
+        table_id = element.get("attributes", {}).get("TableID")
+        if table_id is None:
+            continue
+
+        if table_id in tables_with_section and i >= tables_with_section[table_id]:
+            # Remove TableID from element's attributes
+            if "attributes" in element and "TableID" in element["attributes"]:
+                del element["attributes"]["TableID"]
+                removed_count += 1
+
+    if tables_with_section:
+        logger.info(
+            f"Removed TableID attribute from {removed_count} elements across {len(tables_with_section)} tables"
+        )
+
+    return elements
+
+
 def identify_fractions(elements):
     """
     Identifies and marks fractions in the document. A fraction is identified as:
@@ -763,12 +877,16 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     elements = del_empty_elements(elements)
     # Add page heights to elements
     elements = add_page_heights_to_elements(modified_pdf_path, elements)
-    # Assign unique IDs to elements
-    elements = assign_unique_ids(elements)
     # Convert coordinates to PyMuPDF format
     elements = convert_bounds_to_pymupdf(elements)
     # Sort elements
     elements = sort_elements(elements)
+    # Remove provisions from tables
+    elements = remove_section_elements_from_tables(elements)
+    # Assign unique IDs to elements
+    elements = assign_unique_ids(elements)
+    # Merge dash elements
+    elements = merge_dash_elements(elements)
     # Normalize font weight after final provisions
     elements = normalize_font_weight_after_final_provisions(elements)
     # Remove header and footer elements

@@ -461,6 +461,78 @@ def merge_isolated_elements(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
+def merge_consecutive_h1_headings(soup: BeautifulSoup) -> BeautifulSoup:
+    """
+    Merges the first instance of consecutive h1 headings (2 or more) in the document.
+    Consecutive means the h1 elements are adjacent with no other elements between them.
+    Preserves any child tags within the merged headings.
+    """
+    # Find all h1 elements
+    h1_elements = soup.find_all("h1")
+
+    # Check if we have at least two h1 elements
+    if len(h1_elements) < 2:
+        return soup
+
+    # Find the first set of consecutive h1 elements
+    for i, h1 in enumerate(h1_elements[:-1]):
+        current_h1 = h1
+        next_sibling = current_h1.next_sibling
+
+        # Skip any whitespace or empty text nodes
+        while (
+            next_sibling
+            and isinstance(next_sibling, NavigableString)
+            and not next_sibling.strip()
+        ):
+            next_sibling = next_sibling.next_sibling
+
+        # Check if the next sibling is an h1 element
+        if next_sibling and next_sibling.name == "h1":
+            # We found consecutive h1 elements
+            # First, add a space to the first h1
+            current_h1.append(" ")
+
+            # Move all contents from the second h1 to the first h1
+            while next_sibling.contents:
+                current_h1.append(next_sibling.contents[0])
+
+            # Remove the second h1
+            next_sibling.decompose()
+
+            # Check if there are more consecutive h1 elements
+            continue_merging = True
+            while continue_merging:
+                next_sibling = current_h1.next_sibling
+
+                # Skip any whitespace or empty text nodes
+                while (
+                    next_sibling
+                    and isinstance(next_sibling, NavigableString)
+                    and not next_sibling.strip()
+                ):
+                    next_sibling = next_sibling.next_sibling
+
+                if next_sibling and next_sibling.name == "h1":
+                    # Add a space before appending content
+                    current_h1.append(" ")
+
+                    # Move all contents from the next h1 to the first h1
+                    while next_sibling.contents:
+                        current_h1.append(next_sibling.contents[0])
+
+                    # Remove the next h1
+                    next_sibling.decompose()
+                else:
+                    # No more consecutive h1 elements
+                    continue_merging = False
+
+            # We've merged the first set of consecutive h1 elements, so we're done
+            break
+
+    return soup
+
+
 def is_isolated_fraction(content_nodes):
     """
     Check if the content nodes represent an isolated fraction.
@@ -662,6 +734,7 @@ def main(html_file: str) -> None:
     soup = merge_fractions(soup)
     soup = merge_punctuation(soup)
     soup = merge_enum_paragraphs(soup)
+    soup = merge_consecutive_h1_headings(soup)
     soup = assign_enum_level(soup)
     soup = merge_other_conditions(soup)
     soup = merge_isolated_elements(soup)
