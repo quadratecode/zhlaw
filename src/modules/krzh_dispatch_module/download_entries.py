@@ -7,7 +7,6 @@ import requests
 import json
 import arrow
 import logging
-import fitz
 import time
 
 # Configure logging
@@ -49,9 +48,15 @@ def main(folder):
             kr_nr = affair["kr_nr"]
             vorlagen_nr = affair["vorlagen_nr"]
             # Get most recent affair_step
-            affair_steps = affair["affair_steps"]
-            last_affair_step_type = affair_steps[0]["affair_step_type"]
-            last_affair_step_date = affair_steps[0]["affair_step_date"]
+            if affair["affair_steps"]:
+                affair_steps = affair["affair_steps"]
+                last_affair_step_type = affair_steps[0]["affair_step_type"]
+                last_affair_step_date = affair_steps[0]["affair_step_date"]
+            else:
+                affair_steps = ""
+                last_affair_step_type = ""
+                last_affair_step_date = ""
+            krzh_dispatch_date = krversand["krzh_dispatch_date"]
 
             # Check if kr_nr is an empty string or None
             if not kr_nr:
@@ -60,19 +65,19 @@ def main(folder):
                 affair_nr = kr_nr
 
             # Replace "/" in affair_nr with "-"
-            affair_nr = affair_nr.replace("/", "-")
+            affair_nr = affair_nr.replace("/", ".")
 
             # Point to files subdirectory
             krzh_pdf_dir = os.path.join(
                 "data/krzh_dispatch/krzh_dispatch_files",
+                krzh_dispatch_date,
                 affair_nr,
-                last_affair_step_date,
             )
             os.makedirs(krzh_pdf_dir, exist_ok=True)
 
             # Build file name
             file_name = (
-                str(last_affair_step_date) + "_" + str(affair_nr) + "-original" + ".pdf"
+                str(krzh_dispatch_date) + "-" + str(affair_nr) + "-original" + ".pdf"
             )
             file_path = os.path.join(krzh_pdf_dir, file_name)
 
@@ -85,43 +90,21 @@ def main(folder):
                 )
                 time.sleep(1)
 
-                # Check if the PDF is portrait or landscape
-                pdf = fitz.open(file_path)
-                page = pdf[0]
-                page_width = page.rect.width
-                page_height = page.rect.height
-                if page_width > page_height:
-                    pdf_orientation = "landscape"
-                else:
-                    pdf_orientation = "portrait"
-
                 metadata = {
                     "doc_info": {
                         "erlasstitel": affair["title"],
-                        "krzh_dispatch_date": krversand["krzh_dispatch_date"],
+                        "krzh_dispatch_date": krzh_dispatch_date,
                         "affair_type": affair["affair_type"],
                         "affair_nr": affair_nr,
                         "affair_guid": affair["affair_guid"],
                         "last_affair_step_date": last_affair_step_date,
                         "last_affair_step_type": last_affair_step_type,
-                        "pdf_orientation": pdf_orientation,
                         "pdf_url": krzh_pdf_url,
                         "regex_changes": {},
                         "ai_changes": {},
                     },
                     "process_steps": {
                         "scrape_dispatch": success,
-                        "crop_pdf": "",
-                        "call_api_dispatch": "",
-                        "call_api_marginalia": "",
-                        "extract_color": "",
-                        "json_to_html_dispatch": "",
-                        "json_to_html_marginalia": "",
-                        "merge_marginalia": "",
-                        "match_marginalia": "",
-                        "match_footnotes_and_links": "",
-                        "extract_changes": "",
-                        "clean_data": "",
                         "call_ai": "",
                     },
                 }

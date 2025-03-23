@@ -79,7 +79,7 @@ def main(folder):
         # Entries younger than 2040-01-01 to catch latest entries
         "q": 'datum_start < "2040-01-01 00:00:00" sortBy datum_start/sort.descending',
         # Number of fetched entries, max is 1k
-        "m": "50",
+        "m": "1",
         # Language
         "l": "de-CH",
     }
@@ -131,60 +131,47 @@ def main(folder):
                 position = affair.parent
                 # Get OBJ_GUID of affair
                 affair_guid = affair.next.attrs["OBJ_GUID"]
+                # Get the vorlage_nr
+                vorlage_nr = affair.VorlagenNr.text
+                # Get the KRNr
+                kr_nr = affair.KRNr.text
+                # Get the last document and its last version
+                documents = position.find_all("Dokument")
+                try:
+                    last_document = documents[0]
+                    edoc_id = last_document.eDocument["ID"]
+                    versions = last_document.find_all("Version")
+                    last_version = versions[-1]["Nr"]
+                except Exception as e:
+                    logging.error(f"Error getting edoc_id or last_version: {e}")
+                    continue
 
-                # Skip if the affair_type does not contain "parlamentarische initiative"
-                # or "einzelinitiative" or "behördeninitiative" or "vorlage"
-                if (
-                    "parlamentarische initiative" in affair_type.lower()
-                    or "einzelinitiative" in affair_type.lower()
-                    or "behördeninitiative" in affair_type.lower()
-                    # If it contains "vorlage", the title must also contain "gesetz"
-                    or ("vorlage" in affair_type.lower() and "gesetz" in title.lower())
-                ):
-                    # Get the vorlage_nr
-                    vorlage_nr = affair.VorlagenNr.text
-                    # Get the KRNr
-                    kr_nr = affair.KRNr.text
-                    # Get the last document and its last version
-                    documents = position.find_all("Dokument")
-                    try:
-                        last_document = documents[0]
-                        edoc_id = last_document.eDocument["ID"]
-                        versions = last_document.find_all("Version")
-                        last_version = versions[-1]["Nr"]
-                    except Exception as e:
-                        logging.error(f"Error getting edoc_id or last_version: {e}")
-                        continue
+                # Construct the pdf url
+                krzh_pdf_url = f"https://parlzhcdws.cmicloud.ch/parlzh1/cdws/Files/{edoc_id}/{last_version}/pdf"
 
-                    # Construct the pdf url
-                    krzh_pdf_url = f"https://parlzhcdws.cmicloud.ch/parlzh1/cdws/Files/{edoc_id}/{last_version}/pdf"
+                # Construct the url from affair_guid
+                krzh_affair_url = f"https://www.kantonsrat.zh.ch/geschaefte/geschaeft/?id={affair_guid}"
 
-                    # Construct the url from affair_guid
-                    krzh_affair_url = f"https://www.kantonsrat.zh.ch/geschaefte/geschaeft/?id={affair_guid}"
+                ablaufschritte = get_ablaufschritte(kr_nr, vorlage_nr)
 
-                    ablaufschritte = get_ablaufschritte(kr_nr, vorlage_nr)
+                # Sort the ablaufschritte by decreasing date
+                ablaufschritte.sort(key=lambda x: x["affair_step_date"], reverse=True)
 
-                    # Sort the ablaufschritte by decreasing date
-                    ablaufschritte.sort(
-                        key=lambda x: x["affair_step_date"], reverse=True
-                    )
-
-                    # Append the data to the entries list
-                    data = {
-                        "title": title,
-                        "affair_type": affair_type,
-                        "krzh_pdf_url": krzh_pdf_url,
-                        "pdf_orientation": "",
-                        "vorlagen_nr": vorlage_nr,
-                        "kr_nr": kr_nr,
-                        "affair_guid": affair_guid,
-                        "krzh_affair_url": krzh_affair_url,
-                        "affair_nr": "",
-                        "affair_steps": ablaufschritte,
-                        "regex_changes": {},
-                        "ai_changes": {},
-                    }
-                    entries.append(data)
+                # Append the data to the entries list
+                data = {
+                    "title": title,
+                    "affair_type": affair_type,
+                    "krzh_pdf_url": krzh_pdf_url,
+                    "pdf_orientation": "",
+                    "vorlagen_nr": vorlage_nr,
+                    "kr_nr": kr_nr,
+                    "affair_guid": affair_guid,
+                    "krzh_affair_url": krzh_affair_url,
+                    "affair_nr": "",
+                    "affair_steps": ablaufschritte,
+                    "changes": {},
+                }
+                entries.append(data)
 
             # Append the data to the krversand_data list
             krversand_dict = {

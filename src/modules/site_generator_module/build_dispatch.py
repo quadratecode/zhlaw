@@ -65,6 +65,7 @@ def convert_to_html(data):
                         f"<tr><td>PDF-Orientierung:</td><td>{orientation}</td></tr>\n"
                     )
 
+                if 
                 steps = "<br>".join(
                     [
                         f"{arrow.get(step['affair_step_date']).format('DD.MM.YYYY')}: {step['affair_step_type']}"
@@ -72,36 +73,6 @@ def convert_to_html(data):
                     ]
                 )
                 html_content += f"<tr><td>Ablaufschritte:</td><td>{steps}</td></tr>\n"
-
-                if (
-                    affair.get("pdf_orientation") == "landscape"
-                    and affair.get("affair_type") == "Vorlage"
-                ):
-                    html_content += f"<tr><td>Änderungen (Regex):</td><td>[Synopse: Manuelle Prüfung erforderlich]</td></tr>\n"
-                elif affair.get("affair_type") != "Vorlage":
-                    html_content += f"<tr><td>Änderungen (Regex):</td><td>[Keine Vorlage: Manuelle Prüfung erforderlich]</td></tr>\n"
-                else:
-                    changes = affair.get("regex_changes", {})
-                    if changes:
-                        # Remove § and . from changes
-                        changes = {
-                            law: [
-                                re.sub(r"[\§\.]", "", change) for change in changes[law]
-                            ]
-                            for law in changes
-                        }
-                        # List changes as lawname:changes
-                        # Changes seperated by comma, laws seperated by <br>
-                        changes_str = "<br>".join(
-                            [f"{law}: {', '.join(changes[law])}" for law in changes]
-                        )
-                    else:
-                        changes_str = "[Keine Normen gefunden]"
-
-                    changes_str = re.sub(r"[\§\.]", "", changes_str)
-                    html_content += (
-                        f"<tr><td>Änderungen (Regex):</td><td>{changes_str}</td></tr>\n"
-                    )
 
                 if affair.get("ai_changes"):
                     # Try to convert process ai output same as changes
@@ -133,9 +104,9 @@ def convert_to_html(data):
                     except Exception as e:
                         ai_output = affair["ai_changes"]
 
-                html_content += (
-                    f"<tr><td>Änderungen (AI):</td><td>{ai_output}</td></tr>\n"
-                )
+                    html_content += (
+                        f"<tr><td>Änderungen (AI):</td><td>{ai_output}</td></tr>\n"
+                    )
 
                 # Add hyperlinks in second column (PDF-URL and Geschäfts-URL)
                 if affair.get("krzh_pdf_url") or affair.get("krzh_affair_url"):

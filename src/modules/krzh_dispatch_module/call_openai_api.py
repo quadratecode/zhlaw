@@ -5,120 +5,246 @@
 from openai import OpenAI
 import os
 import json
+import logging
+import traceback
 import re
 
-OpenAI.api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI()
+# Setup logging
+logger = logging.getLogger(__name__)
+
+# Initialize OpenAI client
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-def convert_to_valid_json(text):
-    # Remove code block markers
-    text = text.replace("```json", "").replace("```", "")
+def clean_json_response(text):
+    """
+    Cleans JSON response from markdown code blocks and other formatting.
 
-    # Remove newline characters
-    text = text.replace("\n", "")
+    Args:
+        text (str): The text response from the API
 
-    # Replace escaped backslashes with a single backslash
-    text = text.replace("\\", "")
+    Returns:
+        str: Cleaned JSON string
+    """
+    # Check if the text is wrapped in ```json ... ``` markdown code blocks
+    code_block_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+    if code_block_match:
+        # Extract content between backticks
+        return code_block_match.group(1).strip()
 
-    # Return two or more spaces with a single space
-    text = " ".join(text.split())
-
-    return text
-
-
-def create_message_object(file_content, thread_id):
-
-    message_object = client.beta.threads.messages.create(
-        thread_id=thread_id,
-        role="user",
-        content=file_content,
-    )
-
-    return message_object
+    # If not in code blocks, return the original (trimmed)
+    return text.strip()
 
 
+def main(pdf_file, metadata):
+    """
+    Extract law changes from a PDF file by sending it directly to the OpenAI API.
 
-def detect_changes(file_content, metadata):
+    Args:
+        pdf_file (str): Path to the PDF file to analyze
+        metadata (dict): Metadata dictionary to update with the results
 
-    # Step 1: Create an Assistant
-    my_assistant_object = client.beta.assistants.retrieve(
-        "asst_47PympQ8GNAkuwCBbOrrv9z8"
-    )
-    my_assistant_id = my_assistant_object.id
+    Returns:
+        None: Updates the metadata dictionary in-place
+    """
+    try:
+        # Our prompt instruction
+        system_prompt = """
+        You are an LLM tasked to read changes in Swiss law from documents in German. 
+        The document will be passed to you as a PDF. 
+        
+        Return your findings as a dictionary with the keys being laws and the value being the norms of the law 
+        affected by change as a list. Only return the highest-level change of a norm: 
+        If, for example, "Abs. 2" and "Abs. 3" of the norm "§ 5 e" are changed, 
+        only list "§ 5 e" in your response but not "Abs. 2" and "Abs. 3". 
+        
+        Additionally, if a change is indicated as "Ersatz von Bezeichnungen", 
+        indicate the affected norm with an "EvB" in parenthesis.
+        
+        Example output format:
+        {
+            "Sozialhilfegesetz": [
+                "§ 15a",
+                "§ 16",
+                "§ 18 (EvB)",
+                "§ 24a"
+            ]
+        }
+        
+        If you are unable to identify any changes, return the following message: {"info":"no changes found."}
+        
+        Under NO CIRCUMSTANCES are you allowed to include any personal information in your answers, 
+        such as names or addresses. The inclusion of personal information in your answers is strictly forbidden.
+        
+        Respond with ONLY the JSON with the law changes. Do not include any markdown code blocks or any explanatory text.
+        """
 
-    # Step 3: Create a Thread
-    my_thread_object = client.beta.threads.create()
-    my_thread_id = my_thread_object.id
+        # Try multiple approaches depending on which version of the API is available
+        try:
+            # Upload the file first
+            logger.info(f"Uploading PDF file: {pdf_file}")
+            file_obj = client.files.create(
+                file=open(pdf_file, "rb"), purpose="user_data"
+            )
+            logger.info(f"File uploaded successfully with ID: {file_obj.id}")
 
-    # Step 4: Add a Message to a Thread
-    my_message_object = create_message_object(file_content, my_thread_id)
+            # Approach 1: Try the newer responses API first (per docs)
+            logger.info("Trying responses.create API...")
+            response = client.responses.create(
+                model="gpt-4o",
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_file",
+                                "file_id": file_obj.id,
+                            },
+                            {
+                                "type": "input_text",
+                                "text": "Please analyze this PDF for law changes and return a JSON object as specified.",
+                            },
+                        ],
+                    },
+                ],
+            )
 
-    # Step 5: Run the Assistant
-    my_run = client.beta.threads.runs.create(
-        thread_id=my_thread_id,
-        assistant_id=my_assistant_id,
-    )
+            # Process responses.create result (different structure than chat.completions)
+            result_content = response.output_text
+            logger.info(f"Got response from responses.create API")
 
-    # Step 6: Periodically retrieve the Run to check on its status to see if it has moved to completed
-    while my_run.status in ["queued", "in_progress"]:
-        keep_retrieving_run = client.beta.threads.runs.retrieve(
-            thread_id=my_thread_id, run_id=my_run.id
-        )
-        print(f"Run status: {keep_retrieving_run.status}")
+        except (AttributeError, TypeError) as e:
+            # If responses.create doesn't exist or has the wrong signature
+            logger.warning(
+                f"responses.create API failed: {e}. Trying chat.completions API..."
+            )
 
-        if keep_retrieving_run.status == "completed":
-            print("\n")
-
-            # Step 6: Retrieve the Messages added by the Assistant to the Thread
-            all_messages = client.beta.threads.messages.list(thread_id=my_thread_id)
-
-            print("------------------------------------------------------------ \n")
-
-            print(f"User: {my_message_object.content[0].text.value}")
-            print(f"Assistant: {all_messages.data[0].content[0].text.value}")
-
-            # Get answer
-            gpt_answer = all_messages.data[0].content[0].text.value
+            # Approach 2: Fall back to chat.completions with assistant-style arguments
             try:
-                # Convert answer to valid json
-                gpt_answer = convert_to_valid_json(gpt_answer)
-                gpt_answer = json.loads(gpt_answer)
-            except:
-                pass
-            # Add answer to metadata
+                response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {
+                            "role": "user",
+                            "content": "Please analyze the PDF for law changes and return a JSON object as specified.",
+                        },
+                    ],
+                    tools=[
+                        {
+                            "type": "file_search",
+                            "file_search": {"file_ids": [file_obj.id]},
+                        }
+                    ],
+                    response_format={"type": "json_object"},
+                )
 
-            metadata["doc_info"]["ai_changes"] = gpt_answer
+                # Process chat.completions result
+                result_content = response.choices[0].message.content
+                logger.info(f"Got response from chat.completions API with tools")
 
-            break
-        elif (
-            keep_retrieving_run.status == "queued"
-            or keep_retrieving_run.status == "in_progress"
-        ):
-            pass
-        else:
-            print(f"Run status: {keep_retrieving_run.status}")
-            break
+            except Exception as e2:
+                logger.warning(
+                    f"chat.completions with tools failed: {e2}. Trying assistants API..."
+                )
 
+                # Approach 3: Fall back to assistants API if both others fail
+                # Create an assistant with the file attached
+                assistant = client.beta.assistants.create(
+                    name="Law Change Analyzer",
+                    instructions=system_prompt,
+                    model="gpt-4o",
+                    tools=[{"type": "file_search"}],
+                )
 
-def main(file, metadata):
+                # Create a thread and attach the file
+                thread = client.beta.threads.create(
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": "Please analyze the PDF for law changes and return a JSON object as specified.",
+                            "file_ids": [file_obj.id],
+                        }
+                    ]
+                )
 
-    file_type = file.split(".")[-1]
+                # Run the assistant on the thread
+                run = client.beta.threads.runs.create(
+                    thread_id=thread.id, assistant_id=assistant.id
+                )
 
-    with open(file, "r") as f:
-        file_content = f.read()
+                # Poll for completion
+                import time
 
-    # Remove line breaks for html files (keep for csv)
-    if file_type == "html":
-        # Remove line breaks followed by any number of spaces
-        file_content = re.sub(r"\n\s*", "", file_content)
+                while True:
+                    run_status = client.beta.threads.runs.retrieve(
+                        thread_id=thread.id, run_id=run.id
+                    )
+                    if run_status.status == "completed":
+                        break
+                    elif run_status.status in ["failed", "cancelled", "expired"]:
+                        raise Exception(f"Run failed with status: {run_status.status}")
+                    time.sleep(2)
 
-    # Reduce multiple spaces to single space
-    file_content = " ".join(file_content.split())
+                # Get the messages
+                messages = client.beta.threads.messages.list(thread_id=thread.id)
 
-    # Detect changes
-    detect_changes(file_content, metadata)
+                # Get the content from the most recent message
+                result_content = messages.data[0].content[0].text.value
+                logger.info(f"Got response from assistants API")
+
+                # Clean up assistant
+                client.beta.assistants.delete(assistant.id)
+
+        # Process the result
+        if result_content:
+            try:
+                # Log the raw response
+                logger.info(
+                    f"Received response: {result_content[:100]}..."
+                )  # Log first 100 chars
+
+                # Clean the JSON response (remove markdown code blocks if present)
+                cleaned_json_text = clean_json_response(result_content)
+                logger.info(
+                    f"Cleaned JSON: {cleaned_json_text[:100]}..."
+                )  # Log first 100 chars
+
+                # Parse the JSON response
+                changes = json.loads(cleaned_json_text)
+
+                # Update metadata with the changes
+                metadata["doc_info"]["ai_changes"] = changes
+
+                logger.info(f"Successfully extracted changes from {pdf_file}")
+                return
+
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response: {e}")
+                logger.error(f"Raw response: {result_content}")
+                # Set ai_changes to empty string instead of error message
+                metadata["doc_info"]["ai_changes"] = ""
+                return
+
+        # Handle empty response
+        logger.warning(f"Empty response from OpenAI API for {pdf_file}")
+        metadata["doc_info"]["ai_changes"] = ""
+
+    except Exception as e:
+        logger.error(f"Error processing {pdf_file}: {e}")
+        logger.error(traceback.format_exc())
+        # Set ai_changes to empty string instead of error message
+        metadata["doc_info"]["ai_changes"] = ""
+
+        # Re-raise certain errors that should halt processing
+        if "quota" in str(e).lower() or "rate limit" in str(e).lower():
+            raise
 
 
 if __name__ == "__main__":
-    main()
+    # For testing
+    test_pdf = "path/to/test.pdf"
+    test_metadata = {"doc_info": {}}
+    main(test_pdf, test_metadata)
+    print(json.dumps(test_metadata, indent=2))
