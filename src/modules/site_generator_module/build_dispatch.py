@@ -34,9 +34,21 @@ def convert_to_html(data):
     # Add timestamp at the top of the page
     html_content += f"<p id='update'>Letzte Aktualisierung: {arrow.now().format('DD.MM.YYYY HH:mm:ss')}</p>\n"
 
+    # Track if this is the first dispatch (newest one)
+    is_first_dispatch = True
+
     for dispatch in data:
         dispatch_date = arrow.get(dispatch["krzh_dispatch_date"]).format("DD.MM.YYYY")
-        html_content += f'<h2 id="{dispatch["krzh_dispatch_date"]}"><a href="#{dispatch["krzh_dispatch_date"]}">&#8617</a> Ratsversand vom {dispatch_date}</h2>\n'
+
+        # Create details element, with 'open' attribute for the first dispatch only
+        if is_first_dispatch:
+            html_content += f'<details id="{dispatch["krzh_dispatch_date"]}" class="dispatch-details newest-dispatch" open>\n'
+            is_first_dispatch = False
+        else:
+            html_content += f'<details id="{dispatch["krzh_dispatch_date"]}" class="dispatch-details">\n'
+
+        # Create summary with heading inside (arrow at the end)
+        html_content += f'<summary><h2>Ratsversand vom {dispatch_date} <a href="#{dispatch["krzh_dispatch_date"]}">&#8617</a></h2></summary>\n'
 
         if not dispatch["affairs"]:
             html_content += "<p>[Keine relevanten Geschäfte gefunden]</p>\n"
@@ -46,7 +58,18 @@ def convert_to_html(data):
                 html_content += "<table class='dispatch-entry-table'>\n"
 
                 if affair.get("affair_type"):
-                    html_content += f"<tr><td>Geschäftsart:</td><td>{affair['affair_type']}</td></tr>\n"
+                    # Check if affair_type contains any of the targeted keywords
+                    affair_type_lower = affair["affair_type"].lower()
+                    is_law_change = (
+                        "vorlage" in affair_type_lower
+                        or "einzelinitiative" in affair_type_lower
+                        or "behördeninitiative" in affair_type_lower
+                        or "parlamentarische initiative" in affair_type_lower
+                    )
+
+                    # Add law-change class if applicable
+                    row_class = ' class="law-change"' if is_law_change else ""
+                    html_content += f"<tr{row_class}><td>Geschäftsart:</td><td>{affair['affair_type']}</td></tr>\n"
 
                 if affair.get("vorlagen_nr"):
                     html_content += f"<tr><td>Vorlagen-Nr:</td><td>{affair['vorlagen_nr']}</td></tr>\n"
@@ -121,6 +144,9 @@ def convert_to_html(data):
                     html_content += "</td></tr>\n"
 
                 html_content += "</table>\n"
+
+        # Close the details element
+        html_content += "</details>\n"
 
     return html_content
 

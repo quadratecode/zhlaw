@@ -527,17 +527,17 @@ h6,
 }
 
 h1 {
-    font-size: 2rem;
+    font-size: 1.7rem;
     margin-top: 0;
 }
 
 h2,
 #annex summary {
-    font-size: 1.75rem;
+    font-size: 1.45rem;
 }
 
 h3 {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
 }
 
 h4,
@@ -649,46 +649,6 @@ p[class*="first-level"]+p[class*="second-level"] {
 
 .second-level .enum-content {
     display: block;
-}
-
-/* Tables */
-.dispatch-entry-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 20px;
-    table-layout: auto;
-}
-
-.dispatch-entry-table th,
-.dispatch-entry-table td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    word-wrap: break-word;
-    vertical-align: top;
-}
-
-.dispatch-entry-table td {
-    width: 260px;
-}
-
-.dispatch-entry-table td+td {
-    width: auto;
-}
-
-.dispatch-entry-table tr:nth-child(even) {
-    background-color: #f2f2f2;
-}
-
-.dispatch-entry-table tr:hover {
-    background-color: #e8e8e8;
-}
-
-#dispatch-static h2 {
-    font-size: 1.35rem;
-}
-
-#dispatch-static h3 {
-    font-size: 1.1rem;
 }
 
 /* Cascading indentation for nested law levels */
@@ -917,7 +877,8 @@ html, body {
    9.5 Tables
 ----------------------------- */
 
-.law-data-table {
+.law-data-table,
+.dispatch-entry-table {
     text-align: left;
     border-collapse: collapse;
 }
@@ -928,10 +889,45 @@ html, body {
     vertical-align: top;
 }
 
+.dispatch-entry-table th, td {
+    border: 1px solid;
+    padding: 0.25rem 0.75rem;
+    vertical-align: top;
+    word-wrap: break-word;
+}
+
 .law-data-table thead {
     background-color: var(--subtle-grey);
     font-weight: var(--font-weight-semibold);
 }
+
+.dispatch-entry-table {
+    width: 100%;
+    margin-bottom: 20px;
+    table-layout: auto;
+}
+
+.dispatch-entry-table td {
+    width: 150px;
+}
+
+.dispatch-entry-table td+td {
+    width: auto;
+}
+
+.law-change {
+  background-color: var(--in-force-red)
+}
+
+details.dispatch-details summary {
+  font-size: 1.45rem;
+  cursor: pointer;
+}
+
+details.dispatch-details summary h2 {
+  display: inline;
+}
+
 
 /* -----------------------------
    11. Media Queries
