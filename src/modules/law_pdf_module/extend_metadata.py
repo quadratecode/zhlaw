@@ -485,9 +485,8 @@ def map_tables_to_elements(elements):
 
 def adjust_table_headers_with_section_sign(elements):
     """
-    Identifies tables where the header row contains a § symbol or a single lowercase
-    letter followed by a period (e.g., "a.", "b.") and adjusts the table structure
-    so that the second row becomes the new header row.
+    Identifies tables where the header row contains a § symbol and adjusts
+    the table structure so that the second row becomes the new header row.
 
     Args:
         elements: List of elements from the JSON data
@@ -495,8 +494,6 @@ def adjust_table_headers_with_section_sign(elements):
     Returns:
         The modified list of elements
     """
-    import re
-
     # Step 1: Group elements by TableID and organize by row
     tables = {}
 
@@ -526,30 +523,21 @@ def adjust_table_headers_with_section_sign(elements):
         # Add element to its row
         tables[table_id][row_index].append(element)
 
-    # Step 2: Identify tables with § in the header row or single lowercase letter followed by a period
+    # Step 2: Identify tables with § in the header row
     tables_to_adjust = []
 
     for table_id, rows in tables.items():
         if 1 in rows:  # If table has a first row
+            # Check if any element in the first row contains §
             for elem in rows[1]:
-                text = elem.get("Text", "")
-                # Check if element contains §
-                if "§" in text:
-                    tables_to_adjust.append({"id": table_id, "reason": "section sign"})
-                    break
-                # Check if element starts with a single lowercase letter followed by a period
-                elif re.match(r"^\s*[a-z]\.\s*", text):
-                    tables_to_adjust.append(
-                        {"id": table_id, "reason": "letter enumeration"}
-                    )
+                if "§" in elem.get("Text", ""):
+                    tables_to_adjust.append(table_id)
                     break
 
     # Step 3: Adjust identified tables
-    for table_info in tables_to_adjust:
-        table_id = table_info["id"]
-        reason = table_info["reason"]
+    for table_id in tables_to_adjust:
         rows = tables[table_id]
-        logger.info(f"Adjusting table {table_id} - {reason} found in header row")
+        logger.info(f"Adjusting table {table_id} - § found in header row")
 
         # Step 3a: Remove TableID from first row elements
         for elem in rows.get(1, []):
@@ -698,6 +686,62 @@ def identify_fractions(elements):
     return elements
 
 
+def normalize_font_weight_after_final_provisions(elements):
+    """
+    Normalizes font weight for elements after final or transitional provisions.
+
+    If an element contains "schlussbestimmung", "übergangsbestimmung", etc. (case insensitive),
+    all subsequent elements that:
+    1. Contain "gesetz" or "verordnung"
+    2. Have a font weight above 400
+    Will have their font weight reset to 400.
+
+    Args:
+        elements: List of elements to process
+
+    Returns:
+        The processed list of elements
+    """
+    # Flag to track if we've found a final provision element
+    found_final_provision = False
+
+    for i, element in enumerate(elements):
+        text = element.get("Text", "").lower()
+
+        # Check if this element contains any of the target phrases
+        if (
+            "schlussbestimmung" in text
+            or "übergangsbestimmung" in text
+            or "schlussbestimmungen" in text
+            or "übergangsbestimmungen" in text
+        ):
+            found_final_provision = True
+            continue
+
+        # If we found a final provision, process subsequent elements
+        if found_final_provision:
+            text = element.get("Text", "").lower()
+
+            # Check if this element contains "gesetz" or "verordnung"
+            if "gesetz" in text or "verordnung" in text:
+                # Get the current font weight
+                font_weight = element.get("Font", {}).get("weight", 400)
+                font_size = element.get("TextSize", 9.17999267578125)
+
+                # If font weight is above 400 and font size smaller or eqal 12
+                # reset font weight to 400
+                if font_weight > 400 and font_size <= 9.2:
+                    if "Font" not in element:
+                        element["Font"] = {}
+
+                    element["Font"]["weight"] = 400
+
+                    # Log the change
+                    logger.info(f"Reset font weight to 400 for element: {text[:30]}...")
+
+    return elements
+
+
 def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     """
     Extracts color information and hyperlinks from the PDF and updates the JSON data.
@@ -725,6 +769,8 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     elements = convert_bounds_to_pymupdf(elements)
     # Sort elements
     elements = sort_elements(elements)
+    # Normalize font weight after final provisions
+    elements = normalize_font_weight_after_final_provisions(elements)
     # Remove header and footer elements
     elements = remove_header_footer(elements)
     # Check for blue color in elements

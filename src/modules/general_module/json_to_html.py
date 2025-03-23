@@ -629,6 +629,7 @@ def convert_to_html(json_data, erlasstitel, marginalia):
     elements = json_data.get("elements", [])
 
     # Pre-scan to find the last index where the text contains target keywords
+    # TODO: Check if this can be removed due to manipulating the elements in extend_metadata.py
     last_special_index = -1
     for i, element in enumerate(elements):
         text_lower = element.get("Text", "").lower()

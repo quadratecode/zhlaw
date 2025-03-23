@@ -15,7 +15,7 @@ FOOTNOTE_CLASS = "footnote"
 ENUM_PREFIX = "enum-"
 EXCLUDED_MERGE_CLASSES = {"marginalia", "provision", "subprovision"}
 FOOTNOTE_LINE_ID = "footnote-line"
-ANNEX_KEYWORDS = ["Anhang", "Anhänge", "Verzeichnis", "Verzeichnisse"]
+ANNEX_KEYWORDS = ["Anhang", "Anhänge"]
 
 
 # -----------------------------------------------------------------------------
@@ -122,6 +122,7 @@ def add_footnote_line_and_class(soup: BeautifulSoup) -> BeautifulSoup:
     """
     Inserts a horizontal line before the first footnote paragraph and gives it an id
     so that it can later serve as a marker.
+    TODO: Move style to CSS file.
     """
     footnote_paragraphs: List[Tag] = soup.find_all("p", class_=FOOTNOTE_CLASS)
     if footnote_paragraphs:

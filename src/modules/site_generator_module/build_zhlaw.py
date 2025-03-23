@@ -326,7 +326,6 @@ def insert_combined_table(
         "details",
         **{
             "id": "doc-info",
-            "style": "position:sticky; top:0; background:white; z-index:10;",
         },
     )
     summary: Tag = soup.new_tag("summary")
