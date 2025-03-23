@@ -6,6 +6,9 @@
 
 ZHLaw improves access to legal texts from the canton of Zurich by converting them from PDF into a machine-readable format and presenting them as a static website.
 
+<img width="675" alt="zhlaw_dark_light_comparison_20250316" src="https://github.com/user-attachments/assets/9971ef2b-3550-49cf-8230-c85972932b42" />
+
+
 **Note**: This project is in active development. Functionality and interfaces may change.
 
 **⚠️ Important**: Since the conversion process will never be perfect, always refer to the original PDFs published by the canton of Zurich.
