@@ -6,6 +6,9 @@ import arrow
 import re
 
 
+# Modified generate_html_page function in src/modules/site_generator_module/build_dispatch.py
+
+
 def generate_html_page(content):
     return f"""
     <!DOCTYPE html>
@@ -21,6 +24,10 @@ def generate_html_page(content):
             <div class="content">
                 <div id="dispatch-static">
                 <div class="dispatch-header">
+                    <div class="dispatch-controls">
+                        <button id="expand-all" class="dispatch-button">alle Einträge einblenden</button>
+                        <button id="collapse-all" class="dispatch-button">alle Einträge ausblenden</button>
+                    </div>
                     <div class="update-info">Letzte Aktualisierung: {arrow.now().format('DD.MM.YYYY')}</div>
                     <div class="rss-subscribe">
                         <a href="/dispatch-feed.xml" target="_blank" class="rss-link">
@@ -37,6 +44,28 @@ def generate_html_page(content):
                 </div>
             </div>
         </div>
+        
+        <script>
+            // JavaScript to handle expand/collapse functionality
+            document.addEventListener("DOMContentLoaded", function() {{
+                // Get all dispatch details elements
+                const detailsElements = document.querySelectorAll(".dispatch-details");
+                
+                // Add event listener for expand all button
+                document.getElementById("expand-all").addEventListener("click", function() {{
+                    detailsElements.forEach(function(element) {{
+                        element.setAttribute("open", "");
+                    }});
+                }});
+                
+                // Add event listener for collapse all button
+                document.getElementById("collapse-all").addEventListener("click", function() {{
+                    detailsElements.forEach(function(element) {{
+                        element.removeAttribute("open");
+                    }});
+                }});
+            }});
+        </script>
     </body>
     </html>
     """

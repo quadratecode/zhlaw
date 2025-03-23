@@ -339,14 +339,16 @@ body {
     background-color: var(--hover-grey);
 }
 
-.nav-buttons {
+.nav-buttons,
+.dispatch-controls {
     display: flex;
     flex-direction: row;
     gap: 1rem;
     margin-bottom: 0.5rem;
 }
 
-.nav-button {
+.nav-button,
+.dispatch-button {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -359,7 +361,8 @@ body {
     font-family: var(--font-text);
 }
 
-.nav-button:hover {
+.nav-button:hover,
+.dispatch-button:hover {
     background-color: var(--hover-grey);
 }
 
