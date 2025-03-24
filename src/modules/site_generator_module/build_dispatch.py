@@ -48,11 +48,11 @@ def generate_html_page(content):
                 <!-- Dispatch controls styled like nav-buttons -->
                 <div class="nav-buttons">
                     <button id="expand-all" class="nav-button">
-                        <span class="nav-symbol">⊕</span>
+                        <span class="nav-symbol">+</span>
                         <span class="nav-text">alle einblenden</span>
                     </button>
                     <button id="collapse-all" class="nav-button">
-                        <span class="nav-symbol">⊖</span>
+                        <span class="nav-symbol">-</span>
                         <span class="nav-text">alle ausblenden</span>
                     </button>
                 </div>

@@ -185,6 +185,18 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
     body: Union[Tag, None] = soup.find("body")
     if body:
         body.append(footer)
+
+        # Add GoatCounter script
+        # Comment out if not needed on clone
+        goatcounter_script = soup.new_tag(
+            "script",
+            attrs={
+                "data-goatcounter": "https://stats.zhlaw.ch/count",
+                "async": None,
+                "src": "//stats.zhlaw.ch/count.js",
+            },
+        )
+        body.append(goatcounter_script)
     return soup
 
 
