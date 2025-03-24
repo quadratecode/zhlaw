@@ -361,6 +361,10 @@ body {
     font-family: var(--font-text);
 }
 
+.dispatch-button {
+    color: var(--soft-black)
+}
+
 .nav-button:hover,
 .dispatch-button:hover {
     background-color: var(--hover-grey);

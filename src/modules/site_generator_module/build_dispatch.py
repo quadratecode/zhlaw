@@ -25,8 +25,8 @@ def generate_html_page(content):
                 <div id="dispatch-static">
                 <div class="dispatch-header">
                     <div class="dispatch-controls">
-                        <button id="expand-all" class="dispatch-button">alle Einträge einblenden</button>
-                        <button id="collapse-all" class="dispatch-button">alle Einträge ausblenden</button>
+                        <button id="expand-all" class="dispatch-button">alle einblenden</button>
+                        <button id="collapse-all" class="dispatch-button">alle ausblenden</button>
                     </div>
                     <div class="update-info">Letzte Aktualisierung: {arrow.now().format('DD.MM.YYYY')}</div>
                     <div class="rss-subscribe">
