@@ -31,7 +31,6 @@ def generate_html_page(content):
                         </div>
                         <hr class="links-separator">
                         <div class="link-group">
-                            <div class="link-title">RSS Feed:</div>
                             <div class="link-url">
                                 <a href="/dispatch-feed.xml" target="_blank" class="rss-link">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -39,7 +38,7 @@ def generate_html_page(content):
                                         <path d="M4 4a16 16 0 0 1 16 16"></path>
                                         <circle cx="5" cy="19" r="1"></circle>
                                     </svg>
-                                    RSS Feed abonnieren
+                                    RSS-Feed
                                 </a>
                             </div>
                         </div>
@@ -109,7 +108,7 @@ def convert_to_html(data):
             html_content += f'<details id="{dispatch["krzh_dispatch_date"]}" class="dispatch-details">\n'
 
         # Create summary with heading inside (arrow at the end)
-        html_content += f"<summary><h2>{dispatch_date}: Versand KRZH</h2></summary>\n"
+        html_content += f"<summary><h2>{dispatch_date}</h2></summary>\n"
 
         if not dispatch["affairs"]:
             html_content += "<p>[Keine relevanten Geschäfte gefunden]</p>\n"
