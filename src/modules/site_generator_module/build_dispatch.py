@@ -6,7 +6,7 @@ import arrow
 import re
 
 
-# Modified generate_html_page function in src/modules/site_generator_module/build_dispatch.py
+# Modified generate_html_page function to implement sidebar like on law pages
 
 
 def generate_html_page(content):
@@ -21,25 +21,46 @@ def generate_html_page(content):
     </head>
     <body>
         <div class="main-container">
-            <div class="content">
-                <div id="dispatch-static">
-                <div class="dispatch-header">
-                    <div class="dispatch-controls">
-                        <button id="expand-all" class="dispatch-button">alle einblenden</button>
-                        <button id="collapse-all" class="dispatch-button">alle ausblenden</button>
-                    </div>
-                    <div class="update-info">Letzte Aktualisierung: {arrow.now().format('DD.MM.YYYY')}</div>
-                    <div class="rss-subscribe">
-                        <a href="/dispatch-feed.xml" target="_blank" class="rss-link">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M4 11a9 9 0 0 1 9 9"></path>
-                                <path d="M4 4a16 16 0 0 1 16 16"></path>
-                                <circle cx="5" cy="19" r="1"></circle>
-                            </svg>
-                            RSS
-                        </a>
+            <div id="sidebar">
+                <!-- Dispatch info container styled like links-container -->
+                <div id="dispatch-info-container" class="links-container">
+                    <div class="links-inner">
+                        <div class="link-group">
+                            <div class="link-title">Letzte Aktualisierung:</div>
+                            <div class="link-url">{arrow.now().format('DD.MM.YYYY')}</div>
+                        </div>
+                        <hr class="links-separator">
+                        <div class="link-group">
+                            <div class="link-title">RSS Feed:</div>
+                            <div class="link-url">
+                                <a href="/dispatch-feed.xml" target="_blank" class="rss-link">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M4 11a9 9 0 0 1 9 9"></path>
+                                        <path d="M4 4a16 16 0 0 1 16 16"></path>
+                                        <circle cx="5" cy="19" r="1"></circle>
+                                    </svg>
+                                    RSS Feed abonnieren
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                
+                <!-- Dispatch controls styled like nav-buttons -->
+                <div class="nav-buttons">
+                    <button id="expand-all" class="nav-button">
+                        <span class="nav-symbol">⊕</span>
+                        <span class="nav-text">alle einblenden</span>
+                    </button>
+                    <button id="collapse-all" class="nav-button">
+                        <span class="nav-symbol">⊖</span>
+                        <span class="nav-text">alle ausblenden</span>
+                    </button>
+                </div>
+            </div>
+            <div class="content">
+                <h1>Dispatch KRZH</h1>
+                <div id="dispatch-static">
                     {content}
                 </div>
             </div>
@@ -73,9 +94,6 @@ def generate_html_page(content):
 
 def convert_to_html(data):
     html_content = ""
-
-    # Add timestamp and RSS display in the content section - REMOVED
-    # html_content += f"<p id='update'>Letzte Aktualisierung: {arrow.now().format('DD.MM.YYYY HH:mm:ss')}</p>\n"
 
     # Track if this is the first dispatch (newest one)
     is_first_dispatch = True
@@ -195,10 +213,8 @@ def convert_to_html(data):
 
 
 def main(dispatch_data):
-
     html_content = convert_to_html(dispatch_data)
     complete_html = generate_html_page(html_content)
-
     return complete_html
 
 
