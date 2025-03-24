@@ -17,7 +17,7 @@ def generate_html_page(content):
         <meta content="width=device-width, initial-scale=1.0" name="viewport">
         <link rel="stylesheet" type="text/css" href="styles.css">
         <link rel="alternate" type="application/rss+xml" title="zhlaw.ch - KRZH Dispatch" href="/dispatch-feed.xml">
-        <title>KRZH Dispatch</title>
+        <title>zhlaw - Dispatch KRZH</title>
     </head>
     <body>
         <div class="main-container">
