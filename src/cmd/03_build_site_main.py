@@ -12,6 +12,7 @@ import arrow
 from bs4 import BeautifulSoup
 import subprocess
 import argparse
+import concurrent.futures
 
 # Local imports
 from src.modules.site_generator_module import build_zhlaw
@@ -29,112 +30,153 @@ logging.basicConfig(
     datefmt="%m/%d/%Y %I:%M:%S %p",
 )
 
+# Global variables for paths - will be set in main()
+STATIC_PATH = None
+COLLECTION_PATH_ZH = None
+COLLECTION_PATH_CH = None
+
+
 # -------------------------------------------------------------------------
-# Collection-specific constants
+# File Processing Functions
 # -------------------------------------------------------------------------
-# ZH-Lex collection data
-COLLECTION_DATA_ZH = "data/zhlex/zhlex_data/zhlex_data_processed.json"
-PLACEHOLDER_DIR_ZH = "data/zhlex/placeholders"  # Used only for ZH-Lex
-
-# FedLex collection data
-COLLECTION_DATA_CH = "data/fedlex/fedlex_data/fedlex_data_processed.json"
-
-
-def process_html_files(html_files, collection_data_path, collection_path, law_origin):
+def process_html_file(args):
     """
-    Process a list of HTML files for a given collection.
-    - Insert InfoBox via build_zhlaw
-    - Possibly process old HTML
-    - Write output to `collection_path`
+    Process a single HTML file and return success/error status.
+    This function is designed to be callable by both sequential and parallel processors.
     """
-    error_counter = 0
-    timestamp = arrow.now().format("YYYYMMDD-HHmmss")
+    html_file, collection_data_path, collection_path, law_origin = args
 
-    for html_file in tqdm(html_files):
-        # Identify what type of file we have
-        if html_file.endswith("-original.html"):
-            metadata_file = html_file.replace("-original.html", "-metadata.json")
-            sfx = "-original"
-            file_type = "old_html"
-        elif html_file.endswith("-merged.html"):
-            metadata_file = html_file.replace("-merged.html", "-metadata.json")
-            sfx = "-merged"
-            file_type = "new_html"
-        else:
-            # Likely a static site element
-            file_type = "site_element"
-            metadata_file = None
+    # Identify what type of file we have
+    if html_file.endswith("-original.html"):
+        metadata_file = html_file.replace("-original.html", "-metadata.json")
+        sfx = "-original"
+        file_type = "old_html"
+    elif html_file.endswith("-merged.html"):
+        metadata_file = html_file.replace("-merged.html", "-metadata.json")
+        sfx = "-merged"
+        file_type = "new_html"
+    else:
+        # Likely a static site element
+        file_type = "site_element"
+        metadata_file = None
 
-        try:
-            if file_type in ["old_html", "new_html"]:
-                # Load metadata
-                with open(metadata_file, "r", encoding="utf-8") as file:
-                    metadata = json.load(file)
+    try:
+        if file_type in ["old_html", "new_html"]:
+            # Load metadata
+            with open(metadata_file, "r", encoding="utf-8") as file:
+                metadata = json.load(file)
 
-                # Load HTML
-                if file_type == "old_html":
-                    # Older HTML might be iso-8859-1 encoded
-                    with open(html_file, "r", encoding="iso-8859-1") as file:
-                        soup = BeautifulSoup(file, "html.parser")
-                    soup = process_old_html.main(soup)
-                else:
-                    # Merged HTML is usually UTF-8
-                    with open(html_file, "r", encoding="utf-8") as file:
-                        soup = BeautifulSoup(file, "html.parser")
-
+            # Load HTML
+            if file_type == "old_html":
+                # Older HTML might be iso-8859-1 encoded
+                with open(html_file, "r", encoding="iso-8859-1") as file:
+                    soup = BeautifulSoup(file, "html.parser")
+                soup = process_old_html.main(soup)
             else:
-                # For site elements
-                metadata = {}
+                # Merged HTML is usually UTF-8
                 with open(html_file, "r", encoding="utf-8") as file:
                     soup = BeautifulSoup(file, "html.parser")
 
-            # Insert InfoBox and other final touches
-            logging.info(f"Inserting InfoBox: {html_file}")
-            doc_info = metadata.get("doc_info", {})
-            soup = build_zhlaw.main(
-                soup, html_file, doc_info, file_type, law_origin=law_origin
-            )
-            logging.info(f"Finished inserting InfoBox: {html_file}")
+        else:
+            # For site elements
+            metadata = {}
+            with open(html_file, "r", encoding="utf-8") as file:
+                soup = BeautifulSoup(file, "html.parser")
 
-            # Create output folders if needed
-            if not os.path.exists(collection_path):
-                os.makedirs(collection_path)
+        # Insert InfoBox and other final touches
+        doc_info = metadata.get("doc_info", {})
+        soup = build_zhlaw.main(
+            soup, html_file, doc_info, file_type, law_origin=law_origin
+        )
 
-            # Update metadata file if relevant
-            if file_type in ["old_html", "new_html"]:
-                logging.info(f"Writing metadata file: {metadata_file}")
-                with open(metadata_file, "w", encoding="utf-8") as file:
-                    json.dump(metadata, file, indent=4, ensure_ascii=False)
-                logging.info(f"Finished writing metadata file: {metadata_file}")
+        # Create output folders if needed
+        if not os.path.exists(collection_path):
+            os.makedirs(collection_path)
 
-                # Derive new filename (remove "-original" or "-merged" suffix)
-                _, tail = os.path.split(html_file)
-                new_tail = tail.replace(sfx, "")
-                new_file_path = os.path.join(collection_path, new_tail)
-            else:
-                # For site elements, store in STATIC_PATH
-                if not os.path.exists(STATIC_PATH):
-                    os.makedirs(STATIC_PATH)
-                new_file_path = os.path.join(STATIC_PATH, os.path.basename(html_file))
+        # Update metadata file if relevant
+        if file_type in ["old_html", "new_html"]:
+            with open(metadata_file, "w", encoding="utf-8") as file:
+                json.dump(metadata, file, indent=4, ensure_ascii=False)
 
-            # Write final HTML
-            with open(new_file_path, "w", encoding="utf-8") as file:
-                file.write("<!DOCTYPE html>\n")
-                file.write(str(soup))
-            logging.info(f"Finished writing new file: {new_file_path}")
+            # Derive new filename (remove "-original" or "-merged" suffix)
+            _, tail = os.path.split(html_file)
+            new_tail = tail.replace(sfx, "")
+            new_file_path = os.path.join(collection_path, new_tail)
+        else:
+            # For site elements, store in STATIC_PATH
+            if not os.path.exists(STATIC_PATH):
+                os.makedirs(STATIC_PATH)
+            new_file_path = os.path.join(STATIC_PATH, os.path.basename(html_file))
 
-        except Exception as e:
-            logging.error(
-                f"Error during processing {html_file}: {e} at {timestamp}",
-                exc_info=True,
-            )
+        # Write final HTML
+        with open(new_file_path, "w", encoding="utf-8") as file:
+            file.write("<!DOCTYPE html>\n")
+            file.write(str(soup))
+
+        return True
+    except Exception as e:
+        logging.error(
+            f"Error processing {html_file}: {e}",
+            exc_info=True,
+        )
+        return False
+
+
+def process_html_files_sequentially(
+    html_files, collection_data_path, collection_path, law_origin
+):
+    """
+    Process HTML files sequentially for easier debugging.
+    """
+    error_counter = 0
+    for html_file in tqdm(
+        html_files, desc=f"Processing {law_origin} files sequentially"
+    ):
+        success = process_html_file(
+            (html_file, collection_data_path, collection_path, law_origin)
+        )
+        if not success:
             error_counter += 1
-            continue
 
     return error_counter
 
 
-def main(folder_choice, dataset_trigger, placeholders_trigger):
+def process_html_files_concurrently(
+    html_files, collection_data_path, collection_path, law_origin, max_workers=None
+):
+    """
+    Process HTML files in parallel using ProcessPoolExecutor.
+    """
+    error_counter = 0
+    # Create a list of argument tuples for the process_html_file function
+    process_args = [
+        (html_file, collection_data_path, collection_path, law_origin)
+        for html_file in html_files
+    ]
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        # Map the process function to all files and wrap with tqdm for progress bar
+        results = list(
+            tqdm(
+                executor.map(process_html_file, process_args),
+                total=len(process_args),
+                desc=f"Processing {law_origin} files concurrently",
+            )
+        )
+
+        # Count the number of failures
+        error_counter = results.count(False)
+
+    return error_counter
+
+
+def main(
+    folder_choice,
+    dataset_trigger,
+    placeholders_trigger,
+    processing_mode,
+    max_workers=None,
+):
     """
     Depending on `folder_choice`:
      - "zhlex_files": process the main ZH-Lex folder (skip FedLex)
@@ -143,6 +185,14 @@ def main(folder_choice, dataset_trigger, placeholders_trigger):
      - "test_files": process only ZH 'test_files' folder (skip FedLex)
     """
     global STATIC_PATH, COLLECTION_PATH_ZH, COLLECTION_PATH_CH
+
+    # Show the selected processing mode
+    logging.info(f"Using processing mode: {processing_mode}")
+
+    # Define the collection data paths
+    COLLECTION_DATA_ZH = "data/zhlex/zhlex_data/zhlex_data_processed.json"
+    COLLECTION_DATA_CH = "data/fedlex/fedlex_data/fedlex_data_processed.json"
+    PLACEHOLDER_DIR_ZH = "data/zhlex/placeholders"  # Used only for ZH-Lex
 
     # Set the output directory based on folder_choice
     if folder_choice == "test_files":
@@ -220,12 +270,23 @@ def main(folder_choice, dataset_trigger, placeholders_trigger):
         if not html_files_zh:
             logging.info("No ZH-Lex files found. Proceeding anyway...")
         else:
-            error_counter_zh = process_html_files(
-                html_files_zh,
-                COLLECTION_DATA_ZH,
-                COLLECTION_PATH_ZH,
-                law_origin="zh",
-            )
+            # Process files in chosen mode
+            if processing_mode == "concurrent":
+                error_counter_zh = process_html_files_concurrently(
+                    html_files_zh,
+                    COLLECTION_DATA_ZH,
+                    COLLECTION_PATH_ZH,
+                    law_origin="zh",
+                    max_workers=max_workers,
+                )
+            else:
+                error_counter_zh = process_html_files_sequentially(
+                    html_files_zh,
+                    COLLECTION_DATA_ZH,
+                    COLLECTION_PATH_ZH,
+                    law_origin="zh",
+                )
+
             logging.info(f"ZH-Lex: encountered {error_counter_zh} errors.")
 
     # -------------------------------------------------------------------------
@@ -247,12 +308,23 @@ def main(folder_choice, dataset_trigger, placeholders_trigger):
         if not html_files_ch:
             logging.info("No FedLex files found. Proceeding anyway...")
         else:
-            error_counter_ch = process_html_files(
-                html_files_ch,
-                COLLECTION_DATA_CH,
-                COLLECTION_PATH_CH,
-                law_origin="ch",
-            )
+            # Process files in chosen mode
+            if processing_mode == "concurrent":
+                error_counter_ch = process_html_files_concurrently(
+                    html_files_ch,
+                    COLLECTION_DATA_CH,
+                    COLLECTION_PATH_CH,
+                    law_origin="ch",
+                    max_workers=max_workers,
+                )
+            else:
+                error_counter_ch = process_html_files_sequentially(
+                    html_files_ch,
+                    COLLECTION_DATA_CH,
+                    COLLECTION_PATH_CH,
+                    law_origin="ch",
+                )
+
             logging.info(f"FedLex: encountered {error_counter_ch} errors.")
 
     # -------------------------------------------------------------------------
@@ -379,7 +451,20 @@ if __name__ == "__main__":
         choices=["yes", "no"],
         help="Create placeholders (ZH-Lex only).",
     )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="concurrent",
+        choices=["concurrent", "sequential"],
+        help="Processing mode: concurrent (parallel) or sequential (for debugging)",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Number of worker processes for concurrent mode (default: auto)",
+    )
     args = parser.parse_args()
 
     logging.info(f"Script arguments: {args}")
-    main(args.folder, args.db_build, args.placeholders)
+    main(args.folder, args.db_build, args.placeholders, args.mode, args.workers)
