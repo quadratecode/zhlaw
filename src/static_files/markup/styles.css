@@ -598,6 +598,17 @@ a:focus {
     margin-bottom: 0.3em;
 }
 
+/* Adjust spacing between provision and regular paragraphs to match provision and subprovision containers */
+.provision + p {
+    margin-top: 0;
+    margin-bottom: 0.3em;
+}
+
+/* Ensure subprovision container spacing is consistent */
+.provision + .subprovision-container {
+    margin-top: 0;
+}
+
 .subprovision {
     margin-top: 0.3em;
     margin-bottom: 0;

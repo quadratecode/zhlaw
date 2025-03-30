@@ -806,7 +806,11 @@ def merge_paragraphs_with_footnote_refs(soup: BeautifulSoup) -> BeautifulSoup:
 
 
 def create_links_display(
-    soup: BeautifulSoup, current_url: str, dynamic_url: str, law_page_url: str = ""
+    soup: BeautifulSoup,
+    current_url: str,
+    dynamic_url: str,
+    law_page_url: str = "",
+    erlasstitel: str = "",
 ) -> Tag:
     """
     Creates a display of static, dynamic, and source URLs for copying.
@@ -816,6 +820,7 @@ def create_links_display(
         current_url: URL to the current version (static link)
         dynamic_url: URL to the latest version (dynamic link)
         law_page_url: URL to the source document on ZHLex (if available)
+        erlasstitel: Title of the law to display at the top (if provided)
 
     Returns:
         Tag: A div containing all link displays
@@ -826,6 +831,20 @@ def create_links_display(
     # Create the container with border that contains all links
     links_inner: Tag = soup.new_tag("div", **{"class": "links-inner"})
     links_container.append(links_inner)
+
+    # Title Group (added per request)
+    if erlasstitel:
+        title_group: Tag = soup.new_tag("div", **{"class": "link-group"})
+        links_inner.append(title_group)
+
+        # Title element
+        title_element: Tag = soup.new_tag("div", **{"class": "link-title"})
+        title_element.string = erlasstitel
+        title_group.append(title_element)
+
+        # Add separator after title
+        title_separator: Tag = soup.new_tag("hr", **{"class": "links-separator"})
+        links_inner.append(title_separator)
 
     # Static Link Group
     static_group: Tag = soup.new_tag("div", **{"class": "link-group"})
@@ -923,9 +942,8 @@ def main(
 
             # Create the links display with both static, dynamic, and source URLs
             links_display = create_links_display(
-                soup, current_url, dynamic_url, law_page_url
+                soup, current_url, dynamic_url, law_page_url, erlasstitel
             )
-
             # Create nav buttons
             nav_div: Tag = create_nav_buttons(soup)
 
