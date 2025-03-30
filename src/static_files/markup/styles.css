@@ -213,7 +213,6 @@ body {
     margin-right: -50vw;
     border-bottom: 2px solid var(--soft-black);
     z-index: 100;
-    transition: all 0.3s ease;
 }
 
 /* Header content with search results present */
@@ -437,6 +436,7 @@ body {
 }
 
 #status-message.in-force-yes {
+    border: 1px solid var(--in-force-dark-green);
     background-color: var(--in-force-green);
     color: var(--in-force-dark-green);
 }
@@ -452,6 +452,7 @@ body {
 
 /* Styling the infobox for #annex-info */
 #annex-info {
+    border: 1px solid var(--dark-dark-purple);
     background-color: var(--light-purple);
     color: var(--dark-purple);
     font-weight: var(--font-weight-bold);

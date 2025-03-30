@@ -732,6 +732,79 @@ def wrap_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
+def merge_paragraphs_with_footnote_refs(soup: BeautifulSoup) -> BeautifulSoup:
+    """
+    Merges consecutive paragraphs where the first contains a footnote reference
+    and the second starts with lowercase letter or punctuation.
+
+    Requirements:
+    - Elements must be directly consecutive siblings
+    - Elements must be the same tag with identical classes (except "first-level" or "second-level")
+    - First element must contain a sup.footnote-ref tag
+    - Second element must start with lowercase letter or punctuation
+    """
+    # Define excluded classes and punctuation characters
+    excluded_classes = ["first-level", "second-level"]
+    punctuation_chars = ".,;:?!()[]{}"
+
+    # Process multiple passes until no more changes
+    changes_made = True
+    while changes_made:
+        changes_made = False
+
+        # Get fresh list of elements
+        elements = soup.find_all(["p", "h1", "h2", "h3", "h4", "h5", "h6"])
+
+        for i in range(len(elements) - 1):
+            current_elem = elements[i]
+            next_elem = elements[i + 1]
+
+            # Must be direct siblings
+            if next_elem != current_elem.find_next_sibling():
+                continue
+
+            # Check for excluded classes
+            current_classes = current_elem.get("class", [])
+            next_classes = next_elem.get("class", [])
+
+            if any(cls in excluded_classes for cls in current_classes) or any(
+                cls in excluded_classes for cls in next_classes
+            ):
+                continue
+
+            # Must be same tag type
+            if current_elem.name != next_elem.name:
+                continue
+
+            # Must have identical classes
+            if set(current_classes) != set(next_classes):
+                continue
+
+            # First element must contain a footnote reference
+            footnote_ref = current_elem.find("sup", class_="footnote-ref")
+            if not footnote_ref:
+                continue
+
+            # Second element must start with lowercase or punctuation
+            next_text = next_elem.get_text().strip()
+            if not next_text:
+                continue
+
+            if not (next_text[0].islower() or next_text[0] in punctuation_chars):
+                continue
+
+            # All conditions met - merge the elements
+            current_elem.append(" ")
+            while next_elem.contents:
+                current_elem.append(next_elem.contents[0])
+            next_elem.decompose()
+
+            changes_made = True
+            break
+
+    return soup
+
+
 def create_links_display(
     soup: BeautifulSoup, current_url: str, dynamic_url: str, law_page_url: str = ""
 ) -> Tag:
@@ -833,6 +906,7 @@ def main(
 
         soup = consolidate_enum_paragraphs(soup)
         soup = wrap_subprovisions(soup)
+        soup = merge_paragraphs_with_footnote_refs(soup)
         soup = modify_html(soup, erlasstitel)
         soup = insert_combined_table(
             soup,

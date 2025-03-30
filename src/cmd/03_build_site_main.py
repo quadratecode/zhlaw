@@ -34,15 +34,10 @@ logging.basicConfig(
 # -------------------------------------------------------------------------
 # ZH-Lex collection data
 COLLECTION_DATA_ZH = "data/zhlex/zhlex_data/zhlex_data_processed.json"
-COLLECTION_PATH_ZH = "public/col-zh/"
 PLACEHOLDER_DIR_ZH = "data/zhlex/placeholders"  # Used only for ZH-Lex
 
 # FedLex collection data
 COLLECTION_DATA_CH = "data/fedlex/fedlex_data/fedlex_data_processed.json"
-COLLECTION_PATH_CH = "public/col-ch/"
-
-# Common paths
-STATIC_PATH = "public/"
 
 
 def process_html_files(html_files, collection_data_path, collection_path, law_origin):
@@ -147,6 +142,19 @@ def main(folder_choice, dataset_trigger, placeholders_trigger):
      - "all_files": process both ZH-Lex (zhlex_files) and FedLex
      - "test_files": process only ZH 'test_files' folder (skip FedLex)
     """
+    global STATIC_PATH, COLLECTION_PATH_ZH, COLLECTION_PATH_CH
+
+    # Set the output directory based on folder_choice
+    if folder_choice == "test_files":
+        STATIC_PATH = "public_test/"
+        COLLECTION_PATH_ZH = f"{STATIC_PATH}col-zh/"
+        COLLECTION_PATH_CH = f"{STATIC_PATH}col-ch/"
+        logging.info(f"Using test output directory: {STATIC_PATH}")
+    else:
+        STATIC_PATH = "public/"
+        COLLECTION_PATH_ZH = f"{STATIC_PATH}col-zh/"
+        COLLECTION_PATH_CH = f"{STATIC_PATH}col-ch/"
+        logging.info(f"Using standard output directory: {STATIC_PATH}")
 
     # Remove existing public folder to ensure a clean build
     if os.path.exists(STATIC_PATH):
@@ -325,8 +333,11 @@ def main(folder_choice, dataset_trigger, placeholders_trigger):
     # 7) Generate a sitemap (covering everything under public/)
     # -------------------------------------------------------------------------
     logging.info("Generating sitemap")
-    generator = SitemapGenerator("https://zhlaw.ch", STATIC_PATH)
-    generator.save_sitemap()
+    site_url = "https://zhlaw.ch"
+    if folder_choice == "test_files":
+        site_url = "https://test.zhlaw.ch"  # Use a different URL for test site
+    generator = SitemapGenerator(site_url, STATIC_PATH)
+    generator.save_sitemap(f"{STATIC_PATH}sitemap.xml")
     logging.info("Finished generating sitemap")
 
     # -------------------------------------------------------------------------
