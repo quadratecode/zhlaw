@@ -21,6 +21,7 @@ from src.modules.site_generator_module import create_placeholders
 from src.modules.site_generator_module import generate_index
 from src.modules.site_generator_module.create_sitemap import SitemapGenerator
 from src.modules.dataset_generator_module import build_markdown
+from src.modules.site_generator_module import html_diff
 
 # Set up logging
 logging.basicConfig(
@@ -368,6 +369,35 @@ def main(
                 COLLECTION_PATH_ZH,
                 dirs_exist_ok=True,
             )
+
+    # -------------------------------------------------------------------------
+    # 5.5) Generate diffs for ZH-Lex and FedLex
+    # -------------------------------------------------------------------------
+    if process_zh:
+        logging.info("Generating diffs for ZH-Lex")
+        zh_diff_path = os.path.join(STATIC_PATH, "col-zh/diff")
+        zh_diff_count = html_diff.main(
+            COLLECTION_DATA_ZH,
+            COLLECTION_PATH_ZH,
+            zh_diff_path,
+            law_origin="zh",
+            processing_mode=processing_mode,
+            max_workers=max_workers,
+        )
+        logging.info(f"Generated {zh_diff_count} diffs for ZH-Lex")
+
+    if process_ch:
+        logging.info("Generating diffs for FedLex")
+        ch_diff_path = os.path.join(STATIC_PATH, "col-ch/diff")
+        ch_diff_count = html_diff.main(
+            COLLECTION_DATA_CH,
+            COLLECTION_PATH_CH,
+            ch_diff_path,
+            law_origin="ch",
+            processing_mode=processing_mode,
+            max_workers=max_workers,
+        )
+        logging.info(f"Generated {ch_diff_count} diffs for FedLex")
 
     # -------------------------------------------------------------------------
     # 6) Copy static markup, server scripts, and relevant metadata JSON
