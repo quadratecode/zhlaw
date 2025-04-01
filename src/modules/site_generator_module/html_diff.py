@@ -168,85 +168,108 @@ def generate_law_diffs(args):
                 # Create diff directory if it doesn't exist
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-                # Start with a copy of the newer version's HTML
-                shutil.copy(html2_path, output_path)
+                # Extract title from newer version
+                with open(html2_path, "r", encoding="utf-8") as f:
+                    newer_soup = BeautifulSoup(f.read(), "html.parser")
+                    erlasstitel = ""
+                    title_tag = newer_soup.title
+                    if title_tag:
+                        erlasstitel = title_tag.string
 
-                # Open the copy and replace content
-                with open(output_path, "r", encoding="utf-8") as f:
-                    html = f.read()
+                # Create minimal HTML structure for diff file
+                diff_soup = BeautifulSoup("<!DOCTYPE html>", "html.parser")
 
-                soup = BeautifulSoup(html, "html.parser")
+                # Create html element
+                html_tag = diff_soup.new_tag("html")
+                diff_soup.append(html_tag)
 
-                # Update the title
-                title_tag = soup.title
-                if title_tag:
-                    erlasstitel = title_tag.string
-                    title_tag.string = f"Diff: {erlasstitel} ({ordnungsnummer}-{older_version} → {newer_version})"
+                # Create minimal head with only charset and title
+                head = diff_soup.new_tag("head")
+                html_tag.append(head)
 
-                # Replace the source-text content with the diffed content
-                source_text_div = soup.find("div", id="source-text")
-                if source_text_div:
-                    # First, add an explanation of the diff colors above the source text
-                    explanation = soup.new_tag(
-                        "div",
-                        **{
-                            "class": "diff-explanation",
-                            "style": "margin-bottom: 20px; padding: 10px; border: 1px solid #ccc;",
-                        },
-                    )
-                    explanation.string = "Änderungen: "
+                # Add charset meta
+                charset_meta = diff_soup.new_tag("meta", charset="utf-8")
+                head.append(charset_meta)
 
-                    # Add color examples
-                    insert_example = soup.new_tag(
-                        "span",
-                        **{
-                            "class": "insert",
-                            "style": "background-color: #AFA; padding: 2px 5px;",
-                        },
-                    )
-                    insert_example.string = "Grün = hinzugefügt"
-                    explanation.append(insert_example)
+                # Add title
+                title = diff_soup.new_tag("title")
+                title.string = f"Diff: {erlasstitel} ({ordnungsnummer}-{older_version} → {newer_version})"
+                head.append(title)
 
-                    explanation.append(" | ")
+                # Create body
+                body = diff_soup.new_tag("body")
+                html_tag.append(body)
 
-                    delete_example = soup.new_tag(
-                        "span",
-                        **{
-                            "class": "delete",
-                            "style": "background-color: #F88; text-decoration: line-through; padding: 2px 5px;",
-                        },
-                    )
-                    delete_example.string = "Rot = entfernt"
-                    explanation.append(delete_example)
+                # Create main-container div
+                main_container = diff_soup.new_tag("div", **{"class": "main-container"})
+                body.append(main_container)
 
-                    # Add a header with version info
-                    content_div = soup.find("div", **{"class": "content"})
-                    if content_div:
-                        # Insert after the first h1 if it exists
-                        h1 = content_div.find("h1")
-                        if h1:
-                            # Update the heading text
-                            h1.string = f"Änderungen: {h1.get_text()}"
+                # Create content div
+                content_div = diff_soup.new_tag("div", **{"class": "content"})
+                main_container.append(content_div)
 
-                            # Add a subheading with version info
-                            subheading = soup.new_tag("h2")
-                            subheading.string = (
-                                f"Version {older_version} → {newer_version}"
-                            )
-                            h1.insert_after(subheading)
-                            subheading.insert_after(explanation)
-                        else:
-                            # If no h1, just add at the top of content
-                            content_div.insert(0, explanation)
+                # Add heading
+                h1 = diff_soup.new_tag("h1")
+                h1.string = f"Änderungen: {erlasstitel}"
+                content_div.append(h1)
 
-                    # Replace the source-text with diffed content
-                    source_text_div.clear()
-                    diff_soup = BeautifulSoup(diffed_html, "html.parser")
-                    source_text_div.append(diff_soup)
+                # Add subheading with version info
+                subheading = diff_soup.new_tag("h2")
+                subheading.string = f"Version {older_version} → {newer_version}"
+                content_div.append(subheading)
 
-                # Save the modified file
+                # Add explanation of diff colors
+                explanation = diff_soup.new_tag(
+                    "div",
+                    **{
+                        "class": "diff-explanation",
+                        "style": "margin-bottom: 20px; padding: 10px; border: 1px solid #ccc;",
+                    },
+                )
+                explanation.string = "Änderungen: "
+
+                # Add color examples
+                insert_example = diff_soup.new_tag(
+                    "span",
+                    **{
+                        "class": "insert",
+                        "style": "background-color: #AFA; padding: 2px 5px;",
+                    },
+                )
+                insert_example.string = "Grün = hinzugefügt"
+                explanation.append(insert_example)
+
+                explanation.append(" | ")
+
+                delete_example = diff_soup.new_tag(
+                    "span",
+                    **{
+                        "class": "delete",
+                        "style": "background-color: #F88; text-decoration: line-through; padding: 2px 5px;",
+                    },
+                )
+                delete_example.string = "Rot = entfernt"
+                explanation.append(delete_example)
+
+                content_div.append(explanation)
+
+                # Create law div
+                law_div = diff_soup.new_tag("div", id="law")
+                content_div.append(law_div)
+
+                # Create source-text div and add diffed content
+                source_div = diff_soup.new_tag(
+                    "div", id="source-text", **{"class": "pdf-source"}
+                )
+                law_div.append(source_div)
+
+                # Add the diffed HTML content
+                diff_content = BeautifulSoup(diffed_html, "html.parser")
+                source_div.append(diff_content)
+
+                # Save the diff file
                 with open(output_path, "w", encoding="utf-8") as f:
-                    f.write(str(soup))
+                    f.write(str(diff_soup))
 
                 success_count += 1
                 logger.info(

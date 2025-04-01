@@ -119,6 +119,12 @@ def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
         dark_mode_script: Tag = soup.new_tag("script", src="/dark-mode.js", defer=True)
         head.append(dark_mode_script)
 
+        # Add version comparison script
+        version_comparison_script: Tag = soup.new_tag(
+            "script", src="/version-comparison.js", defer=True
+        )
+        head.append(version_comparison_script)
+
     # Pagefind initialization script
     search_script: Tag = soup.new_tag("script")
     search_script.string = """

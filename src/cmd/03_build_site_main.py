@@ -47,6 +47,10 @@ def process_html_file(args):
     """
     html_file, collection_data_path, collection_path, law_origin = args
 
+    # Skip diff files
+    if "-diff-" in html_file:
+        return True  # Return success without processing
+
     # Identify what type of file we have
     if html_file.endswith("-original.html"):
         metadata_file = html_file.replace("-original.html", "-metadata.json")

@@ -442,6 +442,7 @@ body {
 }
 
 #status-message.in-force-no {
+    border: 1px solid var(--in-force-dark-red);
     background-color: var(--in-force-red);
     color: var(--in-force-dark-red);
 }
@@ -980,6 +981,92 @@ details.dispatch-details summary h2 {
 
 .rss-subscribe {
     margin: 0;
+}
+
+/* -----------------------------
+   10. Version Comparison
+----------------------------- */
+
+/* Compact button styling */
+.version-toggle-container {
+  margin-top: 10px;
+}
+
+.version-toggle-button {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 12px !important;
+  min-height: 48px; /* Ensure consistent height */
+}
+
+.version-toggle-button .nav-symbol {
+  margin-right: 8px;
+  font-size: 1.2rem;
+  min-width: 20px; /* Fixed width for icons */
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.version-toggle-button .nav-text {
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Make disabled button style match other disabled nav buttons */
+.version-toggle-button[disabled] {
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--disabled-grey);
+  border-color: var(--disabled-grey);
+}
+
+.version-toggle-button[disabled]:hover {
+  background: transparent;
+}
+
+/* Diff view info box */
+.diff-info-box {
+  border: 1px solid var(--soft-black);
+  background-color: transparent;
+  color: var(--soft-black);
+  font-weight: var(--font-weight-medium);
+  padding: 1em;
+  margin-top: 0.5em;
+  margin-bottom: 1em;
+  line-height: 1.5;
+  font-size: 0.95em;
+}
+
+/* Highlight colors within the diff box */
+.diff-info-box .highlight-green {
+  background-color: var(--in-force-green);
+  padding: 2px 4px;
+}
+
+.diff-info-box .highlight-red {
+  background-color: var(--in-force-red);
+  padding: 2px 4px;
+  text-decoration: line-through;
+}
+
+/* Dark mode compatible colors for diffs */
+.insert {
+  background-color: var(--in-force-green) !important;
+  text-decoration: none !important;
+  padding: 1px 0 !important;
+}
+
+.delete {
+  background-color: var(--in-force-red) !important;
+  text-decoration: line-through !important;
+  padding: 1px 0 !important;
 }
 
 /* -----------------------------
