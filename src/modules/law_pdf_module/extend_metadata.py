@@ -700,6 +700,46 @@ def remove_section_elements_from_tables(elements):
     return elements
 
 
+def remove_superscript_from_text_elements(elements):
+    """
+    Removes 'TextPosition': 'Sup' from elements that contain more than 5 alphabetical characters.
+    This helps distinguish between actual superscript notations (like footnote references)
+    and regular text incorrectly marked as superscript.
+
+    Args:
+        elements: List of elements to process
+
+    Returns:
+        The processed list of elements
+    """
+    import re
+
+    # Define a regex pattern to match alphabetical characters including German umlauts
+    alpha_pattern = re.compile(r"[a-zA-ZäöüÄÖÜß]")
+
+    for element in elements:
+        # Check if this element has TextPosition="Sup"
+        if (
+            element.get("attributes", {}).get("TextPosition") == "Sup"
+            and "Text" in element
+        ):
+
+            # Count alphabetical characters in the text
+            text = element.get("Text", "")
+            alpha_count = len(alpha_pattern.findall(text))
+
+            # If more than 5 alphabetical characters, remove the TextPosition attribute
+            if alpha_count > 5:
+                if "attributes" in element and "TextPosition" in element["attributes"]:
+                    del element["attributes"]["TextPosition"]
+                    # Log the change
+                    logger.info(
+                        f"Removed TextPosition:Sup from element with text: {text[:30]}..."
+                    )
+
+    return elements
+
+
 def identify_fractions(elements):
     """
     Identifies and marks fractions in the document. A fraction is identified as:
@@ -895,6 +935,8 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     elements = check_blue_color(modified_pdf_path, elements)
     # Mark square and cubic meters
     elements = mark_non_subprovision_elements(elements)
+    # Remove sup tag from text elements
+    elements = remove_superscript_from_text_elements(elements)
     # Check for fractions
     elements = identify_fractions(elements)
     # Add hyperlinks to extended_metadata
