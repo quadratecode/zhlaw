@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 def find_consecutive_versions(collection_data_path):
     """
     Read the collection data and find consecutive versions of each law.
+    Limited to only the 3 most recent versions to reduce processing time.
 
     Args:
         collection_data_path: Path to the collection metadata JSON file
@@ -36,6 +37,11 @@ def find_consecutive_versions(collection_data_path):
 
     # Dictionary to store version pairs for each law
     law_versions = {}
+
+    # Counters for logging
+    total_full_version_pairs = 0
+    total_limited_version_pairs = 0
+    laws_with_reduced_pairs = 0
 
     for law in collection_data:
         ordnungsnummer = law.get("ordnungsnummer")
@@ -64,11 +70,36 @@ def find_consecutive_versions(collection_data_path):
             logger.error(f"Error sorting versions for {ordnungsnummer}: {e}")
             continue
 
-        # Create pairs of consecutive versions
-        version_pairs = []
+        # Count all possible version pairs (before limiting)
+        all_version_pairs = []
         for i in range(1, len(sorted_versions)):
             older_version = sorted_versions[i - 1]
             newer_version = sorted_versions[i]
+            all_version_pairs.append(
+                (
+                    newer_version.get("nachtragsnummer"),
+                    older_version.get("nachtragsnummer"),
+                )
+            )
+
+        total_full_version_pairs += len(all_version_pairs)
+
+        # Limit to the 3 most recent versions to reduce processing time
+        # For diffing only the latest version (newest compared to previous):
+        # recent_versions = sorted_versions[-2:] if len(sorted_versions) >= 2 else sorted_versions
+        # Current setting - diff the 3 most recent versions (2 comparisons):
+        # recent_versions = sorted_versions[-3:] if len(sorted_versions) >= 3 else sorted_versions
+        # For diffing all versions (no limit):
+        # recent_versions = sorted_versions  # No slicing means use all versions
+        recent_versions = (
+            sorted_versions[-3:] if len(sorted_versions) >= 3 else sorted_versions
+        )
+
+        # Create pairs of consecutive versions from the recent versions only
+        version_pairs = []
+        for i in range(1, len(recent_versions)):
+            older_version = recent_versions[i - 1]
+            newer_version = recent_versions[i]
             version_pairs.append(
                 (
                     newer_version.get("nachtragsnummer"),
@@ -76,8 +107,29 @@ def find_consecutive_versions(collection_data_path):
                 )
             )
 
+        total_limited_version_pairs += len(version_pairs)
+
+        # Count laws where we reduced the number of pairs
+        if len(version_pairs) < len(all_version_pairs):
+            laws_with_reduced_pairs += 1
+
         if version_pairs:
             law_versions[ordnungsnummer] = version_pairs
+
+    # Log the reduction stats
+    diff_reduction = total_full_version_pairs - total_limited_version_pairs
+    percentage = (
+        (diff_reduction / total_full_version_pairs * 100)
+        if total_full_version_pairs > 0
+        else 0
+    )
+
+    logger.info(f"Diff reduction statistics:")
+    logger.info(f"  - Total laws with version pairs: {len(law_versions)}")
+    logger.info(f"  - Laws with reduced version pairs: {laws_with_reduced_pairs}")
+    logger.info(f"  - Original diff pairs: {total_full_version_pairs}")
+    logger.info(f"  - Limited diff pairs: {total_limited_version_pairs}")
+    logger.info(f"  - Reduction: {diff_reduction} diffs ({percentage:.1f}%)")
 
     return law_versions
 
@@ -275,38 +327,6 @@ def generate_law_diffs(args):
     return success_count
 
 
-def process_all_diffs_sequentially(
-    collection_data_path, collection_path, diff_path, law_origin
-):
-    """
-    Process diffs sequentially for easier debugging.
-
-    Args:
-        collection_data_path: Path to the collection metadata JSON
-        collection_path: Path to the HTML files
-        diff_path: Path to store the diffs
-        law_origin: Origin of the laws ('zh' or 'ch')
-
-    Returns:
-        Total number of successfully generated diffs
-    """
-    # Find consecutive versions
-    law_versions = find_consecutive_versions(collection_data_path)
-
-    # Create the diff directory
-    os.makedirs(diff_path, exist_ok=True)
-
-    # Process each law
-    total_success = 0
-    for ordnungsnummer, version_pairs in law_versions.items():
-        success_count = generate_law_diffs(
-            (ordnungsnummer, version_pairs, collection_path, diff_path, law_origin)
-        )
-        total_success += success_count
-
-    return total_success
-
-
 def process_all_diffs_concurrently(
     collection_data_path, collection_path, diff_path, law_origin, max_workers=None
 ):
@@ -330,27 +350,107 @@ def process_all_diffs_concurrently(
     # Create the diff directory
     os.makedirs(diff_path, exist_ok=True)
 
-    # Prepare arguments for parallel processing
-    process_args = [
-        (ordnungsnummer, version_pairs, collection_path, diff_path, law_origin)
-        for ordnungsnummer, version_pairs in law_versions.items()
-    ]
+    # Count total diffs for better progress reporting
+    total_diffs = sum(len(pairs) for pairs in law_versions.values())
+    logger.info(f"Processing {total_diffs} diffs for {len(law_versions)} laws")
 
-    # Process in parallel
-    total_success = 0
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Map the generate_law_diffs function to all laws and wrap with tqdm for progress bar
-        results = list(
-            tqdm(
-                executor.map(generate_law_diffs, process_args),
-                total=len(process_args),
-                desc=f"Processing {law_origin} diffs concurrently",
+    # Process laws with less than 4 version pairs sequentially for efficiency
+    small_law_results = []
+    large_laws = {}
+
+    for ordnungsnummer, version_pairs in law_versions.items():
+        if len(version_pairs) <= 3:  # Process small laws directly
+            count = generate_law_diffs(
+                (ordnungsnummer, version_pairs, collection_path, diff_path, law_origin)
             )
+            small_law_results.append(count)
+        else:
+            large_laws[ordnungsnummer] = version_pairs
+
+    # Only use parallel processing for laws with many diffs
+    if large_laws:
+        # Prepare arguments for parallel processing
+        process_args = [
+            (ordnungsnummer, version_pairs, collection_path, diff_path, law_origin)
+            for ordnungsnummer, version_pairs in large_laws.items()
+        ]
+
+        large_law_diffs = sum(len(pairs) for pairs in large_laws.values())
+
+        # Process in parallel
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=max_workers
+        ) as executor:
+            # Map the generate_law_diffs function to complex laws and wrap with tqdm for progress bar
+            results = list(
+                tqdm(
+                    executor.map(generate_law_diffs, process_args),
+                    total=len(process_args),
+                    desc=f"Processing {large_law_diffs} diffs for {len(large_laws)} complex laws ({law_origin})",
+                )
+            )
+            large_law_results = results
+    else:
+        large_law_results = []
+
+    # Calculate total success count
+    total_success = sum(small_law_results) + sum(large_law_results)
+    logger.info(
+        f"Successfully generated {total_success} of {total_diffs} diffs for {law_origin}"
+    )
+
+    return total_success
+
+
+def process_all_diffs_sequentially(
+    collection_data_path, collection_path, diff_path, law_origin
+):
+    """
+    Process diffs sequentially for easier debugging.
+
+    Args:
+        collection_data_path: Path to the collection metadata JSON
+        collection_path: Path to the HTML files
+        diff_path: Path to store the diffs
+        law_origin: Origin of the laws ('zh' or 'ch')
+
+    Returns:
+        Total number of successfully generated diffs
+    """
+    # Find consecutive versions
+    law_versions = find_consecutive_versions(collection_data_path)
+
+    # Create the diff directory
+    os.makedirs(diff_path, exist_ok=True)
+
+    # Count total diffs for better progress reporting
+    all_pairs = []
+    for ordnungsnummer, version_pairs in law_versions.items():
+        for pair in version_pairs:
+            all_pairs.append((ordnungsnummer, pair))
+
+    total_diffs = len(all_pairs)
+    logger.info(
+        f"Processing {total_diffs} diffs for {len(law_versions)} laws sequentially"
+    )
+
+    # Process each diff with a progress bar
+    total_success = 0
+
+    for i, (ordnungsnummer, pair) in enumerate(
+        tqdm(all_pairs, desc=f"Processing {law_origin} diffs")
+    ):
+        version_pairs = [
+            pair
+        ]  # Just process one pair at a time for better progress reporting
+        success_count = generate_law_diffs(
+            (ordnungsnummer, version_pairs, collection_path, diff_path, law_origin)
         )
+        total_success += success_count
 
-        # Sum up the number of successful diffs
-        total_success = sum(results)
-
+    logger.info(
+        f"Successfully generated {total_success} of {total_diffs} diffs for {law_origin}"
+    )
     return total_success
 
 

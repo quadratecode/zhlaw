@@ -60,8 +60,8 @@ def create_description(affair):
             f"<tr><td>KR-Nr:</td><td>{html.escape(affair['kr_nr'])}</td></tr>"
         )
 
-    # Add steps if available
-    if affair.get("affair_steps"):
+    # Add steps only if available AND not empty
+    if affair.get("affair_steps") and len(affair["affair_steps"]) > 0:
         steps = "<br>".join(
             [
                 f"{arrow.get(step['affair_step_date']).format('DD.MM.YYYY')}: {html.escape(step['affair_step_type'])}"
@@ -103,9 +103,22 @@ def create_description(affair):
             # If there's an error formatting AI changes, just display them as is
             description += f"<tr><td>Änderungen (KI):</td><td>Fehler bei der Formatierung: {html.escape(str(e))}</td></tr>"
 
-    # Add PDF link if available
-    if affair.get("krzh_pdf_url"):
-        description += f"<tr><td>PDF:</td><td><a href='{html.escape(affair['krzh_pdf_url'])}'>PDF herunterladen</a></td></tr>"
+    # Add hyperlinks (show full URLs) when available
+    if affair.get("krzh_pdf_url") or affair.get("krzh_affair_url"):
+        description += "<tr><td>Hyperlinks:</td><td>"
+
+        if affair.get("krzh_pdf_url"):
+            pdf_url = html.escape(affair["krzh_pdf_url"])
+            description += f"<a href='{pdf_url}'>PDF</a>"
+            # Add a line break if we also have an affair URL
+            if affair.get("krzh_affair_url"):
+                description += "<br>"
+
+        if affair.get("krzh_affair_url"):
+            affair_url = html.escape(affair["krzh_affair_url"])
+            description += f"<a href='{affair_url}'>Geschäft</a>"
+
+        description += "</td></tr>"
 
     description += "</table>"
 

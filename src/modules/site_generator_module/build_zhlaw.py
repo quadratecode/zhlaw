@@ -120,10 +120,11 @@ def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
         head.append(dark_mode_script)
 
         # Add version comparison script
-        version_comparison_script: Tag = soup.new_tag(
-            "script", src="/version-comparison.js", defer=True
-        )
-        head.append(version_comparison_script)
+        # TODO: Uncomment if diffs are needed (see block in build_site)
+        # version_comparison_script: Tag = soup.new_tag(
+        #     "script", src="/version-comparison.js", defer=True
+        # )
+        # head.append(version_comparison_script)
 
     # Pagefind initialization script
     search_script: Tag = soup.new_tag("script")

@@ -334,27 +334,29 @@ def main(
 
     # -------------------------------------------------------------------------
     # 4) Build MD datasets if requested (for whichever we processed)
+    # TODO: Uncomment if diffs are needed (slow performance dramatically and uses more JS)
+    # Dont forget to include version_comparison.js in build_zhlaw.py
     # -------------------------------------------------------------------------
-    if dataset_trigger.lower() == "yes":
-        if process_zh and zh_folder:
-            logging.info(f"Building dataset for ZH-Lex (folder: {zh_folder})")
-            build_markdown.main(
-                f"data/zhlex/{zh_folder}",
-                STATIC_PATH,
-                processing_mode=processing_mode,
-                max_workers=max_workers,
-            )
-            logging.info("Finished building dataset for ZH-Lex")
+    # if dataset_trigger.lower() == "yes":
+    #     if process_zh and zh_folder:
+    #         logging.info(f"Building dataset for ZH-Lex (folder: {zh_folder})")
+    #         build_markdown.main(
+    #             f"data/zhlex/{zh_folder}",
+    #             STATIC_PATH,
+    #             processing_mode=processing_mode,
+    #             max_workers=max_workers,
+    #         )
+    #         logging.info("Finished building dataset for ZH-Lex")
 
-        if process_ch:
-            logging.info("Building dataset for FedLex ...")
-            build_markdown.main(
-                "data/fedlex/fedlex_files",
-                STATIC_PATH,
-                processing_mode=processing_mode,
-                max_workers=max_workers,
-            )
-            logging.info("Finished building dataset for FedLex")
+    #     if process_ch:
+    #         logging.info("Building dataset for FedLex ...")
+    #         build_markdown.main(
+    #             "data/fedlex/fedlex_files",
+    #             STATIC_PATH,
+    #             processing_mode=processing_mode,
+    #             max_workers=max_workers,
+    #         )
+    #         logging.info("Finished building dataset for FedLex")
 
     # -------------------------------------------------------------------------
     # 5) Create placeholders for ZH-Lex only if requested
