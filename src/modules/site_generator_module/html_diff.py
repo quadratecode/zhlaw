@@ -9,6 +9,8 @@ import json
 from bs4 import BeautifulSoup
 import htmldiff.lib as diff_lib
 import shutil
+import concurrent.futures
+from tqdm import tqdm
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -81,46 +83,35 @@ def find_consecutive_versions(collection_data_path):
 
 
 def generate_diff(html1_path, html2_path, accurate_mode=True):
-    """
-    Generate a diff between two HTML files using the htmldiff library.
-
-    Args:
-        html1_path: Path to the older HTML file
-        html2_path: Path to the newer HTML file
-        accurate_mode: Whether to use accurate mode in htmldiff
-
-    Returns:
-        The diffed HTML as a string, or None if an error occurred
-    """
     try:
-        # Extract just the content part from both HTML files
+        # Read files - but extract only the law content div directly with regex
         with open(html1_path, "r", encoding="utf-8") as f:
             html1 = f.read()
-
         with open(html2_path, "r", encoding="utf-8") as f:
             html2 = f.read()
 
-        # Extract the law content only (between certain div tags)
-        soup1 = BeautifulSoup(html1, "html.parser")
-        soup2 = BeautifulSoup(html2, "html.parser")
+        # Extract only the content div using regex (much faster than BeautifulSoup)
+        import re
 
-        # Find the law content divs
-        law_div1 = soup1.find("div", id="source-text")
-        law_div2 = soup2.find("div", id="source-text")
+        content_pattern = re.compile(r'<div id="source-text".*?>(.*?)</div>', re.DOTALL)
 
-        if not law_div1 or not law_div2:
-            logger.error(
-                f"Could not find source-text content in {html1_path} or {html2_path}"
-            )
-            return None
+        match1 = content_pattern.search(html1)
+        match2 = content_pattern.search(html2)
 
-        # Get just the content of the law divs
-        law_html1 = str(law_div1)
-        law_html2 = str(law_div2)
+        if not match1 or not match2:
+            # Fall back to BeautifulSoup if regex doesn't match
+            soup1 = BeautifulSoup(html1, "html.parser")
+            soup2 = BeautifulSoup(html2, "html.parser")
+            law_div1 = soup1.find("div", id="source-text")
+            law_div2 = soup2.find("div", id="source-text")
+            law_html1 = str(law_div1)
+            law_html2 = str(law_div2)
+        else:
+            law_html1 = match1.group(1)
+            law_html2 = match2.group(1)
 
         # Generate the diff
         diffed_html = diff_lib.diff_strings(law_html1, law_html2, accurate_mode)
-
         return diffed_html
     except Exception as e:
         logger.error(f"Error generating diff: {e}")
@@ -332,8 +323,6 @@ def process_all_diffs_concurrently(
     Returns:
         Total number of successfully generated diffs
     """
-    import concurrent.futures
-    from tqdm import tqdm
 
     # Find consecutive versions
     law_versions = find_consecutive_versions(collection_data_path)

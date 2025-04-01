@@ -7,6 +7,8 @@ import zipfile
 from pathlib import Path
 import yaml
 import logging
+import concurrent.futures
+from tqdm import tqdm
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -143,83 +145,140 @@ def convert_html_to_md(html_content, metadata, ordnungsnummer, nachtragsnummer):
     return final_content
 
 
-def main(source_path, output_dir):
+def process_single_html_file(args):
+    """
+    Process a single HTML file and convert it to Markdown.
+
+    Args:
+        args: A tuple containing:
+            - file_path: Path to the HTML file
+            - root_path: Root directory path
+            - html_file: Name of the HTML file
+            - temp_md_dir: Directory to store temporary MD files
+
+    Returns:
+        tuple: (success, new_filename) indicating if processing was successful
+               and the name of the generated file
+    """
+    file_path, root_path, html_file, temp_md_dir = args
+
+    try:
+        parts = html_file.split("-")
+
+        if len(parts) < 2:
+            logger.warning(f"Skipping {html_file}: Invalid filename format")
+            return False, None
+
+        ordnungsnummer = parts[0]
+        nachtragsnummer = parts[1]
+
+        # Create simplified filename (remove -original or -merged suffix)
+        new_filename = f"{ordnungsnummer}-{nachtragsnummer}.md"
+
+        metadata_file = root_path / f"{ordnungsnummer}-{nachtragsnummer}-metadata.json"
+
+        if not metadata_file.exists():
+            logger.warning(f"Metadata file not found for {html_file}")
+            return False, None
+
+        # Read and convert content
+        html_content, encoding = read_file_with_fallback_encoding(file_path)
+        with open(metadata_file, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+
+        md_content = convert_html_to_md(
+            html_content, metadata, ordnungsnummer, nachtragsnummer
+        )
+
+        # Save to temporary directory with flattened structure
+        md_file = temp_md_dir / new_filename
+        with open(md_file, "w", encoding="utf-8") as f:
+            f.write(md_content)
+
+        logger.info(f"Successfully processed {html_file} -> {new_filename}")
+        return True, new_filename
+
+    except Exception as e:
+        logger.error(f"Error processing file {html_file}: {e}")
+        return False, None
+
+
+def main(source_path, output_dir, processing_mode="sequential", max_workers=None):
+    """
+    Process HTML files to convert them to Markdown and create a zip file.
+
+    Args:
+        source_path: Path to the source directory containing HTML files
+        output_dir: Path to the output directory where the zip file will be created
+        processing_mode: 'sequential' or 'concurrent' processing mode
+        max_workers: Maximum number of worker processes for concurrent mode
+    """
     try:
         source_path = Path(source_path)
         output_dir = Path(output_dir)
         output_dir.mkdir(exist_ok=True)
 
-        processed_files = 0
         logger.info(f"Looking for files in: {source_path}")
 
         # Create a temporary directory for MD files before zipping
         temp_md_dir = output_dir / "temp_md"
         temp_md_dir.mkdir(exist_ok=True)
 
-        with zipfile.ZipFile(output_dir / "col-zh-md.zip", "w") as zipf:
-            for root, dirs, files in os.walk(source_path):
-                root_path = Path(root)
-                html_files = [
-                    f for f in files if f.endswith(("-original.html", "-merged.html"))
-                ]
+        # Collect all HTML files to process
+        all_html_files = []
+        for root, dirs, files in os.walk(source_path):
+            root_path = Path(root)
+            html_files = [
+                f for f in files if f.endswith(("-original.html", "-merged.html"))
+            ]
 
-                if not html_files:
-                    continue
+            if not html_files:
+                continue
 
-                logger.info(f"Found target HTML files in {root_path}: {html_files}")
+            logger.info(
+                f"Found target HTML files in {root_path}: {len(html_files)} files"
+            )
 
-                for html_file in html_files:
-                    try:
-                        file_path = root_path / html_file
-                        parts = html_file.split("-")
+            for html_file in html_files:
+                file_path = root_path / html_file
+                all_html_files.append((file_path, root_path, html_file, temp_md_dir))
 
-                        if len(parts) < 2:
-                            logger.warning(
-                                f"Skipping {html_file}: Invalid filename format"
-                            )
-                            continue
+        # Process files either sequentially or concurrently
+        processed_files = 0
+        successful_filenames = []
 
-                        ordnungsnummer = parts[0]
-                        nachtragsnummer = parts[1]
+        if processing_mode.lower() == "concurrent" and len(all_html_files) > 0:
+            logger.info(f"Processing {len(all_html_files)} files concurrently")
+            with concurrent.futures.ProcessPoolExecutor(
+                max_workers=max_workers
+            ) as executor:
+                # Map the process function to all files and wrap with tqdm for progress bar
+                results = list(
+                    tqdm(
+                        executor.map(process_single_html_file, all_html_files),
+                        total=len(all_html_files),
+                        desc="Converting HTML to Markdown",
+                    )
+                )
 
-                        # Create simplified filename (remove -original or -merged suffix)
-                        new_filename = f"{ordnungsnummer}-{nachtragsnummer}.md"
-
-                        metadata_file = (
-                            root_path
-                            / f"{ordnungsnummer}-{nachtragsnummer}-metadata.json"
-                        )
-
-                        if not metadata_file.exists():
-                            logger.warning(f"Metadata file not found for {html_file}")
-                            continue
-
-                        # Read and convert content
-                        html_content, encoding = read_file_with_fallback_encoding(
-                            file_path
-                        )
-                        with open(metadata_file, "r", encoding="utf-8") as f:
-                            metadata = json.load(f)
-
-                        md_content = convert_html_to_md(
-                            html_content, metadata, ordnungsnummer, nachtragsnummer
-                        )
-
-                        # Save to temporary directory with flattened structure
-                        md_file = temp_md_dir / new_filename
-                        with open(md_file, "w", encoding="utf-8") as f:
-                            f.write(md_content)
-
-                        # Add to zip file with flattened structure
-                        zipf.write(md_file, new_filename)
+                # Count successful files and collect filenames
+                for success, filename in results:
+                    if success and filename:
                         processed_files += 1
-                        logger.info(
-                            f"Successfully processed {html_file} -> {new_filename}"
-                        )
+                        successful_filenames.append(filename)
+        else:
+            logger.info(f"Processing {len(all_html_files)} files sequentially")
+            for args in tqdm(all_html_files, desc="Converting HTML to Markdown"):
+                success, filename = process_single_html_file(args)
+                if success and filename:
+                    processed_files += 1
+                    successful_filenames.append(filename)
 
-                    except Exception as e:
-                        logger.error(f"Error processing file {html_file}: {e}")
-                        continue
+        # Create the zip file with all successfully processed files
+        with zipfile.ZipFile(output_dir / "col-zh-md.zip", "w") as zipf:
+            for filename in successful_filenames:
+                md_file = temp_md_dir / filename
+                zipf.write(md_file, filename)
 
         # Clean up temporary directory
         import shutil

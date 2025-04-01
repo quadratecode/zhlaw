@@ -338,12 +338,22 @@ def main(
     if dataset_trigger.lower() == "yes":
         if process_zh and zh_folder:
             logging.info(f"Building dataset for ZH-Lex (folder: {zh_folder})")
-            build_markdown.main(f"data/zhlex/{zh_folder}", STATIC_PATH)
+            build_markdown.main(
+                f"data/zhlex/{zh_folder}",
+                STATIC_PATH,
+                processing_mode=processing_mode,
+                max_workers=max_workers,
+            )
             logging.info("Finished building dataset for ZH-Lex")
 
         if process_ch:
             logging.info("Building dataset for FedLex ...")
-            build_markdown.main("data/fedlex/fedlex_files", STATIC_PATH)
+            build_markdown.main(
+                "data/fedlex/fedlex_files",
+                STATIC_PATH,
+                processing_mode=processing_mode,
+                max_workers=max_workers,
+            )
             logging.info("Finished building dataset for FedLex")
 
     # -------------------------------------------------------------------------

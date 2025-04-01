@@ -31,8 +31,23 @@ class SitemapGenerator:
             return prefix, number
         return None, None
 
+
     def get_priority(self, root, file):
-        if "col-zh" in root:
+        """
+        Determines the priority of a file based on its location and name.
+
+        Args:
+            root: Directory containing the file
+            file: Filename
+
+        Returns:
+            str: Priority value between 0.0 and 1.0
+        """
+        # Assign lowest priority (0.1) to diff files
+        if "diff" in root:
+            return "0.1"
+
+        if "col-zh" in root or "col-ch" in root:
             prefix, number = self.parse_col_zh_filename(file)
             if prefix is not None:
                 # Group files by prefix
