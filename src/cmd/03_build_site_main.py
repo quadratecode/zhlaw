@@ -334,29 +334,27 @@ def main(
 
     # -------------------------------------------------------------------------
     # 4) Build MD datasets if requested (for whichever we processed)
-    # TODO: Uncomment if diffs are needed (slow performance dramatically and uses more JS)
-    # Dont forget to include version_comparison.js in build_zhlaw.py
     # -------------------------------------------------------------------------
-    # if dataset_trigger.lower() == "yes":
-    #     if process_zh and zh_folder:
-    #         logging.info(f"Building dataset for ZH-Lex (folder: {zh_folder})")
-    #         build_markdown.main(
-    #             f"data/zhlex/{zh_folder}",
-    #             STATIC_PATH,
-    #             processing_mode=processing_mode,
-    #             max_workers=max_workers,
-    #         )
-    #         logging.info("Finished building dataset for ZH-Lex")
+    if dataset_trigger.lower() == "yes":
+        if process_zh and zh_folder:
+            logging.info(f"Building dataset for ZH-Lex (folder: {zh_folder})")
+            build_markdown.main(
+                f"data/zhlex/{zh_folder}",
+                STATIC_PATH,
+                processing_mode=processing_mode,
+                max_workers=max_workers,
+            )
+            logging.info("Finished building dataset for ZH-Lex")
 
-    #     if process_ch:
-    #         logging.info("Building dataset for FedLex ...")
-    #         build_markdown.main(
-    #             "data/fedlex/fedlex_files",
-    #             STATIC_PATH,
-    #             processing_mode=processing_mode,
-    #             max_workers=max_workers,
-    #         )
-    #         logging.info("Finished building dataset for FedLex")
+        if process_ch:
+            logging.info("Building dataset for FedLex ...")
+            build_markdown.main(
+                "data/fedlex/fedlex_files",
+                STATIC_PATH,
+                processing_mode=processing_mode,
+                max_workers=max_workers,
+            )
+            logging.info("Finished building dataset for FedLex")
 
     # -------------------------------------------------------------------------
     # 5) Create placeholders for ZH-Lex only if requested
@@ -388,32 +386,34 @@ def main(
 
     # -------------------------------------------------------------------------
     # 5.5) Generate diffs for ZH-Lex and FedLex
+    # TODO: Uncomment if diffs are needed (slow performance dramatically and uses more JS)
+    # Dont forget to include version_comparison.js in build_zhlaw.py
     # -------------------------------------------------------------------------
-    if process_zh:
-        logging.info("Generating diffs for ZH-Lex")
-        zh_diff_path = os.path.join(STATIC_PATH, "col-zh/diff")
-        zh_diff_count = html_diff.main(
-            COLLECTION_DATA_ZH,
-            COLLECTION_PATH_ZH,
-            zh_diff_path,
-            law_origin="zh",
-            processing_mode=processing_mode,
-            max_workers=max_workers,
-        )
-        logging.info(f"Generated {zh_diff_count} diffs for ZH-Lex")
+    # if process_zh:
+    #     logging.info("Generating diffs for ZH-Lex")
+    #     zh_diff_path = os.path.join(STATIC_PATH, "col-zh/diff")
+    #     zh_diff_count = html_diff.main(
+    #         COLLECTION_DATA_ZH,
+    #         COLLECTION_PATH_ZH,
+    #         zh_diff_path,
+    #         law_origin="zh",
+    #         processing_mode=processing_mode,
+    #         max_workers=max_workers,
+    #     )
+    #     logging.info(f"Generated {zh_diff_count} diffs for ZH-Lex")
 
-    if process_ch:
-        logging.info("Generating diffs for FedLex")
-        ch_diff_path = os.path.join(STATIC_PATH, "col-ch/diff")
-        ch_diff_count = html_diff.main(
-            COLLECTION_DATA_CH,
-            COLLECTION_PATH_CH,
-            ch_diff_path,
-            law_origin="ch",
-            processing_mode=processing_mode,
-            max_workers=max_workers,
-        )
-        logging.info(f"Generated {ch_diff_count} diffs for FedLex")
+    # if process_ch:
+    #     logging.info("Generating diffs for FedLex")
+    #     ch_diff_path = os.path.join(STATIC_PATH, "col-ch/diff")
+    #     ch_diff_count = html_diff.main(
+    #         COLLECTION_DATA_CH,
+    #         COLLECTION_PATH_CH,
+    #         ch_diff_path,
+    #         law_origin="ch",
+    #         processing_mode=processing_mode,
+    #         max_workers=max_workers,
+    #     )
+    #     logging.info(f"Generated {ch_diff_count} diffs for FedLex")
 
     # -------------------------------------------------------------------------
     # 6) Copy static markup, server scripts, and relevant metadata JSON
