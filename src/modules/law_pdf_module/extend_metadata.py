@@ -586,6 +586,69 @@ def adjust_table_headers_with_section_sign(elements):
     return elements
 
 
+def remove_tables_with_single_row(elements):
+    """
+    Identifies tables that have only one row after processing and removes
+    the TableID attribute from all elements in that row.
+
+    This ensures that tables reduced to a single row during processing are no longer
+    treated as tables, avoiding layout issues and improper formatting.
+
+    Args:
+        elements: List of elements from the JSON data
+
+    Returns:
+        The modified list of elements
+    """
+    logger.info("Checking for tables with only a single row...")
+
+    # Step 1: Group elements by TableID and count unique rows per table
+    tables = {}
+
+    for element in elements:
+        table_id = element.get("attributes", {}).get("TableID")
+        if table_id is None:
+            continue
+
+        path = element.get("Path", "")
+
+        # Extract row information from the path
+        row_match = re.search(r"/TR(?:\[(\d+)\])?", path)
+        if not row_match:
+            continue
+
+        # Get row index (defaulting to 1 if not explicitly specified)
+        row_index = int(row_match.group(1)) if row_match.group(1) else 1
+
+        # Initialize table structure if needed
+        if table_id not in tables:
+            tables[table_id] = set()
+
+        # Add row index to the set of rows for this table
+        tables[table_id].add(row_index)
+
+    # Step 2: Find tables with only one row
+    single_row_tables = [
+        table_id for table_id, rows in tables.items() if len(rows) == 1
+    ]
+
+    # Step 3: Remove TableID from all elements in single-row tables
+    removed_count = 0
+    for element in elements:
+        table_id = element.get("attributes", {}).get("TableID")
+        if table_id in single_row_tables:
+            if "attributes" in element and "TableID" in element["attributes"]:
+                del element["attributes"]["TableID"]
+                removed_count += 1
+
+    if single_row_tables:
+        logger.info(
+            f"Removed TableID attribute from {removed_count} elements across {len(single_row_tables)} single-row tables"
+        )
+
+    return elements
+
+
 def try_merge_dash_elements(elements, i):
     """
     Merges three consecutive elements when the middle one is a dash (possibly with whitespace)
@@ -913,6 +976,8 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     elements = map_tables_to_elements(elements)
     # Adjust tables with section signs in header
     elements = adjust_table_headers_with_section_sign(elements)
+    # Remove table with only one single row
+    elements = remove_tables_with_single_row(elements)
     # Remove elements with no text
     elements = del_empty_elements(elements)
     # Add page heights to elements
