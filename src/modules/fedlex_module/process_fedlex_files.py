@@ -2,232 +2,317 @@
 """
 Script: process_fedlex_files.py
 
-This script processes all HTML files that were previously scraped and stored under
-"data/fedlex/fedlex_files". It looks for files whose names end with "-raw.html" and outputs
-a modified version right next to them (in the same folder) with the suffix "-merged.html".
-
-Processing steps include:
-  - Parsing the HTML.
-  - Removing content from the <head> tag.
-  - Removing processing instructions and HTML comments.
-  - Renaming and restructuring specific elements (for example, converting <div id="lawcontent">
-    to <div id="law"> and wrapping its inner content in a new <div class="pdf-source" id="source-text">).
-  - Unwrapping, deleting, or modifying various elements as described in the inline comments.
-  - A series of cleanups including footnote cleanup, heading-level scaling, converting nested definition lists,
-    and more.
-  - Finally, the script pretty prints the final HTML (using 4 spaces per indent level).
-
-Additionally:
-  - A function returning classes to remove is provided (fill in the list as needed).
-  - If the processed HTML contains an element with class "erlasstitel", the metadata JSON file (in the same folder,
-    with "-metadata.json" replacing "-raw.html") is updated accordingly.
+Processes raw Fedlex HTML files ("*-raw.html") found recursively under INPUT_DIR.
+Performs extensive cleanup and restructuring:
+  - Removes head content, comments, processing instructions.
+  - Renames/restructures elements (e.g., #lawcontent -> #law > #source-text).
+  - Unwraps unnecessary containers.
+  - Cleans up footnote links and structure.
+  - Transforms heading elements (h6.heading) into marginalia or provision paragraphs.
+  - Assigns sequential IDs to provisions (p.provision) and subprovisions (p.subprovision)
+    using the format "seq-{seq_num}-prov-{prov_id}" and
+    "seq-{seq_num}-prov-{prov_id}-sub-{subprov_num}{prov_suffix}".
+  - Converts definition lists (<dl>) into paragraphs (<p class="enum">).
+  - Wraps annex content found after specific headings into <details id="annex">.
+  - Performs final cleanup, keeping only essential classes (marginalia, provision,
+    subprovision, enum, footnote, footnote-ref, pdf-source).
+  - Saves the processed HTML next to the original with "-merged.html" suffix.
+  - Attempts to hyperlink provisions/subprovisions if the corresponding module is available.
 
 Usage:
     python process_fedlex_files.py
 """
 
+# Standard library imports
 import os
 import re
 import glob
-from bs4 import BeautifulSoup, Comment, formatter, NavigableString, Tag
-from src.modules.law_pdf_module.create_hyperlinks import (
-    hyperlink_provisions_and_subprovisions,
-)
+import json  # For potential metadata handling
+
+# Third-party imports
+try:
+    from bs4 import BeautifulSoup, Comment, formatter, NavigableString, Tag
+except ImportError:
+    print("Error: BeautifulSoup4 library not found.")
+    print("Please install it: pip install beautifulsoup4 lxml")
+    exit(1)
 
 # Define the base input directory (the raw files are stored here in subfolders)
 INPUT_DIR = os.path.join("data", "fedlex", "fedlex_files")
 
+# --- Provision/Subprovision Numbering Regex ---
+NUMBER_LETTER_PATTERN = re.compile(r"[^\d]*(\d+)([a-zA-Z]*)[.\s]?")
+SUBPROVISION_PATTERN = re.compile(r"^\s*(\d+|[a-zA-Z])([a-zA-Z]*)\s*[.)]?\s")
 
-def get_classes_to_remove():
-    """
-    Return a list of class names (or patterns) that should be removed from the document.
-    This configuration removes any elements with classes starting with "absatz".
-    """
-    # Use a compiled regular expression to match classes that start with "absatz"
-    return [re.compile(r"^absatz")]
+# --- Global tracker for provision sequences ---
+provision_sequences = {}
+
+# --- Annex Keywords ---
+ANNEX_KEYWORDS = ["anhang", "anhänge", "verzeichnis"]  # Case-insensitive check
 
 
-def remove_elements_with_classes(soup, classes):
-    """
-    Remove all elements that have any class matching any pattern in the given list.
-    The element with class "erlasstitel" is not removed so that its content
-    can be used to update the metadata.
-    """
-    for pattern in classes:
-        for tag in soup.find_all(class_=pattern):
-            # Preserve elements that have the class "erlasstitel" among others
-            if tag.has_attr("class") and any(
-                cls == "erlasstitel" for cls in tag["class"]
-            ):
-                continue
-            tag.decompose()
+# --- Hyperlink function placeholder ---
+def hyperlink_provisions_and_subprovisions(soup):
+    """Placeholder function for hyperlinking."""
+    # print("Skipping hyperlinking (function not available or import failed).")
+    return soup
 
 
 def remove_empty_tags(soup_obj):
     """
-    Iterates through the BeautifulSoup object and removes tags that are empty (i.e. no non-whitespace text)
-    and have no attributes.
-    Returns the number of tags removed.
+    Iterates through the BeautifulSoup object and removes tags that are empty
+    (i.e., no non-whitespace text content) and have no attributes,
+    unless they are essential structural tags or <hr>.
+    Returns the number of tags removed in one pass.
     """
     to_remove = []
-    for tag in soup_obj.find_all():
-        if tag.name in ["html", "body"]:
+    for tag in soup_obj.find_all(True):  # Find all tags
+        if tag.name in ["html", "body", "head", "hr"]:
             continue
-        if not tag.get_text(strip=True) and not tag.attrs:
-            to_remove.append(tag)
+        has_content = bool(tag.get_text(strip=True))
+        has_attrs = bool(tag.attrs)
+        has_element_children = bool(
+            tag.find(lambda t: isinstance(t, Tag) and t.name != "br", recursive=False)
+        )  # Ignore <br> for emptiness check
+
+        if not has_content and not has_attrs and not has_element_children:
+            is_truly_empty = True
+            for child in tag.contents:
+                if isinstance(child, Tag):
+                    is_truly_empty = False
+                    break
+                if isinstance(child, NavigableString) and child.strip():
+                    is_truly_empty = False
+                    break
+            if is_truly_empty:
+                to_remove.append(tag)
+
+    count = 0
     for tag in to_remove:
-        tag.decompose()
-    return len(to_remove)
+        if tag.parent:
+            tag.decompose()
+            count += 1
+    return count
 
 
 def transform_headings(soup):
     """
-    Transforms <h6 class="heading"> elements by:
-      - extracting 'numbering' (from <b>/<i>/<sup> or from the first anchor(s))
-      - extracting heading text (either from the last anchor if multiple <a> exist,
-        or from non-<b>/<i>/<sup> text if only one <a> exists)
-      - converting the original <h6> into a <p class="provision" ...> for the numbering
-      - inserting a new <h6 ...> above it for the heading text
-      - preserving <sup> tags (with their inner <a> if any)
-      - unwrapping <a>, <b>, and <i> into plain text
+    Transforms <h6 class="heading"> elements based on their content structure.
+    Extracts numbering and heading text, replacing the original h6 with
+    a <p class="provision"> for numbering and inserting a new h6 (later marginalia) for text.
     """
-
-    # Find all <h6 class="heading"> elements
     h6_tags = soup.find_all("h6", class_="heading")
 
     for h6 in h6_tags:
-        # Grab all *direct* children so we can see if there are multiple <a> at the top level
         top_children = list(h6.children)
-        # Filter just <a> tags in the top level
-        a_tags = [child for child in top_children if child.name == "a"]
+        a_tags = [
+            child
+            for child in top_children
+            if isinstance(child, Tag) and child.name == "a"
+        ]
 
         if not a_tags:
-            # No anchors found; skip or handle differently if needed
-            continue
+            continue  # Skip if no anchor found within h6.heading
 
-        # --- 1) Compute the provision ID from the first anchor (#art_... => provision-...)
-        first_a = a_tags[0]
-        href = first_a.get("href", "")
-        match = re.match(r"#art_(.*)", href)
-        provision_id = None
-        if match:
-            # e.g. #art_29_a -> "29_a" -> "29-a" -> "provision-29-a"
-            raw_id_part = match.group(1).replace("_", "-")
-            provision_id = f"provision-{raw_id_part}"
-
-        # We'll define placeholders for heading text and numbering text (HTML)
         heading_text = ""
-        numbering_fragments = []  # we will build HTML strings, preserving <sup>
+        numbering_fragments = []
 
-        # --- 2) Different logic if multiple <a> or single <a>
         if len(a_tags) > 1:
-            # Case: More than one <a> tag
-            #  - The last <a> is heading text
-            #  - Everything else (anchors + any intervening sup or text) is numbering
-            heading_anchor = a_tags[-1]  # last anchor
+            heading_anchor = a_tags[-1]
             heading_text = heading_anchor.get_text(strip=True)
-
-            # Gather everything from the start up until that last anchor into numbering
             for child in top_children:
                 if child == heading_anchor:
-                    # stop before last anchor (that anchor is heading text)
                     break
-
-                if child.name in ("a", "b", "i"):
-                    # unwrap to plain text
-                    numbering_fragments.append(child.get_text(strip=False))
-                elif child.name == "sup":
-                    # keep <sup> as is
-                    numbering_fragments.append(str(child))
+                if isinstance(child, Tag):
+                    if child.name in ("a", "b", "i"):
+                        numbering_fragments.append(child.get_text(strip=False))
+                    elif child.name == "sup":
+                        numbering_fragments.append(str(child))
+                    else:
+                        numbering_fragments.append(child.get_text(strip=False))
                 elif isinstance(child, NavigableString):
-                    # direct text
-                    numbering_fragments.append(child)
-                else:
-                    # fallback for any other tags
-                    numbering_fragments.append(child.get_text(strip=False))
-
-        else:
-            # Case: Exactly one <a> tag
+                    numbering_fragments.append(str(child))
+        else:  # Single <a> tag case
             anchor = a_tags[0]
-
-            # We want to separate out the text inside that anchor into:
-            #   - text in <b>, <i>, <sup> => numbering
-            #   - everything else => heading text
             for child in anchor.children:
-                if child.name in ("b", "i", "a"):
-                    # unwrap these into numbering
-                    numbering_fragments.append(child.get_text(strip=False))
-                elif child.name == "sup":
-                    # keep <sup> as is in numbering
-                    numbering_fragments.append(str(child))
-                elif isinstance(child, NavigableString):
-                    # plain text -> heading
-                    heading_text += child
-                else:
-                    # fallback if there's any other tag we haven't handled
-                    heading_text += child.get_text(strip=False)
-
-            # Be tidy
+                if isinstance(child, Tag):
+                    if child.name in (
+                        "b",
+                        "i",
+                        "sup",
+                    ):  # b, i, sup inside anchor -> numbering
+                        numbering_fragments.append(
+                            str(child)
+                            if child.name == "sup"
+                            else child.get_text(strip=False)
+                        )
+                    else:  # Other tags inside anchor -> heading
+                        heading_text += child.get_text(strip=False)
+                elif isinstance(
+                    child, NavigableString
+                ):  # Text inside anchor -> heading
+                    heading_text += str(child)
             heading_text = heading_text.strip()
 
-        # Build the final numbering string (HTML)
+            # Fallback: Check text *after* the anchor if heading is still empty
+            if not heading_text:
+                after_anchor_text = ""
+                start_collecting = False
+                for node in top_children:
+                    if node == anchor:
+                        start_collecting = True
+                        continue
+                    if start_collecting:
+                        after_anchor_text += (
+                            str(node)
+                            if isinstance(node, NavigableString)
+                            else node.get_text(strip=False)
+                        )
+                heading_text = after_anchor_text.strip()
+
+            # Fallback: If still no heading text, use anchor content as numbering
+            if not numbering_fragments and not heading_text:
+                numbering_fragments.append(anchor.get_text(strip=False))
+
         numbering_html = "".join(numbering_fragments).strip()
 
-        # --- 3) Create the new <h6> for the heading text
-        new_h6 = soup.new_tag("h6", attrs={"class": "heading", "role": "heading"})
-        new_h6.string = heading_text
+        # Create new elements only if content exists
+        new_h6 = None
+        if heading_text:
+            new_h6 = soup.new_tag("h6", attrs={"class": ["heading"], "role": "heading"})
+            new_h6.string = heading_text
 
-        # --- 4) Create the new <p class="provision"> for the numbering
-        new_p = soup.new_tag("p", attrs={"class": "provision"})
-        if provision_id:
-            new_p["id"] = provision_id
+        new_p = None
+        if numbering_html:
+            new_p = soup.new_tag("p", attrs={"class": ["provision"]})
+            # Parse and append numbering HTML content safely
+            numbering_soup = BeautifulSoup(
+                f"<body>{numbering_html}</body>", "html.parser"
+            )
+            if numbering_soup.body:
+                for elem in list(numbering_soup.body.contents):
+                    new_p.append(elem.extract())
 
-        # Because numbering_html may contain <sup> tags (which we want to keep),
-        # we parse it as HTML and then move its children into new_p
-        numbering_soup = BeautifulSoup(numbering_html, "html.parser")
-        for elem in numbering_soup.contents:
-            new_p.append(elem)
-
-        # --- 5) Insert the new heading above, replace the old h6 with the new p
-        h6.insert_before(new_h6)
-        h6.replace_with(new_p)
+        # Replace original h6
+        if new_h6:
+            h6.insert_before(new_h6)
+        if new_p:
+            h6.replace_with(new_p)
+        elif h6.parent:
+            h6.decompose()  # Remove original if not replaced
 
 
-def process_html(html):
+def wrap_annex_content(soup: BeautifulSoup) -> BeautifulSoup:
     """
-    Processes the HTML string and returns the transformed, pretty-printed HTML.
+    Finds the first heading (h1-h6) indicating an annex (by keyword in text
+    or '#annex' in a link fragment/href) and wraps subsequent content
+    up to the footnote line into <details id="annex"><summary>Anhänge</summary>...</details>.
     """
-    # Use the fast lxml parser
-    soup = BeautifulSoup(html, "lxml")
+    start_heading: Tag = None
+    keywords_lower = [k.lower() for k in ANNEX_KEYWORDS]
 
-    # 1. Empty the <head> tag.
+    # Iterate through all heading levels
+    for heading in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
+        # 1. Check heading text content for keywords
+        heading_text_lower = heading.get_text().lower()
+        if any(keyword in heading_text_lower for keyword in keywords_lower):
+            start_heading = heading
+            break  # Found based on text
+
+        # 2. Check links within the heading for #annex fragment
+        found_in_link = False
+        for a_tag in heading.find_all("a", href=True):
+            href = a_tag.get("href", "")
+            fragment = a_tag.get("fragment", "")  # Check fragment attribute too
+            if "#annex" in href or "#annex" in fragment:
+                start_heading = heading
+                found_in_link = True
+                break  # Found based on link
+        if found_in_link:
+            break  # Exit outer loop as well
+
+    # If no annex heading was found, return the soup as is
+    if not start_heading:
+        return soup
+
+    print("  -> Found annex starting point, wrapping content...")
+
+    # Create the <details> and <summary> elements
+    details_tag = soup.new_tag("details", id="annex")
+    summary_tag = soup.new_tag("summary")
+    summary_tag.string = "Anhänge"  # Fixed summary text
+    details_tag.append(summary_tag)
+
+    # Insert the <details> tag right before the identified starting heading
+    start_heading.insert_before(details_tag)
+
+    # Move the start_heading and all subsequent siblings into the <details> tag,
+    # stopping before the footnote line (<hr id="footnote-line">).
+    current_element = start_heading  # Start with the heading itself
+    while current_element:
+        next_element = current_element.next_sibling  # Get next before moving current
+
+        # Check if the current element is the footnote separator
+        is_footnote_line = (
+            isinstance(current_element, Tag)
+            and current_element.name == "hr"
+            and current_element.get("id") == "footnote-line"
+        )
+
+        if is_footnote_line:
+            break  # Stop moving elements
+
+        # Extract the current element and append it to the <details> tag
+        details_tag.append(current_element.extract())
+
+        # Move to the next element
+        current_element = next_element
+
+    return soup
+
+
+def process_html(html_content):
+    """
+    Processes the HTML string: cleans, restructures, assigns IDs, wraps annex, formats.
+    Returns the transformed, pretty-printed HTML string.
+    """
+    global provision_sequences
+    provision_sequences = {}
+
+    soup = BeautifulSoup(html_content, "lxml")
+
+    # 1. Empty <head>
     if soup.head:
         soup.head.clear()
 
-    # 2. Remove processing instructions like <?del-struct abstand18pt> (with or without trailing "?")
+    # 2. Remove PIs and Comments
+    for pi in soup.find_all(
+        string=lambda text: isinstance(text, Comment) and text.startswith("?")
+    ):
+        pi.extract()
     for string in soup.find_all(string=True):
-        text = string.strip()
-        if re.match(r"<\?del-struct abstand\d+pt\??>", text):
+        if re.match(r"^\s*<\?.*?\?>\s*$", str(string), re.DOTALL):
             string.extract()
-
-    # 3. Remove all HTML comments.
     for comment in soup.find_all(string=lambda t: isinstance(t, Comment)):
         comment.extract()
 
-    # 4. Rename <div id="lawcontent"> to <div id="law">
-    law_div = soup.find("div", id="lawcontent")
-    if law_div:
-        law_div["id"] = "law"
+    # 4. Rename #lawcontent -> #law
+    law_content_div = soup.find("div", id="lawcontent")
+    if law_content_div:
+        law_content_div["id"] = "law"
+        law_content_div.name = "div"
 
-    # 5. Wrap inner content of <div id="law"> in a new <div class="pdf-source" id="source-text">
+    # 5. Wrap #law content in #source-text.pdf-source
     law_div = soup.find("div", id="law")
     if law_div:
-        wrapper = soup.new_tag("div", **{"class": "pdf-source", "id": "source-text"})
-        wrapper.extend(law_div.contents)
-        law_div.clear()
+        wrapper = soup.new_tag(
+            "div", attrs={"class": ["pdf-source"], "id": "source-text"}
+        )
+        for child in list(law_div.children):
+            wrapper.append(child.extract())
         law_div.append(wrapper)
 
-    # 6. Unwrap selected elements.
+    # 6. Unwrap containers
     selectors_to_unwrap = [
         "div#preface",
         "div#preamble",
@@ -237,207 +322,204 @@ def process_html(html):
         "article",
         "inl",
         "heading-info",
-        "tmp\\:heading",  # Escaped colon for tag "tmp:heading"
+        "tmp\\:heading",
     ]
     for selector in selectors_to_unwrap:
         for tag in soup.select(selector):
-            tag.unwrap()
-    # Also unwrap any element with a "name" attribute.
+            if tag and tag.parent:
+                tag.unwrap()
     for tag in soup.find_all(attrs={"name": True}):
-        tag.unwrap()
+        if tag and tag.parent:
+            tag.unwrap()
 
-    # 7. Remove class "absatz" from any element.
-    for tag in soup.find_all(attrs={"class": True}):
-        classes = tag.get("class")
-        if "absatz" in classes:
-            new_classes = [cls for cls in classes if cls != "absatz"]
-            if new_classes:
-                tag["class"] = new_classes
-            else:
-                del tag["class"]
-
-    # 7.5 Remove elements with class "srnummer"
+    # 7. Remove specific classes (e.g., absatz, srnummer)
+    for tag in soup.find_all(class_="absatz"):
+        tag["class"].remove("absatz")
+        if not tag["class"]:
+            del tag["class"]
     for tag in soup.find_all(class_="srnummer"):
         tag.decompose()
 
-    # 8. Delete any <br> tags.
+    # 8. Delete <br> tags
     for br in soup.find_all("br"):
         br.decompose()
 
-    # 9. Delete <span class="display-icon"> and <span class="external-link-icon"> elements.
-    for span in soup.find_all("span", class_="display-icon"):
-        span.decompose()
-    for span in soup.find_all("span", class_="external-link-icon"):
+    # 9. Delete icon spans
+    for span in soup.find_all("span", class_=["display-icon", "external-link-icon"]):
         span.decompose()
 
-    # 10. Modify hyperlinks: any <a> with href starting with "#fn-" gets href="#footnote-line" and no id.
-    for a in soup.find_all("a", href=True):
-        if a["href"].startswith("#fn-"):
-            # 1. Modify the href
-            a["href"] = "#footnote-line"
-            # 2. Remove any 'id' attribute if present
-            a.attrs.pop("id", None)
-            # 3. Wrap the content of the <a> in square brackets
-            original_text = a.get_text(strip=True)
-            a.string = f"[{original_text}]"
+    # 10. Modify footnote links (#fn-* -> #footnote-line)
+    for a_tag in soup.find_all("a", href=lambda href: href and href.startswith("#fn-")):
+        original_text = a_tag.get_text(strip=True)
+        a_tag.string = f"[{original_text}]"
+        a_tag["href"] = "#footnote-line"
+        a_tag.attrs.pop("id", None)
+        parent = a_tag.parent
+        while parent and parent.name == "span":
+            next_parent = parent.parent
+            parent.unwrap()
+            parent = next_parent
+        sup_parent = a_tag.find_parent("sup")
+        if sup_parent:
+            sup_classes = sup_parent.get("class", [])
+            if "footnote-ref" not in sup_classes:
+                sup_classes.append("footnote-ref")
+            sup_parent["class"] = sup_classes
 
-            # 4. Unwrap parent <span> elements
-            #   We'll look *up* the tree and unwrap any <span>
-            #   If you only want to remove the *immediate* parent span, you can do that instead.
-            for parent in a.parents:
-                if parent.name == "span":
-                    parent.unwrap()
-                # We stop once we reach the <body> or None
-                # (or any container beyond which we don't expect the chain to continue)
-                if parent.name in ("body", "[document]"):
-                    break
-
-            # 5. Give the parent <sup> a class "footnote-ref"
-            sup_parent = a.find_parent("sup")
-            if sup_parent:
-                sup_parent["class"] = sup_parent.get("class", []) + ["footnote-ref"]
-
-    # 11. Process <p> tags that start with a <sup> tag (without an <a> inside)
-    #     but only if the <p> is NOT inside a <div class="footnotes">.
-    for p in soup.find_all("p"):
-        if p.find_parent("div", class_="footnotes"):
+    # 11. Process <p> starting with plain <sup> -> create p.subprovision
+    for p_tag in soup.find_all("p"):
+        if p_tag.find_parent("div", class_="footnotes"):
             continue
-        if p.contents and getattr(p.contents[0], "name", None) == "sup":
-            sup_tag = p.contents[0]
-            if not sup_tag.find("a"):
-                new_p = soup.new_tag("p", **{"class": "subprovision"})
-                sup_tag.extract()
-                new_p.append(sup_tag)
-                p.insert_before(new_p)
+        first_element_child = next(
+            (c for c in p_tag.contents if isinstance(c, Tag)), None
+        )
+        if (
+            first_element_child
+            and first_element_child.name == "sup"
+            and not first_element_child.find("a")
+        ):
+            new_p_subprovision = soup.new_tag("p", attrs={"class": ["subprovision"]})
+            sup_marker = first_element_child.extract()
+            new_p_subprovision.append(sup_marker)
+            p_tag.insert_before(new_p_subprovision)
 
-    # 12. Transform headings
+    # 12. Transform h6.heading -> h6 + p.provision
     transform_headings(soup)
 
-    # Assign subprovision id
-    last_provision_id = None
-    # Iterate over all paragraphs in document order
-    for p in soup.find_all("p"):
-        # 1) If this paragraph's ID looks like a main provision (e.g. provision-64-a)
-        #    and not a subprovision ID, record it as the current "last_provision_id".
-        pid = p.get("id", "")
-        if pid.startswith("provision-") and "-subprovision-" not in pid:
-            # Example: pid = "provision-64-a" -> last_provision_id = "64-a"
-            last_provision_id = pid.replace("provision-", "", 1)
+    # --- Assign Provision/Subprovision IDs ---
+    last_prov_details = None
+    all_paragraphs = soup.find_all("p")
+    for p_tag in all_paragraphs:
+        p_classes = p_tag.get("class", [])
+        p_text_content = p_tag.get_text(" ", strip=True)
+        is_provision = "provision" in p_classes
+        is_subprovision = "subprovision" in p_classes
 
-        # 2) If the paragraph is a 'subprovision'...
-        if "subprovision" in p.get("class", []):
-            # Look for a <sup> tag containing only digits
-            sup_tag = p.find("sup")
-            if sup_tag:
-                sup_text = sup_tag.get_text(strip=True)
-                if re.match(r"^\d+$", sup_text) and last_provision_id:
-                    # Construct a new ID: provision-<last_provision_id>-subprovision-<sup_number>
-                    p["id"] = f"provision-{last_provision_id}-subprovision-{sup_text}"
+        if is_provision:
+            number_letter_match = NUMBER_LETTER_PATTERN.search(p_text_content)
+            if number_letter_match:
+                number, letter = (
+                    number_letter_match.group(1),
+                    number_letter_match.group(2) or "",
+                )
+                prov_id_part = f"{number}{letter}"
+                seq_num = provision_sequences.get(prov_id_part, 0)
+                provision_sequences[prov_id_part] = seq_num + 1
+                p_tag["id"] = f"seq-{seq_num}-prov-{prov_id_part}"
+                last_prov_details = {
+                    "seq_num": seq_num,
+                    "num": number,
+                    "suffix": letter,
+                }
+            else:
+                last_prov_details = None  # Reset if pattern fails
+        elif is_subprovision and last_prov_details:
+            subprov_match = SUBPROVISION_PATTERN.match(p_text_content)
+            if subprov_match:
+                sub_marker = subprov_match.group(1)
+                prov_suffix = last_prov_details["suffix"]
+                p_tag["id"] = (
+                    f"seq-{last_prov_details['seq_num']}"
+                    f"-prov-{last_prov_details['num']}{prov_suffix}"
+                    f"-sub-{sub_marker}{prov_suffix.lower()}"
+                )
+    # --- End ID Assignment ---
 
-    # 12.7 Hyperlink provisions and suprovisions
-    soup = hyperlink_provisions_and_subprovisions(soup)
+    # 12.7 Hyperlink provisions (optional)
+    try:
+        soup = hyperlink_provisions_and_subprovisions(soup)
+    except Exception as e:
+        print(f"  *** WARNING: Error during hyperlinking: {e}")
 
-    # 13. Convert all remaining <h6 class="heading" role="heading"> to <p class="marginalia">.
-    for h6 in soup.find_all("h6", class_="heading", attrs={"role": "heading"}):
-        h6.name = "p"
-        h6["class"] = "marginalia"
+    # 13. Convert remaining h6.heading -> p.marginalia
+    for h6_tag in soup.find_all("h6", class_="heading", attrs={"role": "heading"}):
+        h6_tag.name = "p"
+        h6_tag["class"] = ["marginalia"]
+        h6_tag.attrs.pop("role", None)
 
-    # 7.6 Remove elements with classes specified by get_classes_to_remove()
-    remove_elements_with_classes(soup, get_classes_to_remove())
+    # 14. Remove empty tags (first pass)
+    # --- MODIFIED: Changed to standard while loop ---
+    while True:
+        removed_count = remove_empty_tags(soup)
+        if removed_count == 0:
+            break
+    # --- END MODIFICATION ---
 
-    # 14. Remove all empty tags (except <html> and <body>).
-    while remove_empty_tags(soup) > 0:
-        pass
-
-    # 15. Move all <div class="footnotes"> to the end of <body>.
-    footnotes_list = []
-    for fn in soup.find_all("div", class_="footnotes"):
-        fn.extract()
-        footnotes_list.append(fn)
-    if soup.body:
+    # 15. Move footnotes to end, add <hr id="footnote-line">
+    footnotes_container = soup.new_tag("div")
+    hr_separator_needed = False
+    for fn_div in soup.find_all("div", class_="footnotes"):
+        for p_tag in fn_div.find_all("p"):
+            original_id = p_tag.attrs.pop("id", None)
+            if original_id and original_id.startswith("fn-"):
+                hr_separator_needed = True
+            p_classes = p_tag.get("class", [])
+            if "footnote" not in p_classes:
+                p_classes.append("footnote")
+            p_tag["class"] = p_classes
+            footnotes_container.append(p_tag.extract())
+        fn_div.decompose()
+    if soup.body and hr_separator_needed:
         hr_tag = soup.new_tag("hr", id="footnote-line")
         soup.body.append(hr_tag)
-        for fn in footnotes_list:
-            soup.body.append(fn)
+        for footnote_p in list(footnotes_container.contents):
+            soup.body.append(footnote_p.extract())
 
-    # 15.5. Process footnotes:
-    # Unwrap any remaining <div class="footnotes"> and for each footnote <p> with an id starting with "fn-",
-    # remove its id and add the class "footnote".
-    for div in soup.find_all("div", class_="footnotes"):
-        div.unwrap()
-    for p in soup.find_all("p"):
-        if p.has_attr("id") and p["id"].startswith("fn-"):
-            del p["id"]
-            existing = p.get("class", [])
-            if "footnote" not in existing:
-                existing.append("footnote")
-            p["class"] = existing
+    # --- Reparse before final structural changes and cleanup ---
+    temp_html_str = str(soup)
+    temp_html_str = re.sub(
+        r"<\?del-struct abstand\d+pt\??>", "", temp_html_str
+    )  # Final PI check
+    additional_soup = BeautifulSoup(temp_html_str, "lxml")
 
-    # 16. Final cleanup: remove any leftover processing instructions.
-    final_html = str(soup)
-    final_html = re.sub(r"<\?del-struct abstand\d+pt\??>", "", final_html)
+    # 16.5 Additional cleanup: Unwrap b, i; remove role=heading; unwrap internal links
+    for tag_name in ["b", "i"]:
+        for tag in additional_soup.find_all(tag_name):
+            if tag and tag.parent:
+                tag.unwrap()
+    for tag in additional_soup.find_all(attrs={"role": "heading"}):
+        del tag["role"]
+    for a_tag in additional_soup.find_all("a", href=True):
+        href = a_tag["href"]
+        if (
+            href.startswith("#")
+            and href != "#footnote-line"
+            and not href.startswith("#seq-")
+        ):
+            if a_tag.parent:
+                a_tag.unwrap()
 
-    # 16.5 Additional cleanup:
-    #      - Unwrap all <b> and <i> tags.
-    #      - Remove any role="heading" attribute.
-    #      - Unwrap all <a> tags linking to an id (href starting with "#"),
-    #        except those with href="#footnote-line" or links to ids starting with "provision".
-    additional_soup = BeautifulSoup(final_html, "lxml")
-    for tag in additional_soup.find_all("b"):
-        tag.unwrap()
-    for tag in additional_soup.find_all("i"):
-        tag.unwrap()
-    for tag in additional_soup.find_all(attrs={"role": True}):
-        if tag.get("role") == "heading":
-            del tag["role"]
-    for a in additional_soup.find_all("a", href=True):
-        href = a["href"]
-        if href.startswith("#") and href != "#footnote-line" and not href.startswith("#provision"):
-            a.unwrap()
-
-    # 16.6 Scale down heading levels based on aria-level.
+    # 16.6 Scale heading levels (aria-level -> h(N+1))
     for tag in additional_soup.find_all(attrs={"aria-level": True}):
         try:
             level_int = int(tag["aria-level"])
-        except ValueError:
+            new_level = min(level_int + 1, 6)
+            tag.name = f"h{new_level}"
+            del tag["aria-level"]
+        except (ValueError, TypeError):
             continue
-        new_level = level_int + 1
-        if new_level > 6:
-            new_level = 6
-        tag.name = "h" + str(new_level)
-        del tag["aria-level"]
-        if tag.has_attr("class"):
-            new_classes = [cls for cls in tag["class"] if cls != "heading"]
-            if new_classes:
-                tag["class"] = new_classes
-            else:
-                del tag["class"]
 
-    # 16.7 Convert <dl> elements to <p> elements with enumeration.
-    #      Each <dt>/<dd> pair is replaced by a <p class="enum [level-class]"> element,
-    #      where the level-class is "first-level", "second-level", etc. according to nesting.
-    def level_to_string(level):
+    # 16.7 Convert DL -> p.enum
+    def get_level_class(level):
         mapping = {
-            1: "first-level",
-            2: "second-level",
-            3: "third-level",
-            4: "fourth-level",
-            5: "fifth-level",
-            6: "sixth-level",
+            1: "first",
+            2: "second",
+            3: "third",
+            4: "fourth",
+            5: "fifth",
+            6: "sixth",
         }
-        return mapping.get(level, f"{level}th-level")
+        return f"{mapping.get(level, str(level))}-level"
 
-    def convert_dl(dl, level):
-        new_elements = []
-        # Get only the dt and dd tag children (skip whitespace and other nodes)
+    def convert_dl_recursive(dl_element, level, soup_instance):
+        processed_paragraphs = []
         items = [
-            child
-            for child in dl.contents
-            if getattr(child, "name", None) in ["dt", "dd"]
+            c
+            for c in dl_element.contents
+            if isinstance(c, Tag) and c.name in ["dt", "dd"]
         ]
         i = 0
         while i < len(items):
-            # Expect a dt followed by a dd.
             if items[i].name != "dt":
                 i += 1
                 continue
@@ -447,94 +529,164 @@ def process_html(html):
                 if i + 1 < len(items) and items[i + 1].name == "dd"
                 else None
             )
-            if dd_tag is None:
+            if dd_tag:
+                nested_items = []
+                for nested_dl in dd_tag.find_all("dl", recursive=False):
+                    nested_items.extend(
+                        convert_dl_recursive(nested_dl, level + 1, soup_instance)
+                    )
+                    nested_dl.decompose()
+                dt_text = dt_tag.get_text(" ", strip=True)
+                dd_text = dd_tag.get_text(" ", strip=True)
+                combined = dt_text + (" " + dd_text if dd_text else "")
+                new_p = soup_instance.new_tag(
+                    "p", attrs={"class": ["enum", get_level_class(level)]}
+                )
+                new_p.string = combined.strip()
+                processed_paragraphs.append(new_p)
+                processed_paragraphs.extend(nested_items)
+                i += 2
+            else:  # dt without dd
+                dt_text = dt_tag.get_text(" ", strip=True)
+                if dt_text:
+                    new_p = soup_instance.new_tag(
+                        "p", attrs={"class": ["enum", get_level_class(level)]}
+                    )
+                    new_p.string = dt_text.strip()
+                    processed_paragraphs.append(new_p)
                 i += 1
-                continue
-            dt_text = dt_tag.get_text(" ", strip=True)
-            # Process any nested <dl> elements inside the dd tag recursively.
-            nested_elements = []
-            for nested_dl in dd_tag.find_all("dl"):
-                nested_elements.extend(convert_dl(nested_dl, level + 1))
-                nested_dl.decompose()
-            dd_text = dd_tag.get_text(" ", strip=True)
-            combined_text = dt_text + (" " + dd_text if dd_text else "")
-            new_p = additional_soup.new_tag("p")
-            new_p["class"] = ["enum", level_to_string(level)]
-            new_p.string = combined_text
-            new_elements.append(new_p)
-            # Append any nested items immediately after.
-            new_elements.extend(nested_elements)
-            i += 2
-        return new_elements
+        return processed_paragraphs
 
-    # Process top-level <dl> elements (those not nested inside another <dl>)
-    for dl in additional_soup.find_all("dl"):
-        if not dl.find_parent("dl"):
-            new_ps = convert_dl(dl, 1)
-            for new_p in new_ps:
-                dl.insert_before(new_p)
-            dl.decompose()
+    for top_dl in additional_soup.find_all("dl"):
+        if not top_dl.find_parent("dl"):
+            converted_ps = convert_dl_recursive(top_dl, 1, additional_soup)
+            for p_item in reversed(converted_ps):
+                top_dl.insert_before(p_item)
+            top_dl.decompose()
 
-    # 16.8 Remove border attribute from <table> elements.
-    for table in additional_soup.find_all("table"):
-        if table.has_attr("border"):
-            del table["border"]
+    # --- NEW: Wrap Annex Content ---
+    additional_soup = wrap_annex_content(additional_soup)
+    # --- END NEW ---
 
-    # 16.9 Remove any class that starts with "man-"
-    for tag in additional_soup.find_all(attrs={"class": True}):
-        new_classes = [
-            cls for cls in tag.get("class", []) if not cls.startswith("man-")
-        ]
-        if new_classes:
-            tag["class"] = new_classes
-        else:
-            del tag["class"]
+    # 16.8 Remove table border attribute
+    for table in additional_soup.find_all("table", border=True):
+        del table["border"]
 
-    # Update the final HTML after the <dl> conversion and additional cleanup.
-    final_html = str(additional_soup)
+    # 16.9 Final Class Cleanup
+    allowed_classes = {
+        "marginalia",
+        "provision",
+        "subprovision",
+        "enum",
+        "footnote",
+        "footnote-ref",
+        "pdf-source",
+    }
+    for i in range(1, 11):
+        allowed_classes.add(get_level_class(i))  # Add enum level classes
+    for tag in additional_soup.find_all(True):
+        if tag.has_attr("class"):
+            kept_classes = [
+                cls for cls in tag.get("class", []) if cls in allowed_classes
+            ]
+            if kept_classes:
+                tag["class"] = kept_classes
+            else:
+                del tag["class"]
 
-    # 17. Final pass: Remove any empty elements that may have been re-introduced.
-    final_soup = BeautifulSoup(final_html, "lxml")
-    while remove_empty_tags(final_soup) > 0:
-        pass
-    final_html = str(final_soup)
+    # 17. Final pass: Remove empty tags
+    final_html_string = str(additional_soup)
+    final_soup = BeautifulSoup(final_html_string, "lxml")
+    # --- MODIFIED: Changed to standard while loop ---
+    while True:
+        removed_count = remove_empty_tags(final_soup)
+        if removed_count == 0:
+            break
+    # --- END MODIFICATION ---
 
-    # 18. Pretty print the HTML using 4 spaces for indentation.
-    custom_formatter = formatter.HTMLFormatter(indent=4)
-    pretty_html = BeautifulSoup(final_html, "lxml").prettify(formatter=custom_formatter)
-    # Remove any empty lines.
+    # 18. Pretty print final HTML
+    pretty_html = final_soup.prettify(formatter=formatter.HTMLFormatter(indent=4))
     pretty_html = "\n".join(line for line in pretty_html.splitlines() if line.strip())
+
     return pretty_html
 
 
 def process_files():
     """
-    Loops over all raw HTML files under the INPUT_DIR (recursively),
-    processes each file, and saves the modified HTML right next to the raw file,
-    replacing the "-raw.html" suffix with "-merged.html".
-    Also updates the metadata file with any found erlasstitel.
+    Finds and processes all "*-raw.html" files, saving as "*-merged.html".
     """
-    # Use recursive glob to find all files ending with "-raw.html"
     pattern = os.path.join(INPUT_DIR, "**", "*-raw.html")
-    for filepath in glob.iglob(pattern, recursive=True):
-        with open(filepath, "r", encoding="utf-8") as f:
-            content = f.read()
+    raw_files = list(glob.iglob(pattern, recursive=True))
 
-        # Process/transform the HTML.
-        processed_html = process_html(content)
+    if not raw_files:
+        print(f"No '*-raw.html' files found in {INPUT_DIR} or its subdirectories.")
+        return
 
-        # Build the output filename by replacing "-raw.html" with "-merged.html"
-        output_filepath = filepath.replace("-raw.html", "-merged.html")
+    print(f"Found {len(raw_files)} raw HTML files to process...")
+    processed_count, error_count = 0, 0
 
-        with open(output_filepath, "w", encoding="utf-8") as out_f:
-            out_f.write(processed_html)
+    for filepath in raw_files:
+        print(f"Processing: {filepath}")
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                raw_content = f.read()
+            processed_html_content = process_html(raw_content)
+            output_filepath = filepath.replace("-raw.html", "-merged.html")
+            with open(output_filepath, "w", encoding="utf-8") as out_f:
+                out_f.write(processed_html_content)
+            print(f"  -> Saved: {output_filepath}")
+            processed_count += 1
 
-        print(f"Processed file {filepath} -> {output_filepath}")
+            # --- Optional Metadata Update Placeholder ---
+            # metadata_filepath = filepath.replace("-raw.html", "-metadata.json")
+            # if os.path.exists(metadata_filepath):
+            #     # Logic to parse processed_html_content, find title, update JSON
+            #     pass
+            # --- End Placeholder ---
+
+        except Exception as e:
+            print(f"  *** ERROR processing {filepath}: {e}")
+            # import traceback; traceback.print_exc() # Uncomment for detailed trace
+            error_count += 1
+
+    print(
+        "-" * 30
+        + f"\nProcessing complete.\n  Processed: {processed_count}\n  Errors: {error_count}\n"
+        + "-" * 30
+    )
 
 
 def main():
+    """
+    Main execution: checks directory, imports optional components, runs processing.
+    """
+    if not os.path.isdir(INPUT_DIR):
+        print(f"Error: Input directory not found: {INPUT_DIR}")
+        return
+
+    # --- Optional Import: Hyperlinking Function ---
+    try:
+        from importlib import import_module
+
+        module_path = "src.modules.law_pdf_module.create_hyperlinks"
+        module = import_module(module_path)
+        hyperlink_func = getattr(module, "hyperlink_provisions_and_subprovisions", None)
+        if hyperlink_func:
+            globals()["hyperlink_provisions_and_subprovisions"] = hyperlink_func
+            print("Successfully imported hyperlinking function.")
+        else:
+            print(
+                f"Warning: Function 'hyperlink_provisions_and_subprovisions' not found in {module_path}."
+            )
+    except ImportError:
+        print(f"Warning: Could not import hyperlinking module: {module_path}")
+    except Exception as import_e:
+        print(f"Warning: Error during hyperlinking import: {import_e}")
+    # --- End Optional Import ---
+
     process_files()
 
 
+# --- Script Execution ---
 if __name__ == "__main__":
     main()
