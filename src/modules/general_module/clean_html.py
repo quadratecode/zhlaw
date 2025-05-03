@@ -658,8 +658,7 @@ def wrap_annex(soup: BeautifulSoup) -> BeautifulSoup:
     "Verzeichnis", "Anhänge", or "Anhang". From that heading onward,
     all elements (up to the element with id "footnote-line", if it exists) are wrapped into a
     <details> element with id "annex". A fixed <summary> element is created with the text
-    "Anhänge" and at the top of the details block a new paragraph
-    with id "annex-info" and text "annex_callout" is inserted.
+    "Anhänge".
     """
     keywords = ANNEX_KEYWORDS
     headings: List[Tag] = soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"])
