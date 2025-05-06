@@ -628,7 +628,7 @@ p[class*="enum-"] {
 }
 
 p:not([class])+p[class*="first-level"] {
-    margin-top: -0.7rem;
+    margin-top: -0.5rem;
 }
 
 p[class*="first-level"]+p[class*="second-level"] {

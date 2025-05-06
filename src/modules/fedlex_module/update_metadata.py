@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 SPARQL_ENDPOINT = "https://fedlex.data.admin.ch/sparqlendpoint"
 REQUEST_TIMEOUT = 60  # Timeout for network requests in seconds
-BATCH_SIZE = 10  # Reduced batch size further to decrease server load
-DELAY_BETWEEN_REQUESTS = 1.0  # Increased delay further
+BATCH_SIZE = 20  # Reduced batch size further to decrease server load
+DELAY_BETWEEN_REQUESTS = 0.5  # Increased delay further
 MAX_RETRIES = 3  # Maximum number of retry attempts for failed requests
 
 # --- Optimized SPARQL Queries ---
@@ -174,6 +174,7 @@ WHERE {{
 def batch_get_all_versions(sr_notations):
     """
     Retrieves all versions using VALUES and the simplified path with datatype filter.
+    MODIFIED: No longer filters based on the presence of titles.
 
     Args:
         sr_notations (list): List of SR notations to query.
@@ -290,7 +291,7 @@ ORDER BY ?srNotationValue ?dateApplicabilityNode
                 version_data = {
                     "dateApplicability": get_val(binding, "dateApplicability"),
                     "title": main_title,
-                    "abbreviation": short_title,
+                    "abbreviation": short_title,  # Corresponds to titleShort
                     "titleAlternative": alternative_title,
                     "dateDocument": get_val(binding, "dateDocument"),
                     "dateEntryInForce": get_val(binding, "dateEntryInForce"),
@@ -298,20 +299,17 @@ ORDER BY ?srNotationValue ?dateApplicabilityNode
                     "fileURL": get_val(binding, "fileURL"),
                 }
 
+                # --- MODIFICATION START ---
+                # Only check for essential dateApplicability and fileURL
                 if version_data["dateApplicability"] and version_data["fileURL"]:
-                    if (
-                        version_data["title"]
-                        or version_data["abbreviation"]
-                        or version_data["titleAlternative"]
-                    ):
-                        results[sr_notation].append(version_data)
-                        processed_bindings_count += 1
-                    # else: logger.warning(f"Version for {sr_notation} missing title. Binding: {binding}")
+                    results[sr_notation].append(version_data)
+                    processed_bindings_count += 1
+                # --- MODIFICATION END ---
                 # else: logger.warning(f"Version for {sr_notation} missing date/URL. Binding: {binding}")
 
             found_count = sum(1 for v_list in results.values() if v_list)
             logger.info(
-                f"Processed {processed_bindings_count} valid bindings, resulting in version data for {found_count}/{num_notations} SR notations (found abstracts for {len(abstracts_found_map)})."
+                f"Processed {processed_bindings_count} valid bindings (requiring date & URL), resulting in version data for {found_count}/{num_notations} SR notations (found abstracts for {len(abstracts_found_map)})."
             )
             time.sleep(DELAY_BETWEEN_REQUESTS)
             return results
@@ -614,7 +612,7 @@ def identify_missing_versions(all_versions_from_sparql, scraped_version_dirs_set
             and date_fmt not in scraped_version_dirs_set
             and date_fmt not in seen_dates
         ):
-            # Basic validation: Ensure we have a file URL as well
+            # Basic validation: Ensure we have a file URL as well (already checked in batch_get_all_versions, but good safety)
             if v.get("fileURL"):
                 missing.append(v)
                 seen_dates.add(date_fmt)

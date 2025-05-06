@@ -560,7 +560,7 @@ def process_html(html_content):
     for top_dl in additional_soup.find_all("dl"):
         if not top_dl.find_parent("dl"):
             converted_ps = convert_dl_recursive(top_dl, 1, additional_soup)
-            for p_item in reversed(converted_ps):
+            for p_item in converted_ps:
                 top_dl.insert_before(p_item)
             top_dl.decompose()
 
