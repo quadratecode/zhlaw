@@ -60,14 +60,27 @@ def get_ablaufschritte(kr_nr, vorlagen_nr):
         ablaufschritttyp = ablaufschritt.find("ablaufschritttyp")
         text = ablaufschritt.find("text")
         if ablaufschritttyp and text:
-            ablaufschritte_data.append(
-                {
-                    "affair_step_type": ablaufschritttyp.text,
-                    "affair_step_date": arrow.get(text.text, "DD.MM.YYYY").format(
+            try:
+                # Only try to parse if text.text exists and is not empty
+                if text.text and text.text.strip():
+                    date_formatted = arrow.get(text.text, "DD.MM.YYYY").format(
                         "YYYYMMDD"
-                    ),
-                }
-            )
+                    )
+                    ablaufschritte_data.append(
+                        {
+                            "affair_step_type": ablaufschritttyp.text,
+                            "affair_step_date": date_formatted,
+                        }
+                    )
+                else:
+                    # Skip steps with empty dates
+                    continue
+            except arrow.parser.ParserError:
+                # Log the error and skip this step
+                logging.warning(
+                    f"Error parsing date '{text.text}' for step type '{ablaufschritttyp.text}'"
+                )
+                continue
 
     return ablaufschritte_data
 
