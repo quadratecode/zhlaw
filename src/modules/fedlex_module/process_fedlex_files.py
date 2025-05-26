@@ -20,7 +20,7 @@ Performs extensive cleanup and restructuring:
   - Attempts to hyperlink provisions/subprovisions if the corresponding module is available.
 
 Usage:
-    python process_fedlex_files.py
+    python process_fedlex_files.py [--folder {fedlex_files,test_files}] [--mode {concurrent,sequential}]
 """
 
 # Standard library imports
@@ -28,6 +28,9 @@ import os
 import re
 import glob
 import json  # For potential metadata handling
+import argparse
+import concurrent.futures
+from tqdm import tqdm
 
 # Third-party imports
 try:
@@ -36,9 +39,6 @@ except ImportError:
     print("Error: BeautifulSoup4 library not found.")
     print("Please install it: pip install beautifulsoup4 lxml")
     exit(1)
-
-# Define the base input directory (the raw files are stored here in subfolders)
-INPUT_DIR = os.path.join("data", "fedlex", "fedlex_files")
 
 # --- Provision/Subprovision Numbering Regex ---
 NUMBER_LETTER_PATTERN = re.compile(r"[^\d]*(\d+)([a-zA-Z]*)[.\s]?")
@@ -611,43 +611,103 @@ def process_html(html_content):
     return pretty_html
 
 
-def process_files():
+def process_single_file(file_path):
     """
-    Finds and processes all "*-raw.html" files, saving as "*-merged.html".
+    Process a single raw HTML file and save the result as a merged HTML file.
+    For use with concurrent and sequential processing.
     """
-    pattern = os.path.join(INPUT_DIR, "**", "*-raw.html")
+    print(f"Processing: {file_path}")
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            raw_content = f.read()
+        processed_html_content = process_html(raw_content)
+        output_filepath = file_path.replace("-raw.html", "-merged.html")
+        with open(output_filepath, "w", encoding="utf-8") as out_f:
+            out_f.write(processed_html_content)
+        print(f"  -> Saved: {output_filepath}")
+        return True
+    except Exception as e:
+        print(f"  *** ERROR processing {file_path}: {e}")
+        return False
+
+
+def process_files_concurrently(raw_files, max_workers=None):
+    """
+    Process files concurrently using ProcessPoolExecutor.
+    """
+    if not raw_files:
+        print("No files to process.")
+        return 0, 0
+
+    print(f"Processing {len(raw_files)} files concurrently...")
+    processed_count, error_count = 0, 0
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        future_to_file = {
+            executor.submit(process_single_file, file): file for file in raw_files
+        }
+
+        for future in tqdm(
+            concurrent.futures.as_completed(future_to_file),
+            total=len(raw_files),
+            desc="Processing",
+        ):
+            file = future_to_file[future]
+            try:
+                if future.result():
+                    processed_count += 1
+                else:
+                    error_count += 1
+            except Exception as e:
+                print(f"Exception processing {file}: {e}")
+                error_count += 1
+
+    return processed_count, error_count
+
+
+def process_files_sequentially(raw_files):
+    """
+    Process files sequentially one at a time.
+    """
+    if not raw_files:
+        print("No files to process.")
+        return 0, 0
+
+    print(f"Processing {len(raw_files)} files sequentially...")
+    processed_count, error_count = 0, 0
+
+    for file_path in tqdm(raw_files, desc="Processing"):
+        try:
+            if process_single_file(file_path):
+                processed_count += 1
+            else:
+                error_count += 1
+        except Exception as e:
+            print(f"Exception processing {file_path}: {e}")
+            error_count += 1
+
+    return processed_count, error_count
+
+
+def process_files(input_dir, mode="sequential", max_workers=None):
+    """
+    Find and process all "*-raw.html" files, saving as "*-merged.html".
+    """
+    pattern = os.path.join(input_dir, "**", "*-raw.html")
     raw_files = list(glob.iglob(pattern, recursive=True))
 
     if not raw_files:
-        print(f"No '*-raw.html' files found in {INPUT_DIR} or its subdirectories.")
+        print(f"No '*-raw.html' files found in {input_dir} or its subdirectories.")
         return
 
     print(f"Found {len(raw_files)} raw HTML files to process...")
-    processed_count, error_count = 0, 0
 
-    for filepath in raw_files:
-        print(f"Processing: {filepath}")
-        try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                raw_content = f.read()
-            processed_html_content = process_html(raw_content)
-            output_filepath = filepath.replace("-raw.html", "-merged.html")
-            with open(output_filepath, "w", encoding="utf-8") as out_f:
-                out_f.write(processed_html_content)
-            print(f"  -> Saved: {output_filepath}")
-            processed_count += 1
-
-            # --- Optional Metadata Update Placeholder ---
-            # metadata_filepath = filepath.replace("-raw.html", "-metadata.json")
-            # if os.path.exists(metadata_filepath):
-            #     # Logic to parse processed_html_content, find title, update JSON
-            #     pass
-            # --- End Placeholder ---
-
-        except Exception as e:
-            print(f"  *** ERROR processing {filepath}: {e}")
-            # import traceback; traceback.print_exc() # Uncomment for detailed trace
-            error_count += 1
+    if mode == "concurrent":
+        processed_count, error_count = process_files_concurrently(
+            raw_files, max_workers
+        )
+    else:  # sequential mode
+        processed_count, error_count = process_files_sequentially(raw_files)
 
     print(
         "-" * 30
@@ -658,10 +718,52 @@ def process_files():
 
 def main():
     """
-    Main execution: checks directory, imports optional components, runs processing.
+    Main execution: parses arguments, checks directory, imports optional components, runs processing.
     """
-    if not os.path.isdir(INPUT_DIR):
-        print(f"Error: Input directory not found: {INPUT_DIR}")
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Process Fedlex raw HTML files to merged HTML."
+    )
+    parser.add_argument(
+        "--folder",
+        type=str,
+        default="fedlex_files",
+        choices=["fedlex_files", "test_files"],
+        help="Folder to process: 'fedlex_files' (default) or 'test_files'",
+    )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="sequential",
+        choices=["concurrent", "sequential"],
+        help="Processing mode: 'concurrent' (parallel) or 'sequential' (default, for debugging)",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Number of worker processes for concurrent mode (default: auto)",
+    )
+    args = parser.parse_args()
+
+    # Set input directory based on folder argument
+    if args.folder == "test_files":
+        input_dir = os.path.join("data", "fedlex", "test_files_fedlex")
+    else:  # fedlex_files (default)
+        input_dir = os.path.join("data", "fedlex", "fedlex_files")
+
+    print(f"Processing folder: {args.folder} ({input_dir})")
+    print(
+        f"Processing mode: {args.mode}"
+        + (
+            f" with {args.workers} workers"
+            if args.mode == "concurrent" and args.workers
+            else ""
+        )
+    )
+
+    if not os.path.isdir(input_dir):
+        print(f"Error: Input directory not found: {input_dir}")
         return
 
     # --- Optional Import: Hyperlinking Function ---
@@ -684,7 +786,7 @@ def main():
         print(f"Warning: Error during hyperlinking import: {import_e}")
     # --- End Optional Import ---
 
-    process_files()
+    process_files(input_dir, args.mode, args.workers)
 
 
 # --- Script Execution ---
