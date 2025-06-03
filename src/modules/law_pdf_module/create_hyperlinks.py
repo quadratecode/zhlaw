@@ -21,7 +21,7 @@ LETTER_ENUM_PATTERN = re.compile(r"^[a-zA-Z]\.$")
 NUMBER_ENUM_PATTERN = re.compile(r"^\d{1,2}\.$")
 DASH_ENUM_PATTERN = re.compile(r"–")
 OS_PATTERN = re.compile(r"OS\s*\d+\s*,\s*\d+")
-ANNEX_PATTERN = re.compile(r"Anhang|Anhänge|Verzeichnis|Verzeichnisse", re.IGNORECASE)
+ANNEX_PATTERN = re.compile(r"Anhang|Anhänge", re.IGNORECASE)
 FOOTNOTE_REF_NUM_PATTERN = re.compile(r"\d+")
 ZIFF_PATTERN = re.compile(r"\d+\.")
 
