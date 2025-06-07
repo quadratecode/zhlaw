@@ -8,7 +8,6 @@ import json
 from tqdm import tqdm
 import shutil
 import os
-import arrow
 from bs4 import BeautifulSoup
 import subprocess
 import argparse

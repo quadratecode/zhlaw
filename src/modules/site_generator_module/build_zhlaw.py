@@ -812,6 +812,79 @@ def merge_paragraphs_with_footnote_refs(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
+def wrap_provisions(soup: BeautifulSoup) -> BeautifulSoup:
+    """
+    Wraps provisions and their related elements (marginalia, subprovisions)
+    into a div with class 'provision-container'.
+    """
+    provisions = soup.find_all("p", class_="provision")
+
+    for provision_p in provisions:
+        # Avoid re-wrapping a provision that's already in a container
+        if provision_p.find_parent("div", class_="provision-container"):
+            continue
+
+        prov_container = soup.new_tag("div", **{"class": "provision-container"})
+
+        # Determine the actual start of the block (could be a preceding marginalia)
+        start_element = provision_p
+        # Use find_previous_siblings to correctly handle whitespace nodes
+        for prev_sibling in provision_p.find_previous_siblings():
+            if isinstance(prev_sibling, Tag):
+                if prev_sibling.name == "p" and "marginalia" in prev_sibling.get(
+                    "class", []
+                ):
+                    start_element = prev_sibling
+                break  # Stop at the first non-whitespace tag
+            elif isinstance(prev_sibling, str) and prev_sibling.strip():
+                break  # Stop if we hit non-empty text
+
+        # Insert the container before the determined start element
+        start_element.insert_before(prov_container)
+
+        # Move elements into the container until a stop condition is met
+        current_element = start_element
+        while current_element:
+            next_sibling = current_element.find_next_sibling()
+
+            # Define stop conditions
+            stop = False
+            if isinstance(current_element, Tag):
+                # Another provision that isn't the one we started with
+                if (
+                    current_element != provision_p
+                    and "provision" in current_element.get("class", [])
+                ):
+                    stop = True
+                # A heading tag
+                elif (
+                    current_element.name.startswith("h")
+                    and current_element.name[1:].isdigit()
+                ):
+                    stop = True
+                # A marginalia that is not our starting element
+                elif (
+                    current_element != start_element
+                    and "marginalia" in current_element.get("class", [])
+                ):
+                    stop = True
+                # A footnote
+                elif "footnote" in current_element.get("class", []):
+                    stop = True
+                # Footnote line or annex
+                elif current_element.get("id") in ["footnote-line", "annex"]:
+                    stop = True
+
+            if stop:
+                break
+
+            # Move the element and update the current element for the next loop iteration
+            prov_container.append(current_element)
+            current_element = next_sibling
+
+    return soup
+
+
 def create_links_display(
     soup: BeautifulSoup,
     current_url: str,
@@ -933,6 +1006,7 @@ def main(
         soup = consolidate_enum_paragraphs(soup)
         soup = wrap_subprovisions(soup)
         soup = merge_paragraphs_with_footnote_refs(soup)
+        soup = wrap_provisions(soup)
         soup = modify_html(soup, erlasstitel)
         soup = insert_combined_table(
             soup,
