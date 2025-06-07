@@ -26,6 +26,16 @@ FOOTNOTE_LINE_ID = "footnote-line"
 
 
 # -----------------------------------------------------------------------------
+# Helper Functions
+# -----------------------------------------------------------------------------
+def add_class(tag: Tag, class_name: str) -> None:
+    """Add a CSS class to a tag if not already present."""
+    classes = tag.get("class", [])
+    if class_name not in classes:
+        tag["class"] = classes + [class_name]
+
+
+# -----------------------------------------------------------------------------
 # Navigation and Header Functions
 # -----------------------------------------------------------------------------
 def create_nav_buttons(soup: BeautifulSoup) -> Tag:
@@ -618,124 +628,105 @@ def consolidate_enum_paragraphs(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
+from bs4 import BeautifulSoup, Tag
+
+
+from bs4 import BeautifulSoup, Tag
+
+
 def wrap_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
     """
-    Wraps subprovisions and their corresponding paragraphs in container divs.
-    Handles multi-paragraph subprovisions by grouping consecutive paragraphs without certain classes.
-    Excludes content from within annex sections to prevent incorrect merging.
-    Stops merging when encountering headings (h1-h6) or another subprovision.
+    Wraps subprovisions and their related elements into container divs.
+    A subprovision block includes all elements following the subprovision number
+    up to a stop element. It marks the first content paragraph with a special
+    class 'subprovision-first-para' to allow for special CSS handling.
     """
-    # Get all paragraphs except those with id="annex-info" and those inside the annex section
-    paragraphs: List[Tag] = [
-        p
-        for p in soup.find_all("p")
-        if p.get("id") != "annex-info" and not p.find_parent("details", id="annex")
-    ]
+    processed_subprovisions = set()
+    all_subprovisions = soup.find_all("p", class_="subprovision")
 
-    # First pass: Identify subprovisions and group them with related paragraphs
-    i = 0
-    while i < len(paragraphs) - 1:
-        current = paragraphs[i]
-        # Check if current paragraph is a subprovision
-        if current.get("class") and "subprovision" in current.get("class"):
-            # Create a new container div for this subprovision group
-            container = soup.new_tag("div", **{"class": "subprovision-container"})
-            # Insert the container before the current paragraph in the DOM
-            current.insert_before(container)
-            # Move the subprovision paragraph into the container
-            container.append(current)
-
-            # Look ahead to find paragraphs that belong to this subprovision
-            next_idx = i + 1
-            while next_idx < len(paragraphs):
-                next_p = paragraphs[next_idx]
-
-                # Skip if the next paragraph is inside the annex section
-                if next_p.find_parent("details", id="annex"):
-                    next_idx += 1
-                    continue
-
-                # Stop if we encounter another subprovision or enumeration
-                if next_p.get("class") and (
-                    "subprovision" in next_p.get("class")
-                    or "enum-lit" in next_p.get("class")
-                    or "enum-ziff" in next_p.get("class")
-                ):
-                    break
-
-                # Stop if we encounter a provision or marginalia
-                if next_p.get("class") and (
-                    "provision" in next_p.get("class")
-                    or "marginalia" in next_p.get("class")
-                ):
-                    break
-
-                # Check for any heading element between the current container and the next paragraph
-                # This is critical for proper section handling
-                next_element = container.find_next()
-                while next_element and next_element != next_p:
-                    if next_element.name in {
-                        "h1",
-                        "h2",
-                        "h3",
-                        "h4",
-                        "h5",
-                        "h6",
-                        "table",
-                    }:
-                        # Found a heading - stop including paragraphs in this container
-                        next_p = None
-                        break
-                    next_element = next_element.find_next()
-
-                # If we found a heading, exit the loop
-                if next_p is None:
-                    break
-
-                # Include paragraphs without classes (content paragraphs)
-                if not next_p.get("class"):
-                    container.append(next_p)
-                    next_idx += 1
-                    continue
-
-                # If we reach here, we've found a paragraph that doesn't belong
-                break
-
-            # Update index to continue from next unprocessed paragraph
-            i = next_idx
+    for subprovision_p in all_subprovisions:
+        if id(subprovision_p) in processed_subprovisions or subprovision_p.find_parent(
+            "div", class_="subprovision-container"
+        ):
             continue
 
-        # Move to next paragraph if current is not a subprovision
-        i += 1
+        container = soup.new_tag("div", **{"class": "subprovision-container"})
+        subprovision_p.insert_before(container)
 
-    # Second pass: Only merge paragraphs within the same container
-    # This avoids merging content across headings/sections
+        current_element = subprovision_p
+
+        # Add a flag to track if we've marked the first paragraph
+        first_content_p_marked = False
+
+        while current_element:
+            next_sibling = current_element.find_next_sibling()
+
+            stop = False
+            if isinstance(current_element, Tag):
+                classes = current_element.get("class", [])
+                elem_id = current_element.get("id", "")
+                elem_name = current_element.name
+
+                if (
+                    (elem_name == "p" and "provision" in classes)
+                    or (elem_name == "p" and "marginalia" in classes)
+                    or (elem_name.startswith("h") and elem_name[1:].isdigit())
+                    or (elem_id in ["footnote-line", "annex"])
+                    or (elem_name == "table")
+                    or (elem_name == "p" and "footnote" in classes)
+                    or (
+                        elem_name == "p"
+                        and "subprovision" in classes
+                        and current_element != subprovision_p
+                    )
+                ):
+                    stop = True
+
+            if stop:
+                break
+
+            # --- MODIFICATION START: Logic to mark the first paragraph ---
+            if (
+                isinstance(current_element, Tag)
+                and current_element != subprovision_p
+                and not first_content_p_marked
+            ):
+                # We've found the first element of content after the number. Mark it.
+                # --- ROBUST FIX for TypeError ---
+                # Using direct attribute manipulation instead of .add_class() to avoid
+                # the 'NoneType' is not callable error. This is more robust across
+                # different BeautifulSoup versions and against unusual tag states.
+                existing_classes = current_element.get("class", [])
+                if "subprovision-first-para" not in existing_classes:
+                    existing_classes.append("subprovision-first-para")
+                current_element["class"] = existing_classes
+                # --- END ROBUST FIX ---
+
+                first_content_p_marked = True
+            # --- MODIFICATION END ---
+
+            moved_element = current_element
+            container.append(moved_element)
+            processed_subprovisions.add(id(moved_element))
+
+            current_element = next_sibling
+
+    # Paragraph merging logic can remain the same as it runs after this process
     for container in soup.find_all("div", class_="subprovision-container"):
-        paragraphs_in_container = container.find_all("p")
-
-        # If container has more than 2 paragraphs (subprovision + content paragraphs)
+        paragraphs_in_container = container.find_all("p", recursive=False)
         if len(paragraphs_in_container) > 2:
-            # First content paragraph (index 1) will contain all merged content
             first_content_p = paragraphs_in_container[1]
-
-            # Merge all subsequent paragraphs into the first content paragraph
-            for p in paragraphs_in_container[2:]:
-                # Skip any paragraphs that are inside the annex section
-                if p.find_parent("details", id="annex"):
-                    continue
-
-                # Add space between merged paragraph contents
-                if len(first_content_p.contents) > 0:
-                    first_content_p.append(" ")
-
-                # Move all contents from current paragraph to first content paragraph
-                while p.contents:
-                    first_content_p.append(p.contents[0])
-
-                # Remove the now-empty paragraph from the DOM
-                p.decompose()
-
-    # Return the modified BeautifulSoup object
+            for p_to_merge in paragraphs_in_container[2:]:
+                if not p_to_merge.get(
+                    "class"
+                ) or "subprovision-first-para" in p_to_merge.get("class", []):
+                    if first_content_p.contents:
+                        first_content_p.append(" ")
+                    while p_to_merge.contents:
+                        first_content_p.append(p_to_merge.contents[0])
+                    p_to_merge.decompose()
+                else:
+                    break
     return soup
 
 
@@ -814,73 +805,85 @@ def merge_paragraphs_with_footnote_refs(soup: BeautifulSoup) -> BeautifulSoup:
 
 def wrap_provisions(soup: BeautifulSoup) -> BeautifulSoup:
     """
-    Wraps provisions and their related elements (marginalia, subprovisions)
-    into a div with class 'provision-container'.
+    Wraps a block starting with one or more marginalia, followed by a provision,
+    and its related content into a div with class 'provision-container'.
     """
-    provisions = soup.find_all("p", class_="provision")
+    # Find all potential starting points of a block: a p.marginalia
+    all_marginalia = soup.find_all("p", class_="marginalia")
 
-    for provision_p in provisions:
-        # Avoid re-wrapping a provision that's already in a container
-        if provision_p.find_parent("div", class_="provision-container"):
+    for marginalia_p in all_marginalia:
+        # If this marginalia is already in a container, it has been processed.
+        if marginalia_p.find_parent("div", class_="provision-container"):
             continue
 
-        prov_container = soup.new_tag("div", **{"class": "provision-container"})
+        # This marginalia is the start of our potential block.
+        block_start_element = marginalia_p
 
-        # Determine the actual start of the block (could be a preceding marginalia)
-        start_element = provision_p
-        # Use find_previous_siblings to correctly handle whitespace nodes
-        for prev_sibling in provision_p.find_previous_siblings():
-            if isinstance(prev_sibling, Tag):
-                if prev_sibling.name == "p" and "marginalia" in prev_sibling.get(
+        # 1. Collect the initial block of one or more consecutive marginalia.
+        marginalia_block = [marginalia_p]
+        provision_candidate = None
+        for next_sibling in marginalia_p.find_next_siblings():
+            if isinstance(next_sibling, Tag):
+                if next_sibling.name == "p" and "marginalia" in next_sibling.get(
                     "class", []
                 ):
-                    start_element = prev_sibling
-                break  # Stop at the first non-whitespace tag
-            elif isinstance(prev_sibling, str) and prev_sibling.strip():
-                break  # Stop if we hit non-empty text
-
-        # Insert the container before the determined start element
-        start_element.insert_before(prov_container)
-
-        # Move elements into the container until a stop condition is met
-        current_element = start_element
-        while current_element:
-            next_sibling = current_element.find_next_sibling()
-
-            # Define stop conditions
-            stop = False
-            if isinstance(current_element, Tag):
-                # Another provision that isn't the one we started with
-                if (
-                    current_element != provision_p
-                    and "provision" in current_element.get("class", [])
-                ):
-                    stop = True
-                # A heading tag
-                elif (
-                    current_element.name.startswith("h")
-                    and current_element.name[1:].isdigit()
-                ):
-                    stop = True
-                # A marginalia that is not our starting element
-                elif (
-                    current_element != start_element
-                    and "marginalia" in current_element.get("class", [])
-                ):
-                    stop = True
-                # A footnote
-                elif "footnote" in current_element.get("class", []):
-                    stop = True
-                # Footnote line or annex
-                elif current_element.get("id") in ["footnote-line", "annex"]:
-                    stop = True
-
-            if stop:
+                    marginalia_block.append(next_sibling)
+                else:
+                    # The next non-marginalia tag is our candidate for the provision.
+                    provision_candidate = next_sibling
+                    break
+            elif isinstance(next_sibling, str) and next_sibling.strip():
+                # Stop if we hit a non-empty text node.
+                provision_candidate = None
                 break
+        else:  # No more siblings
+            provision_candidate = None
 
-            # Move the element and update the current element for the next loop iteration
-            prov_container.append(current_element)
-            current_element = next_sibling
+        # 2. Check if the element immediately following the marginalia block is a provision.
+        if (
+            provision_candidate
+            and provision_candidate.name == "p"
+            and "provision" in provision_candidate.get("class", [])
+        ):
+            # We found a valid block: marginalia(s) + provision.
+            provision_p = provision_candidate
+
+            # Now, collect all elements for this block to be moved.
+            elements_to_move = marginalia_block + [provision_p]
+
+            # 3. Collect subsequent elements until a stop condition.
+            for next_elem in provision_p.find_next_siblings():
+                stop = False
+                if isinstance(next_elem, Tag):
+                    classes = next_elem.get("class", [])
+                    elem_id = next_elem.get("id", "")
+                    elem_name = next_elem.name
+
+                    # Stop if we encounter the start of the *next* block.
+                    if (
+                        (
+                            elem_name == "p"
+                            and ("provision" in classes or "marginalia" in classes)
+                        )
+                        or (elem_name.startswith("h") and elem_name[1:].isdigit())
+                        or (elem_id in ["footnote-line", "annex"])
+                        or (elem_name == "p" and "footnote" in classes)
+                        or (elem_name == "table")
+                    ):
+                        stop = True
+
+                if stop:
+                    break
+
+                elements_to_move.append(next_elem)
+
+            # 4. Create the container and move the collected elements.
+            if elements_to_move:
+                prov_container = soup.new_tag("div", **{"class": "provision-container"})
+                block_start_element.insert_before(prov_container)
+
+                for elem in elements_to_move:
+                    prov_container.append(elem)
 
     return soup
 
@@ -1064,14 +1067,14 @@ def main(
             if law_page_url:
                 annex_info.clear()
                 annex_info.append(
-                    "Achtung: Anhänge weisen oft Konvertierungsfehler auf. Bitte überpürfe die "
+                    "ACHTUNG: Anhänge weisen oft Konvertierungsfehler auf. Ein manueller Vergleich mit der "
                 )
                 link: Tag = soup.new_tag("a", href=law_page_url, target="_blank")
                 link.string = "Originalquelle"
                 annex_info.append(link)
-                annex_info.append(".")
+                annex_info.append(" wird dringend empfohlen.")
             else:
-                annex_info.string = "Achtung: Anhänge weisen oft Konvertierungsfehler auf. Bitte überpürfe die Originalquelle."
+                annex_info.string = "Achtung: Anhänge weisen oft Konvertierungsfehler auf. Ein Vergleich mit der Originalquelle wird dringend empfohlen."
             annex.insert(0, annex_info)
 
     soup = insert_header(soup)
