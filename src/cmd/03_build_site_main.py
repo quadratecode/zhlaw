@@ -95,7 +95,7 @@ def process_html_file(args):
 
         # Create output folders if needed
         if not os.path.exists(collection_path):
-            os.makedirs(collection_path)
+            os.makedirs(collection_path, exist_ok=True)
 
         # Update metadata file if relevant
         if file_type in ["old_html", "new_html"]:
