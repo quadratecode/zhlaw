@@ -678,7 +678,7 @@ def wrap_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
                     or (elem_name == "p" and "marginalia" in classes)
                     or (elem_name.startswith("h") and elem_name[1:].isdigit())
                     or (elem_id in ["footnote-line", "annex"])
-                    or (elem_name == "table")
+                    or (elem_name == "table" and "law-data-table" not in classes)
                     or (elem_name == "p" and "footnote" in classes)
                     or (
                         elem_name == "p"
