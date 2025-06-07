@@ -1073,14 +1073,14 @@ def main(
             if law_page_url:
                 annex_info.clear()
                 annex_info.append(
-                    "ACHTUNG: Anhänge weisen oft Konvertierungsfehler auf. Ein manueller Vergleich mit der "
+                    "ACHTUNG: Anhänge weisen oft Konvertierungsfehler auf. Ein Vergleich mit der "
                 )
                 link: Tag = soup.new_tag("a", href=law_page_url, target="_blank")
                 link.string = "Originalquelle"
                 annex_info.append(link)
-                annex_info.append(" wird dringend empfohlen.")
+                annex_info.append(" wird ausdrücklich empfohlen.")
             else:
-                annex_info.string = "Achtung: Anhänge weisen oft Konvertierungsfehler auf. Ein Vergleich mit der Originalquelle wird dringend empfohlen."
+                annex_info.string = "Achtung: Anhänge weisen oft Konvertierungsfehler auf. Ein Vergleich mit der Originalquelle wird ausdrücklich empfohlen."
             annex.insert(0, annex_info)
 
     soup = insert_header(soup)
