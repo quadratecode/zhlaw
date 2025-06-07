@@ -129,6 +129,12 @@ def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
         dark_mode_script: Tag = soup.new_tag("script", src="/dark-mode.js", defer=True)
         head.append(dark_mode_script)
 
+        # Add anchor handling script
+        anchor_handling_script: Tag = soup.new_tag(
+            "script", src="/anchor-handling.js", defer=True
+        )
+        head.append(anchor_handling_script)
+
         # Add version comparison script
         # TODO: Uncomment if diffs are needed (see block in build_site)
         # version_comparison_script: Tag = soup.new_tag(
