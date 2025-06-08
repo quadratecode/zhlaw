@@ -47,7 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * This function handles the custom scrolling to an anchor with an offset.
-     * It is now also called from the click handler for dynamic scrolling.
      */
     function scrollToAnchorWithOffset(hash) {
         if (hash) {
@@ -77,20 +76,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const clickedHash = anchor.hash;
         const currentHash = window.location.hash;
+        const isFootnoteRefClick = !!anchor.closest('sup.footnote-ref');
 
-        if (clickedHash && clickedHash === currentHash) {
-            history.pushState("", document.title, window.location.pathname + window.location.search);
-            applyHighlight();
-        } else {
+        if (isFootnoteRefClick) {
+            // A footnote reference in the main text was clicked.
+            // Always refresh the selection and scroll, even if it's the same footnote.
             history.pushState(null, '', clickedHash);
             applyHighlight();
-            // MODIFICATION: Add manual scroll on click
             scrollToAnchorWithOffset(clickedHash);
+        } else {
+            // This is not a footnote reference (e.g., a provision or a footnote number at the bottom).
+            if (clickedHash && clickedHash === currentHash) {
+                // This handles deselecting by clicking the same link again (like the footnote number at the bottom).
+                history.pushState("", document.title, window.location.pathname + window.location.search);
+                applyHighlight();
+                // No scroll on deselect.
+            } else {
+                // This handles selecting a new, non-footnote-ref link (e.g., a provision).
+                history.pushState(null, '', clickedHash);
+                applyHighlight();
+                // No scroll, as per the previous request.
+            }
         }
     });
 
     // --- Event Listener for Browser History (Back/Forward buttons) ---
-    window.addEventListener('hashchange', applyHighlight);
+    // The hashchange event should also trigger a scroll.
+    window.addEventListener('hashchange', () => {
+        applyHighlight();
+        scrollToAnchorWithOffset(window.location.hash);
+    });
 
 
     // --- Initial Page Load Actions ---
