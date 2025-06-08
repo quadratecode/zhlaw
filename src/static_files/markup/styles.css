@@ -883,14 +883,12 @@ body {
     font-weight: var(--font-weight-regular);
 }
 
-/* MODIFICATION START: Updated footnote styling */
 .footnote {
     display: grid;
     grid-template-columns: 2.5em 1fr;
     gap: 1.8em;
     align-items: baseline;
     margin-bottom: 0.5em;
-    border-radius: 5px;
 }
 
 .footnote>sup {
