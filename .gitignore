@@ -162,6 +162,8 @@ public_test
 !**/static_files/markup/
 temp
 htmldiff
+.idea
+_notes
 
 # Deployment
 deploy.sh
