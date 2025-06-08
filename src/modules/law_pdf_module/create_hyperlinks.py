@@ -124,10 +124,23 @@ def find_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
-def merge_footnotes(soup: BeautifulSoup) -> BeautifulSoup:
+def count_footnote_numbers(soup: BeautifulSoup) -> Dict[str, int]:
+    """Counts occurrences of each footnote number before they are merged."""
+    counts = {}
+    footnote_paragraphs: List[Tag] = soup.find_all("p", class_="footnote")
+    for p in footnote_paragraphs:
+        if p.sup:
+            num = p.sup.get_text(strip=True)
+            if num.isdigit():
+                counts[num] = counts.get(num, 0) + 1
+    return counts
+
+
+def merge_footnotes(soup: BeautifulSoup, seq_counter: Dict[str, int]) -> BeautifulSoup:
     """
     Merge footnotes by combining adjacent paragraphs with the 'footnote' class.
     The <sup> text from the first encountered footnote starts a new merged paragraph.
+    A unique, sequential ID is assigned, and the number is made into a clickable anchor.
     """
     footnote_paragraphs: List[Tag] = soup.find_all("p", class_="footnote")
     new_paragraphs: List[tuple] = []
@@ -138,29 +151,47 @@ def merge_footnotes(soup: BeautifulSoup) -> BeautifulSoup:
         if p.sup:
             if current_text_parts:
                 new_paragraphs.append((sup_number, " ".join(current_text_parts)))
-                current_text_parts = []
-            sup_number = p.sup.extract().get_text()
+            current_text_parts = []
+            sup_number = p.sup.extract().get_text(strip=True)
         current_text_parts.append(p.get_text())
 
     if current_text_parts:
         new_paragraphs.append((sup_number, " ".join(current_text_parts)))
 
-    # Remove existing footnote paragraphs from the document
     for p in footnote_paragraphs:
         p.decompose()
 
-    # Create new merged footnote paragraphs and append them to the source-text div
     source_div: Optional[Tag] = soup.find("div", id="source-text")
     if not source_div:
         logger.warning(
             "No div with id 'source-text' found; merged footnotes will not be appended."
         )
+
     for sup_num, text in new_paragraphs:
+        if not sup_num or not sup_num.isdigit():
+            continue
+
         new_p: Tag = soup.new_tag("p", **{"class": "footnote"})
+
+        # Assign a unique, sequential ID
+        seq = seq_counter.get(sup_num, 0)
+        id_str = f"seq-{seq}-ftn-{sup_num}"
+        new_p["id"] = id_str
+        seq_counter[sup_num] = seq + 1
+
+        # Create the <sup> tag with a self-referencing anchor
         sup_tag: Tag = soup.new_tag("sup")
-        sup_tag.string = str(sup_num)
+        a_tag = soup.new_tag("a", href=f"#{id_str}")
+        # MODIFICATION: Wrap number in square brackets
+        a_tag.string = f"[{sup_num}]"
+        sup_tag.append(a_tag)
         new_p.append(sup_tag)
-        new_p.append(text)
+
+        # Wrap the text content in a span for styling
+        content_span = soup.new_tag("span", attrs={"class": "footnote-content"})
+        content_span.string = " " + text.strip()
+        new_p.append(content_span)
+
         if source_div:
             source_div.append(new_p)
 
@@ -363,10 +394,13 @@ def find_footnotes(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
-def handle_footnotes_refs(soup: BeautifulSoup) -> BeautifulSoup:
+def handle_footnotes_refs(
+    soup: BeautifulSoup, footnote_counts: Dict[str, int]
+) -> BeautifulSoup:
     """
-    Process the body text to replace footnote reference numbers with <sup> tags containing hyperlinks.
-    Excludes elements that already contain Ziff-number patterns.
+    Process the body text to replace footnote reference numbers with <sup> tags
+    containing hyperlinks. If a footnote number is not unique, it links to the
+    general #footnote-line anchor.
     """
     footnote_refs = soup.find_all(
         lambda tag: tag.name in ["h1", "h2", "h3", "h4", "h5", "h6", "p"]
@@ -380,8 +414,18 @@ def handle_footnotes_refs(soup: BeautifulSoup) -> BeautifulSoup:
         footnote_nums = FOOTNOTE_REF_NUM_PATTERN.findall(text)
         ref.clear()
         for num in footnote_nums:
+            count = footnote_counts.get(num, 0)
+
+            # If the number appears more than once or not at all, link to the general line.
+            if count != 1:
+                href = "#footnote-line"
+            # If it's unique, link to its specific ID.
+            else:
+                # The sequence number for a unique footnote will always be 0.
+                href = f"#seq-0-ftn-{num}"
+
             sup_tag = soup.new_tag("sup", **{"class": "footnote-ref"})
-            a_tag = soup.new_tag("a", href="#footnote-line")
+            a_tag = soup.new_tag("a", href=href)
             a_tag.append(f"[{num}]")
             sup_tag.append(a_tag)
             ref.append(sup_tag)
@@ -413,8 +457,13 @@ def main(merged_html_law: str, updated_json_file_law: str) -> None:
     soup = find_enumerations(soup)
     soup = find_footnotes(soup)
     soup = refine_footnotes(soup)
-    soup = merge_footnotes(soup)
-    soup = handle_footnotes_refs(soup)
+
+    # New logic: Count footnotes first, then merge and link
+    footnote_counts = count_footnote_numbers(soup)
+    seq_counter = {}  # Initialize a fresh sequence counter for this run
+    soup = merge_footnotes(soup, seq_counter)
+    soup = handle_footnotes_refs(soup, footnote_counts)
+
     soup = hyperlink_provisions_and_subprovisions(soup)
     soup = merge_numbered_paragraphs(soup)
     soup = update_html_with_hyperlinks(hyperlinks, soup)
