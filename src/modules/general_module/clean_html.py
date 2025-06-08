@@ -76,44 +76,33 @@ def assign_enum_level(soup: BeautifulSoup) -> BeautifulSoup:
     Assigns enumeration levels to paragraphs with enum classes.
 
     For paragraphs with a class starting with "enum-":
-      - If the enum class is "enum-lit", assign "first-level".
-      - Otherwise (e.g. "enum-ziff" or "enum-dash"):
-          - If the previous enum paragraph exists and its enum class is the same,
-            continue using its level.
-          - Otherwise, assign "second-level".
+      - The first enum type encountered after a non-enum paragraph establishes the first level.
+      - Subsequent different types are considered second level.
     """
     paragraphs: List[Tag] = soup.find_all("p")
-    prev_enum = None  # Will store a tuple (enum_class, level) for the last encountered enum paragraph
+    first_level_type = None
 
     for p in paragraphs:
         classes: List[str] = p.get("class", [])
-        # Look for an enum class in the paragraph's classes.
         enum_classes = [cls for cls in classes if cls.startswith(ENUM_PREFIX)]
+
         if not enum_classes:
-            continue  # Skip paragraphs that do not have an enum class
+            # Not an enum paragraph, so reset for the next list
+            first_level_type = None
+            continue
 
-        # Assume one enum class per paragraph.
-        current_enum = enum_classes[0]
+        current_enum_type = enum_classes[0]
 
-        if current_enum == "enum-lit":
-            # Always assign first-level for "enum-lit"
-            current_level = "first-level"
+        if first_level_type is None:
+            first_level_type = current_enum_type
+
+        if current_enum_type == first_level_type:
+            level_class = "first-level"
         else:
-            # For non-"enum-lit", check the preceding enum paragraph.
-            if prev_enum is None:
-                current_level = "second-level"
-            else:
-                prev_enum_class, prev_level = prev_enum
-                if prev_enum_class == current_enum:
-                    current_level = prev_level
-                else:
-                    current_level = "second-level"
+            level_class = "second-level"
 
-        # Append the level to the paragraph's class list using the tag's attribute dictionary.
-        p.attrs.setdefault("class", []).append(current_level)
-
-        # Update the previous enum info.
-        prev_enum = (current_enum, current_level)
+        if level_class not in classes:
+            p.attrs.setdefault("class", []).append(level_class)
 
     return soup
 
