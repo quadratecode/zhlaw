@@ -618,7 +618,7 @@ def consolidate_enum_paragraphs(soup: BeautifulSoup) -> BeautifulSoup:
 
                 # Find the span that holds the enumeration content.
                 content_span = current.find("span", class_="enum-content")
-                
+
                 # If no content span exists, we cannot merge into it. Stop merging for this paragraph.
                 if not content_span:
                     break
@@ -1095,7 +1095,7 @@ def main(
                 link: Tag = soup.new_tag("a", href=law_page_url, target="_blank")
                 link.string = "Originalquelle"
                 annex_info.append(link)
-                annex_info.append("oft Konvertierungsfehler auf.")
+                annex_info.append(" oft Konvertierungsfehler auf.")
             else:
                 annex_info.string = "ACHTUNG: Anhänge weisen im Vergleich zur Originalquelle oft Konvertierungsfehler auf."
             annex.insert(0, annex_info)
