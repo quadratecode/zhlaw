@@ -33,6 +33,7 @@
     --light-purple: #eee7ff;
     --dark-purple: #280059;
     --light-orange: #ff8800;
+    --light-anchor: #ffd8b1;
     --disabled-grey: rgb(205, 205, 205);
 
     /* Dark Mode Colors */
@@ -53,6 +54,7 @@
     --dark-light-purple: #38236e;
     --dark-dark-purple: #d3c5ff;
     --dark-orange: #ff9933;
+    --dark-anchor: #4d382a;
     --dark-disabled-grey: rgb(100, 100, 100);
 
     /* Font Weights */
@@ -89,6 +91,7 @@
     --light-purple: var(--dark-light-purple);
     --dark-purple: var(--dark-dark-purple);
     --disabled-grey: var(--dark-disabled-grey);
+    --light-anchor: var(--dark-anchor);
 }
 
 /* * System preference based dark mode - applied only when:
@@ -225,7 +228,7 @@ body {
 
 .provision-container.highlight,
 .subprovision-container.highlight {
-    background-color: var(--hover-blue);
+    background-color: var(--light-anchor);
     border-radius: 5px;
     transition: background-color 0.3s ease-in-out;
 }

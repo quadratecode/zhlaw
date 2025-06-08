@@ -18,7 +18,7 @@ DEFAULT_TEXT_SIZE = 12
 PROVISION_PATTERN = re.compile(
     r"^(§\s*\d+\s*[a-zA-Z]?\s*\.)|^(art\.\s*\d+\s*[a-zA-Z]?)", re.IGNORECASE
 )
-NUMBER_LETTER_PATTERN = re.compile(r"(\d+)\s*([a-zA-Z]?)")
+NUMBER_LETTER_PATTERN = re.compile(r"(\d+)\s*([a-zA-Z]*)")
 SUPER_SCRIPT_PATTERN = re.compile(r"^\s*<sup>\s*\d+\s*</sup>\s*$", re.IGNORECASE)
 provision_sequences = {}
 

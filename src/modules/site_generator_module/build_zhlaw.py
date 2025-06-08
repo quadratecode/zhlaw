@@ -618,12 +618,19 @@ def consolidate_enum_paragraphs(soup: BeautifulSoup) -> BeautifulSoup:
 
                 # Find the span that holds the enumeration content.
                 content_span = current.find("span", class_="enum-content")
-                if content_span and len(content_span.contents) > 0:
-                    # Append a space if the span already has content.
+                
+                # If no content span exists, we cannot merge into it. Stop merging for this paragraph.
+                if not content_span:
+                    break
+
+                # Append a space if the span already has content.
+                if len(content_span.contents) > 0:
                     content_span.append(" ")
+
                 # Move all child elements from the next paragraph to the content span.
                 while next_p.contents:
                     content_span.append(next_p.contents[0])
+
                 # Remove the now empty paragraph from the DOM.
                 next_p.decompose()
                 next_idx += 1
@@ -632,12 +639,6 @@ def consolidate_enum_paragraphs(soup: BeautifulSoup) -> BeautifulSoup:
             continue
         i += 1
     return soup
-
-
-from bs4 import BeautifulSoup, Tag
-
-
-from bs4 import BeautifulSoup, Tag
 
 
 def wrap_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
@@ -811,61 +812,78 @@ def merge_paragraphs_with_footnote_refs(soup: BeautifulSoup) -> BeautifulSoup:
 
 def wrap_provisions(soup: BeautifulSoup) -> BeautifulSoup:
     """
-    Wraps a block starting with one or more marginalia, followed by a provision,
-    and its related content into a div with class 'provision-container'.
+    Wraps blocks starting with marginalia or provisions into a 'provision-container'.
+    A block can start with one or more marginalia followed by a provision, or just a provision.
+    This version correctly handles laws that do not have any marginalia.
     """
-    # Find all potential starting points of a block: a p.marginalia
-    all_marginalia = soup.find_all("p", class_="marginalia")
+    # Use a set to keep track of elements that have already been moved into a container
+    # to avoid processing them multiple times.
+    processed_elements = set()
 
-    for marginalia_p in all_marginalia:
-        # If this marginalia is already in a container, it has been processed.
-        if marginalia_p.find_parent("div", class_="provision-container"):
+    # Find all 'p' tags that are either a 'marginalia' or a 'provision'
+    # as these are the potential starting points of a law block.
+    potential_starters = soup.find_all("p", class_=["marginalia", "provision"])
+
+    for starter in potential_starters:
+        # If this element has already been moved into a container, skip it.
+        if starter in processed_elements:
             continue
 
-        # This marginalia is the start of our potential block.
-        block_start_element = marginalia_p
+        elements_to_move = []
+        is_marginalia_starter = "marginalia" in starter.get("class", [])
 
-        # 1. Collect the initial block of one or more consecutive marginalia.
-        marginalia_block = [marginalia_p]
-        provision_candidate = None
-        for next_sibling in marginalia_p.find_next_siblings():
-            if isinstance(next_sibling, Tag):
-                if next_sibling.name == "p" and "marginalia" in next_sibling.get(
-                    "class", []
-                ):
-                    marginalia_block.append(next_sibling)
-                else:
-                    # The next non-marginalia tag is our candidate for the provision.
-                    provision_candidate = next_sibling
+        # The actual start of the block is the first element to be moved.
+        block_start_element = starter
+
+        # Case 1: The block starts with one or more marginalia.
+        if is_marginalia_starter:
+            marginalia_block = []
+            current_elem = starter
+            # Collect all consecutive marginalia.
+            while (
+                current_elem
+                and isinstance(current_elem, Tag)
+                and current_elem.name == "p"
+                and "marginalia" in current_elem.get("class", [])
+            ):
+                marginalia_block.append(current_elem)
+                current_elem = current_elem.find_next_sibling()
+                while current_elem and isinstance(current_elem, str):  # Skip whitespace
+                    current_elem = current_elem.find_next_sibling()
+
+            # A marginalia block must be followed by a provision.
+            provision_candidate = current_elem
+            if (
+                provision_candidate
+                and isinstance(provision_candidate, Tag)
+                and provision_candidate.name == "p"
+                and "provision" in provision_candidate.get("class", [])
+            ):
+                elements_to_move.extend(marginalia_block)
+                elements_to_move.append(provision_candidate)
+            else:
+                # This is a "stray" marginalia block not followed by a provision, so we don't wrap it.
+                continue
+
+        # Case 2: The block starts with a provision (no preceding marginalia).
+        else:  # The starter must be a provision
+            elements_to_move.append(starter)
+
+        # Collect all subsequent content until a "stop" element is found.
+        if elements_to_move:
+            last_element_in_block = elements_to_move[-1]
+            for next_elem in last_element_in_block.find_next_siblings():
+                # Don't re-process elements.
+                if next_elem in processed_elements:
                     break
-            elif isinstance(next_sibling, str) and next_sibling.strip():
-                # Stop if we hit a non-empty text node.
-                provision_candidate = None
-                break
-        else:  # No more siblings
-            provision_candidate = None
 
-        # 2. Check if the element immediately following the marginalia block is a provision.
-        if (
-            provision_candidate
-            and provision_candidate.name == "p"
-            and "provision" in provision_candidate.get("class", [])
-        ):
-            # We found a valid block: marginalia(s) + provision.
-            provision_p = provision_candidate
-
-            # Now, collect all elements for this block to be moved.
-            elements_to_move = marginalia_block + [provision_p]
-
-            # 3. Collect subsequent elements until a stop condition.
-            for next_elem in provision_p.find_next_siblings():
                 stop = False
                 if isinstance(next_elem, Tag):
                     classes = next_elem.get("class", [])
                     elem_id = next_elem.get("id", "")
                     elem_name = next_elem.name
 
-                    # Stop if we encounter the start of the *next* block.
+                    # Stop conditions: another provision/marginalia, a heading, a table, or a major separator.
                     if (
                         (
                             elem_name == "p"
@@ -883,13 +901,14 @@ def wrap_provisions(soup: BeautifulSoup) -> BeautifulSoup:
 
                 elements_to_move.append(next_elem)
 
-            # 4. Create the container and move the collected elements.
-            if elements_to_move:
-                prov_container = soup.new_tag("div", **{"class": "provision-container"})
-                block_start_element.insert_before(prov_container)
+        # Create the container and move the collected elements into it.
+        if elements_to_move:
+            prov_container = soup.new_tag("div", **{"class": "provision-container"})
+            block_start_element.insert_before(prov_container)
 
-                for elem in elements_to_move:
-                    prov_container.append(elem)
+            for elem in elements_to_move:
+                prov_container.append(elem)
+                processed_elements.add(elem)
 
     return soup
 
@@ -1072,15 +1091,13 @@ def main(
             law_page_url: Any = doc_info.get("law_page_url")
             if law_page_url:
                 annex_info.clear()
-                annex_info.append(
-                    "ACHTUNG: Anhänge weisen oft Konvertierungsfehler auf. Ein Vergleich mit der "
-                )
+                annex_info.append("ACHTUNG: Anhänge weisen im Vergleich zur ")
                 link: Tag = soup.new_tag("a", href=law_page_url, target="_blank")
                 link.string = "Originalquelle"
                 annex_info.append(link)
-                annex_info.append(" wird ausdrücklich empfohlen.")
+                annex_info.append("oft Konvertierungsfehler auf.")
             else:
-                annex_info.string = "Achtung: Anhänge weisen oft Konvertierungsfehler auf. Ein Vergleich mit der Originalquelle wird ausdrücklich empfohlen."
+                annex_info.string = "ACHTUNG: Anhänge weisen im Vergleich zur Originalquelle oft Konvertierungsfehler auf."
             annex.insert(0, annex_info)
 
     soup = insert_header(soup)

@@ -210,6 +210,8 @@ def convert_html_to_md(html_content, metadata, ordnungsnummer, nachtragsnummer):
         else:
             marginalia.decompose()
 
+    soup = BeautifulSoup(str(soup), "html.parser")
+
     # 10. Generate markdown content using markdownify
     md_content = md(str(soup), heading_style="ATX", links="inline")
 

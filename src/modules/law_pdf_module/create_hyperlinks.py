@@ -84,8 +84,6 @@ def find_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
     are marked with class 'subprovision' and assigned an ID referencing the last provision.
     """
     last_provision_id: Optional[str] = None
-    last_prov_seq_num: Optional[str] = None
-    last_prov_num: Optional[str] = None
 
     # Filter paragraphs based on specific attribute conditions.
     for paragraph in soup.find_all(
@@ -99,33 +97,29 @@ def find_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
         },
     ):
         text: str = paragraph.get_text(strip=True)
-        # Check if paragraph has an ID of the form "seq-X-prov-Y"
-        provision_match = re.match(
-            r"^seq-(\d+)-prov-(\d+)([a-zA-Z]*|[a-zA-Z]+er)$", paragraph.get("id", "")
-        )
-        if provision_match:
-            seq_num, num, suffix = provision_match.groups()
-            last_provision_id = f"{seq_num}-prov-{num}{suffix}"
-            last_prov_seq_num = seq_num
-            last_prov_num = num
+
+        # When we find a paragraph that is a provision, we store its ID.
+        # This check is simpler and more robust than trying to re-parse the ID.
+        if "provision" in paragraph.get("class", []):
+            current_id = paragraph.get("id")
+            if current_id:  # Make sure it has an ID
+                last_provision_id = current_id
 
         # If text matches subprovision pattern, mark it as subprovision
         if SUBPROVISION_PATTERN.match(text):
             paragraph["class"] = ["subprovision"]
-            if (
-                last_provision_id
-                and last_prov_seq_num is not None
-                and last_prov_num is not None
-            ):
+            if last_provision_id:
                 subprov_match = SUBPROVISION_PATTERN.match(text)
-                subprovision_number = subprov_match.group(1)
-                subprov_suffix = (
-                    subprov_match.group(2) if subprov_match.group(2) else ""
-                )
-                # Format without dash between number and word suffix
-                paragraph["id"] = (
-                    f"seq-{last_prov_seq_num}-prov-{last_prov_num}-sub-{subprovision_number}{subprov_suffix.lower()}"
-                )
+                if subprov_match:
+                    subprovision_number = subprov_match.group(1)
+                    subprov_suffix = (
+                        subprov_match.group(2) if subprov_match.group(2) else ""
+                    )
+
+                    # Construct the new ID by simply appending to the last known provision ID.
+                    paragraph["id"] = (
+                        f"{last_provision_id}-sub-{subprovision_number}{subprov_suffix.lower()}"
+                    )
 
     return soup
 
