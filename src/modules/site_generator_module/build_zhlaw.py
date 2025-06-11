@@ -131,7 +131,7 @@ def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
 
         # Add anchor handling script
         anchor_handling_script: Tag = soup.new_tag(
-            "script", src="/anchor-handling.js", defer=True
+            "script", src="/anchor-highlight.js", defer=True
         )
         head.append(anchor_handling_script)
 
