@@ -1,0 +1,51 @@
+/* -----------------------------
+   Base Layout & Reset
+----------------------------- */
+
+/* Reset and contain layout */
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    contain: paint;
+}
+
+/* Basic layout structure */
+.main-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 50rem;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    box-sizing: border-box;
+    transition: margin-top 0.3s ease;
+}
+
+#sidebar {
+    width: 100%;
+    margin-bottom: 2rem;
+    min-height: 100%;
+}
+
+.content {
+    width: 100%;
+    position: relative;
+    min-height: calc(100vh - 350px);
+}
+
+/* Law content basic structure */
+#law,
+.provision,
+.subprovision {
+    font-family: var(--font-text);
+}
+
+#law {
+    font-weight: var(--font-weight-medium);
+}
+
+.provision,
+.subprovision {
+    font-weight: var(--font-weight-bold);
+}

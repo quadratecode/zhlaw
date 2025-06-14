@@ -1,0 +1,60 @@
+/* -----------------------------
+   CSS Variables
+----------------------------- */
+:root {
+    /* Colors */
+    --soft-white: #f8f8f8;
+    --soft-black: #444444;
+    --dark-shade: #171717;
+    --link-blue: rgb(51, 51, 255);
+    --hover-blue: #e0f0ff;
+    --focus-outline-blue: #005fcc;
+    --line-grey: #ccc;
+    --highlight-grey: #eeeeee;
+    --subtle-grey: #f0f0f0;
+    --hover-grey: #e0e0e0;
+    --in-force-green: rgb(199, 255, 199);
+    --in-force-dark-green: darkgreen;
+    --in-force-red: rgb(255, 207, 207);
+    --in-force-dark-red: darkred;
+    --light-purple: #eee7ff;
+    --dark-purple: #280059;
+    --light-orange: #ff8800;
+    --light-anchor: #ffd8b1;
+    --disabled-grey: rgb(205, 205, 205);
+
+    /* Dark Mode Colors */
+    --dark-soft-white: #1c1c1c;
+    --dark-soft-black: #e6e6e6;
+    --dark-dark-shade: #f5f5f5;
+    --dark-link-blue: rgb(100, 149, 237);
+    --dark-hover-blue: #1a2e4a;
+    --dark-focus-outline-blue: #4d94ff;
+    --dark-line-grey: #555;
+    --dark-highlight-grey: #333;
+    --dark-subtle-grey: #2a2a2a;
+    --dark-hover-grey: #3d3d3d;
+    --dark-in-force-green: rgb(39, 85, 39);
+    --dark-in-force-dark-green: lightgreen;
+    --dark-in-force-red: rgb(85, 39, 39);
+    --dark-in-force-dark-red: lightcoral;
+    --dark-light-purple: #38236e;
+    --dark-dark-purple: #d3c5ff;
+    --dark-orange: #ff9933;
+    --dark-anchor: #4d382a;
+    --dark-disabled-grey: rgb(100, 100, 100);
+
+    /* Font Weights */
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-black: 900;
+
+    /* Font Families */
+    --font-text: "Reddit Sans", Bahnschrift, 'DIN Alternate', 'Franklin Gothic Medium', 'Nimbus Sans Narrow', sans-serif-condensed, sans-serif;
+    --font-code: "Reddit Mono", ui-monospace, 'Cascadia Code', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+
+    /* Base Size */
+    --base-font-size: 18px;
+}

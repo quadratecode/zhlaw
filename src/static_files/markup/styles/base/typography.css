@@ -1,0 +1,147 @@
+/* -----------------------------
+   Font Faces & Typography
+----------------------------- */
+@font-face {
+    font-family: 'Reddit Mono';
+    src: url('../../RedditMono[wght].woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Reddit Sans';
+    src: url('../../RedditSans[wght].woff2') format('woff2');
+}
+
+/* Base Typography */
+html {
+    font-size: var(--base-font-size);
+    font-weight: var(--font-weight-medium);
+    background: var(--soft-white);
+}
+
+body {
+    font-family: var(--font-text);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.55;
+    color: var(--soft-black);
+    min-height: 100vh;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+}
+
+#source-text {
+    line-height: 1.4
+}
+
+/* Headings */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+#annex summary {
+    font-family: var(--font-text);
+    font-weight: var(--font-weight-bold);
+    color: var(--dark-shade);
+    line-height: 1.3;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
+
+h1 {
+    font-size: 1.7rem;
+    margin-top: 0;
+}
+
+h2,
+#annex summary {
+    font-size: 1.45rem;
+}
+
+h3 {
+    font-size: 1.35rem;
+}
+
+h4,
+h5,
+h6 {
+    font-size: 1.25rem;
+}
+
+h1+h1,
+h2+h2,
+h3+h3,
+h4+h4,
+h5+h5,
+h6+h6 {
+    margin-top: 0.75em;
+}
+
+/* Links */
+a {
+    text-decoration: underline;
+    color: var(--link-blue);
+    text-decoration-thickness: .1em;
+    text-decoration-skip-ink: auto;
+    text-underline-offset: 0.22em;
+}
+
+a:hover,
+a:focus {
+    background-color: var(--hover-blue);
+}
+
+a:focus {
+    outline: 2px solid var(--focus-outline-blue);
+}
+
+/* Special Typography */
+.marginalia {
+    font-size: 1.25em;
+    color: var(--dark-shade);
+}
+
+/* Base styles for enumerated paragraphs */
+p[class*="enum-"] {
+    display: block;
+    position: relative;
+}
+
+/* Unified box-sizing for first- and second-level paragraphs */
+.first-level,
+.second-level {
+    box-sizing: border-box;
+}
+
+/* First-level indentation */
+.first-level {
+    padding-left: 3rem;
+}
+
+.first-level .enum-enumerator {
+    position: absolute;
+    left: 1rem;
+    width: 2rem;
+    text-align: left;
+}
+
+.first-level .enum-content {
+    display: block;
+}
+
+/* Second-level indentation */
+.second-level {
+    padding-left: 5rem;
+}
+
+.second-level .enum-enumerator {
+    position: absolute;
+    left: 3rem;
+    width: 2rem;
+    text-align: left;
+}
+
+.second-level .enum-content {
+    display: block;
+}

@@ -1,0 +1,212 @@
+/* -----------------------------
+   Responsive Design
+----------------------------- */
+
+/* Responsive adjustments for dark mode toggle and header alignment */
+@media (max-width: 768px) {
+    .search-container {
+        margin-right: 0.5rem;
+        height: 50px;
+    }
+
+    .dark-mode-toggle-container {
+        margin-right: 0.5rem;
+        height: 50px;
+    }
+
+    #dark-mode-toggle {
+        padding: 0.4rem;
+    }
+
+    #dark-mode-toggle svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    .header-logo {
+        height: 50px;
+    }
+
+    .logo-container {
+        height: 50px;
+    }
+
+    /* Handle the UI when search results are displayed */
+    #page-header:has(.pagefind-ui__results) .dark-mode-toggle-container {
+        transform: scale(0.9);
+    }
+}
+
+@media (max-width: 480px) {
+    .search-container {
+        height: 42px;
+    }
+
+    .dark-mode-toggle-container {
+        height: 42px;
+        margin-right: 0.3rem;
+    }
+
+    #dark-mode-toggle {
+        padding: 0.3rem;
+    }
+
+    #dark-mode-toggle svg {
+        width: 22px;
+        height: 22px;
+    }
+
+    .header-logo {
+        height: 42px;
+    }
+
+    .logo-container {
+        height: 42px;
+    }
+}
+
+/* Large screens */
+@media (min-width: 1200px) {
+    .main-container {
+        max-width: 75rem;
+        flex-direction: row;
+        gap: 2rem;
+        align-items: stretch;
+        padding: 0 2rem;
+    }
+
+    #sidebar {
+        width: 300px;
+        flex-shrink: 0;
+        margin-bottom: 0;
+        min-height: 100%;
+    }
+
+    .content {
+        flex: 1;
+        max-width: 50rem;
+        margin-left: 2rem;
+    }
+
+    .header-content {
+        max-width: 75rem;
+        padding: 1rem 2rem;
+        margin: 0 auto;
+    }
+}
+
+/* Tablet and smaller */
+@media (max-width: 768px) {
+    body {
+        --pagefind-ui-scale: 0.9;
+    }
+
+    html {
+        font-size: 16px;
+    }
+
+    .main-container {
+        padding: 0 1.5rem 0 3rem;
+        margin: 1rem auto;
+    }
+
+    .header-content {
+        padding: 0.75rem 1.5rem 0.75rem 3rem;
+        gap: 0.75rem;
+        margin-top: 0.1rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .subprovision-container .subprovision {
+        left: -2.5rem;
+        width: 2.5rem;
+    }
+
+    .first-level {
+        padding-left: 2.5rem;
+    }
+
+    .first-level .enum-enumerator {
+        left: 0.5rem;
+    }
+
+    .second-level {
+        padding-left: 4.5rem;
+    }
+
+    .second-level .enum-enumerator {
+        left: 2.5rem;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    h2 {
+        font-size: 1.25rem;
+    }
+
+    /* Responsive adjustments */
+    .logo-container {
+        transform-origin: right center;
+        transform: scale(0.8);
+    }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+    html {
+        font-size: 14px;
+    }
+
+    .main-container {
+        padding: 0 1rem 0 2.5rem;
+    }
+
+    .header-content {
+        padding: 0.5rem 1rem 0.5rem 2.5rem;
+        margin-top: 0.1rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .subprovision-container .subprovision {
+        left: -2rem;
+        width: 2rem;
+    }
+
+    .nav-button {
+        padding: 0.4rem;
+    }
+
+    .nav-symbol {
+        font-size: 1.5rem;
+    }
+
+    .nav-text {
+        font-size: 0.75rem;
+    }
+
+    .metadata-container {
+        padding: 0.5rem;
+    }
+
+    .first-level {
+        padding-left: 2.5rem;
+    }
+
+    .first-level .enum-enumerator {
+        left: 0.5rem;
+    }
+
+    .second-level {
+        padding-left: 4rem;
+    }
+
+    .second-level .enum-enumerator {
+        left: 2rem;
+    }
+
+    body {
+        --pagefind-ui-scale: 0.7;
+    }
+}

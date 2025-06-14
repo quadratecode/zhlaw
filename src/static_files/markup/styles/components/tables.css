@@ -1,0 +1,89 @@
+/* -----------------------------
+   Tables
+----------------------------- */
+
+.law-data-table,
+.dispatch-entry-table {
+    text-align: left;
+    border-collapse: collapse;
+}
+
+.law-data-table th,
+td {
+    border: 1px solid;
+    padding: 0.25rem 0.75rem;
+    vertical-align: top;
+}
+
+.dispatch-entry-table th,
+td {
+    border: 1px solid;
+    padding: 0.25rem 0.75rem;
+    vertical-align: top;
+    word-wrap: break-word;
+}
+
+.law-data-table thead {
+    background-color: var(--subtle-grey);
+    font-weight: var(--font-weight-semibold);
+}
+
+#dispatch-static {
+    font-variant-numeric: tabular-nums;
+}
+
+.dispatch-entry-table {
+    width: 100%;
+    margin-bottom: 20px;
+    table-layout: auto;
+}
+
+.dispatch-entry-table td {
+    width: 150px;
+}
+
+.dispatch-entry-table td+td {
+    width: auto;
+}
+
+.law-change {
+    background-color: var(--in-force-red)
+}
+
+details.dispatch-details summary {
+    font-size: 1.45rem;
+    cursor: pointer;
+}
+
+details.dispatch-details summary h2 {
+    display: inline;
+}
+
+/* RSS Feed Link */
+.rss-subscribe {
+    margin: 10px 0 20px 0;
+    text-align: right;
+}
+
+.rss-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px
+}
+
+.dispatch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 5px 0;
+}
+
+.update-info {
+    font-size: 0.9rem;
+    color: var(--soft-black);
+}
+
+.rss-subscribe {
+    margin: 0;
+}

@@ -1,0 +1,52 @@
+/* -----------------------------
+   Dark Theme
+----------------------------- */
+
+/* Dark mode class - applied when explicitly selected */
+.dark-mode {
+    --soft-white: var(--dark-soft-white);
+    --soft-black: var(--dark-soft-black);
+    --dark-shade: var(--dark-dark-shade);
+    --link-blue: var(--dark-link-blue);
+    --hover-blue: var(--dark-hover-blue);
+    --focus-outline-blue: var(--dark-focus-outline-blue);
+    --line-grey: var(--dark-line-grey);
+    --highlight-grey: var(--dark-highlight-grey);
+    --subtle-grey: var(--dark-subtle-grey);
+    --hover-grey: var(--dark-hover-grey);
+    --in-force-green: var(--dark-in-force-green);
+    --in-force-dark-green: var(--dark-in-force-dark-green);
+    --in-force-red: var(--dark-in-force-red);
+    --in-force-dark-red: var(--dark-in-force-dark-red);
+    --light-purple: var(--dark-light-purple);
+    --dark-purple: var(--dark-dark-purple);
+    --disabled-grey: var(--dark-disabled-grey);
+    --light-anchor: var(--dark-anchor);
+}
+
+/* System preference based dark mode - applied only when:
+ * 1. System prefers dark mode AND
+ * 2. JavaScript is disabled (meaning no .light-mode class can be added) AND
+ * 3. No .dark-mode class is present (to avoid conflicting with JS-based toggle)
+ */
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode):not(.dark-mode) {
+        --soft-white: var(--dark-soft-white);
+        --soft-black: var(--dark-soft-black);
+        --dark-shade: var(--dark-dark-shade);
+        --link-blue: var(--dark-link-blue);
+        --hover-blue: var(--dark-hover-blue);
+        --focus-outline-blue: var(--dark-focus-outline-blue);
+        --line-grey: var(--dark-line-grey);
+        --highlight-grey: var(--dark-highlight-grey);
+        --subtle-grey: var(--dark-subtle-grey);
+        --hover-grey: var(--dark-hover-grey);
+        --in-force-green: var(--dark-in-force-green);
+        --in-force-dark-green: var(--dark-in-force-dark-green);
+        --in-force-red: var(--dark-in-force-red);
+        --in-force-dark-red: var(--dark-in-force-dark-red);
+        --light-purple: var(--dark-light-purple);
+        --dark-purple: var(--dark-dark-purple);
+        --disabled-grey: var(--dark-disabled-grey);
+    }
+}

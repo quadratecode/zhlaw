@@ -1,0 +1,84 @@
+/* -----------------------------
+   Forms & Search
+----------------------------- */
+
+/* Ensure the input field expands properly */
+.pagefind-ui__search-input {
+    transition: width 0.3s ease;
+    width: 100% !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+#search {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+}
+
+/* Ensure search results appear below the search input */
+.pagefind-ui__wrapper {
+    width: 100%;
+}
+
+.pagefind-ui__wrapper .pagefind-ui__form {
+    width: 100%;
+}
+
+.pagefind-ui__wrapper .pagefind-ui__search {
+    position: relative;
+    width: 100%;
+}
+
+/* Fix positioning of search results */
+.pagefind-ui__wrapper .pagefind-ui__search .pagefind-ui__results {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    margin-top: 0.75rem !important;
+    width: 100% !important;
+    z-index: 10;
+    box-shadow: none !important;
+    border: none !important;
+    background: var(--soft-white) !important;
+}
+
+/* Pagefind UI Variables */
+body {
+    --pagefind-ui-primary: var(--link-blue);
+    --pagefind-ui-text: var(--soft-black);
+    --pagefind-ui-background: transparent;
+    --pagefind-ui-border: var(--soft-black);
+    --pagefind-ui-tag: var(--subtle-grey);
+    --pagefind-ui-border-width: 2px;
+    --pagefind-ui-border-radius: 0px;
+    --pagefind-ui-image-border-radius: 8px;
+    --pagefind-ui-image-box-ratio: 3 / 2;
+    --pagefind-ui-scale: 1;
+    --pagefind-ui-font: var(--font-text);
+}
+
+/* Remove the black border from Pagefind search & results */
+.pagefind-ui__result {
+    border: none !important;
+    padding: 0.5rem 0 !important;
+}
+
+/* Color the result titles in link blue, with standard hover effect */
+.pagefind-ui__result a {
+    color: var(--link-blue) !important;
+    text-decoration: underline !important;
+    text-decoration-skip-ink: auto !important;
+    text-decoration-thickness: .1em !important;
+}
+
+.pagefind-ui__result a:hover,
+.pagefind-ui__result a:focus {
+    background-color: var(--hover-blue) !important;
+}
+
+/* Dark mode fixes for search results */
+.dark-mode .pagefind-ui__results {
+    background-color: var(--soft-white) !important;
+}

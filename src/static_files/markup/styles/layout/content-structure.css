@@ -1,0 +1,82 @@
+/* -----------------------------
+   Content Structure & Law Organization
+----------------------------- */
+
+/* Cascading indentation for nested law levels */
+.details-col .details-col {
+    margin-left: 1.5em;
+}
+
+/* Summary row layout and hanging indent */
+details.details-col summary {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5em;
+    align-items: baseline;
+    cursor: pointer;
+    list-style: none;
+}
+
+/* Cascading indentation for nested law levels */
+.details-col .details-col {
+    margin-left: 3.2em;
+}
+
+/* Summary row layout */
+details.details-col summary {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5em;
+    cursor: pointer;
+    list-style: none;
+    position: relative;
+}
+
+/* Summary row layout */
+details.details-col summary:hover {
+    background-color: var(--highlight-grey);
+}
+
+.summary-col-number {
+    flex: 0 0 2.5em;
+}
+
+/* Perfect hanging indent using pseudo-element */
+.summary-col-text {
+    flex: 1;
+    padding-left: 0.2em;
+    text-indent: -1.78em;
+    display: inline-block;
+    font-weight: var(--font-weight-bold);
+}
+
+/* Fallback for text wrapping */
+.summary-col-text::before {
+    content: "";
+    display: inline-block;
+    width: 1.5em;
+}
+
+/* Law items styling */
+.law-container {
+    margin: 0.5em 0;
+}
+
+.law-item {
+    display: flex;
+    gap: 1.5em;
+    margin: 0.25em 0;
+    margin-left: 3.2em;
+    font-weight: var(--font-weight-medium);
+}
+
+.law-number {
+    flex: 0 0 4em;
+    font-weight: var(--font-weight-semibold);
+}
+
+/* Style for all ancestor summaries in the open path */
+.details-col[open]>summary .summary-col-number,
+.details-col[open]>summary .summary-col-text {
+    color: #2b6caf;
+}

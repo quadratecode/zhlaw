@@ -1,0 +1,137 @@
+/* -----------------------------
+   Header & Navigation
+----------------------------- */
+#page-header {
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    border-bottom: 2px solid var(--soft-black);
+    z-index: 100;
+}
+
+/* Header content with search results present */
+#page-header:has(.pagefind-ui__results) {
+    height: auto;
+    overflow: visible;
+    padding-bottom: 1rem;
+    background-color: var(--soft-white);
+}
+
+/* Updated header layout with search on left, toggle in middle, logo on right */
+.header-content {
+    width: 100%;
+    max-width: 50rem;
+    margin: 0 auto;
+    padding: 1rem;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Search container now on the left */
+.search-container {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    min-width: 0;
+    margin-right: 1rem;
+    margin-left: 0;
+    transition: all 0.3s ease;
+    height: 64px;
+}
+
+/* Dark mode toggle in the middle */
+.dark-mode-toggle-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    transition: all 0.3s ease;
+    height: 64px;
+    flex-shrink: 0;
+}
+
+/* Logo container now on the right */
+.logo-container {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 1;
+    height: 64px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.logo-container a:hover {
+    opacity: 0.75;
+}
+
+.header-logo {
+    display: block;
+    height: 64px;
+    width: auto;
+}
+
+/* Logo color handling for dark mode */
+.dark-mode .header-logo {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* When system preference is dark and JS is disabled */
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode):not(.dark-mode) .header-logo {
+        filter: invert(1) hue-rotate(180deg);
+    }
+}
+
+/* When search results are visible, hide toggle and logo */
+#page-header:has(.pagefind-ui__results) .dark-mode-toggle-container,
+#page-header:has(.pagefind-ui__results) .logo-container {
+    opacity: 0;
+    width: 0;
+    margin: 0;
+    transform: translateX(20px);
+    overflow: hidden;
+}
+
+/* Search container expands to full width when results are shown */
+#page-header:has(.pagefind-ui__results) .search-container {
+    margin-right: 0;
+    width: 100%;
+    height: auto;
+}
+
+/* Push down main content when search results appear */
+#page-header:has(.pagefind-ui__results)+.main-container {
+    margin-top: 1rem;
+}
+
+/* Dark mode toggle button */
+#dark-mode-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--soft-black);
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+#dark-mode-toggle svg {
+    width: 28px;
+    height: 28px;
+}
+
+#dark-mode-toggle:hover {
+    background-color: var(--hover-grey);
+}

@@ -1,0 +1,126 @@
+/* -----------------------------
+   Sidebar & Navigation Elements
+----------------------------- */
+
+/* Metadata Layout */
+#status-message {
+    text-align: center;
+    padding: 0.75rem;
+    font-weight: var(--font-weight-bold);
+    margin-bottom: 0.5rem;
+}
+
+#status-message.in-force-yes {
+    border: 1px solid var(--in-force-dark-green);
+    background-color: var(--in-force-green);
+    color: var(--in-force-dark-green);
+}
+
+#status-message.in-force-no {
+    border: 1px solid var(--in-force-dark-red);
+    background-color: var(--in-force-red);
+    color: var(--in-force-dark-red);
+}
+
+#annex summary {
+    cursor: pointer;
+}
+
+/* Styling the infobox for #annex-info */
+#annex-info {
+    border: 1px solid var(--dark-dark-purple);
+    background-color: var(--light-purple);
+    color: var(--dark-purple);
+    font-weight: var(--font-weight-bold);
+    padding: 1em;
+    margin-top: 0.5em;
+    line-height: 1.5;
+    font-size: 0.95em;
+}
+
+#doc-info {
+    border: 1px solid var(--soft-black);
+    position: static !important;
+    z-index: auto !important;
+    background: transparent !important;
+    font-feature-settings: "tnum";
+    font-size: 0.8rem;
+}
+
+#doc-info summary {
+    padding: 0.75rem;
+    background-color: var(--subtle-grey);
+    cursor: pointer;
+    font-weight: var(--font-weight-bold);
+}
+
+#doc-info summary:hover {
+    background-color: var(--hover-grey);
+}
+
+.metadata-label,
+.metadata-value {
+    margin: 0.3rem 0.5rem;
+    color: var(--soft-black);
+}
+
+.metadata-label {
+    font-weight: var(--font-weight-bold);
+}
+
+.metadata-value {
+    font-weight: var(--font-weight-medium);
+}
+
+.metadata-separator {
+    height: 1px;
+    background-color: var(--line-grey);
+}
+
+#version-container {
+    position: sticky;
+    top: 1rem;
+    margin-top: 0.5rem;
+}
+
+.versions-value {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.version-current {
+    color: var(--link-blue);
+    font-weight: var(--font-weight-black);
+}
+
+/* Links Display Styles */
+.links-container {
+    margin-bottom: 0.5rem;
+}
+
+.links-inner {
+    border: 1px solid var(--soft-black);
+    padding: 0.5rem;
+    font-family: var(--font-text);
+}
+
+.link-title {
+    font-weight: var(--font-weight-bold);
+    font-size: 0.8rem;
+}
+
+.link-url {
+    font-family: var(--font-code);
+    font-size: 0.875rem;
+    word-break: break-all;
+    user-select: all;
+    cursor: text;
+    border-radius: 2px;
+}
+
+.links-separator {
+    border: 0;
+    border-top: 1px solid #ddd;
+    margin: 0.25rem 0;
+}

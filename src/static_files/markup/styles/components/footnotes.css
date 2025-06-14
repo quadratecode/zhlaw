@@ -1,0 +1,89 @@
+/* -----------------------------
+   Footer & Footnotes
+----------------------------- */
+
+#page-footer {
+    display: flex;
+    height: auto;
+    min-height: 150px;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px;
+    border-top: 2px solid var(--soft-black);
+    margin-top: 40px;
+}
+
+.footer-links-container {
+    margin: 10px 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem 1rem;
+}
+
+.footnote-ref a {
+    text-decoration: none;
+    font-family: var(--font-code);
+    text-underline-offset: initial;
+    font-size: 10px;
+    font-weight: var(--font-weight-regular);
+}
+
+.footnote {
+    display: grid;
+    grid-template-columns: 2.5em 1fr;
+    gap: 1.8em;
+    align-items: baseline;
+    margin-bottom: 0.5em;
+}
+
+.footnote>sup {
+    text-align: right;
+}
+
+.footnote sup a {
+    color: var(--link-blue);
+    font-family: var(--font-code);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.footnote sup a:hover,
+.footnote sup a:focus {
+    background-color: var(--hover-blue);
+    text-decoration: none;
+}
+
+/* Subprovision reference styling */
+.subprovision a {
+    text-underline-offset: -0.15rem;
+}
+
+.subprovision a sup {
+    font-family: var(--font-text);
+    font-weight: var(--font-weight-bold);
+}
+
+#disclaimer {
+    font-size: 0.8rem;
+    text-align: center;
+    margin-top: 1.5rem;
+    margin-bottom: 0.3rem;
+}
+
+#disclaimer p {
+    margin: 0;
+}
+
+.subprovision a {
+    display: inline-block;
+    position: relative;
+    padding: 0.02em 0.45em;
+    margin: -0.02em -0.45em;
+}
+
+/* Footnote highlighting */
+.footnote.highlight {
+    box-shadow: inset 0 0 0 99px var(--light-anchor);
+}

@@ -1,0 +1,103 @@
+/* -----------------------------
+   Buttons & Interactive Elements
+----------------------------- */
+
+.nav-buttons,
+.dispatch-controls {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.nav-button,
+.dispatch-button {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem;
+    border: 1px solid var(--soft-black);
+    background: var(--subtle-grey);
+    cursor: pointer;
+    font-family: var(--font-text);
+}
+
+.dispatch-button {
+    color: var(--soft-black)
+}
+
+.nav-button:hover,
+.dispatch-button:hover {
+    background-color: var(--hover-grey);
+}
+
+.nav-symbol {
+    color: var(--soft-black);
+    font-size: 2rem;
+    line-height: 1;
+    font-weight: var(--font-weight-bold);
+}
+
+.nav-text {
+    font-size: 0.875rem;
+    color: var(--soft-black);
+    font-weight: var(--font-weight-medium);
+    text-align: center;
+}
+
+.nav-button[disabled] {
+    cursor: not-allowed;
+    background: transparent;
+    color: var(--disabled-grey);
+    border-color: var(--disabled-grey);
+}
+
+.nav-button[disabled]:hover {
+    background: transparent;
+}
+
+/* Version Toggle Button */
+.version-toggle-container {
+    margin-top: 10px;
+}
+
+.version-toggle-button {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 8px 12px !important;
+    min-height: 48px;
+}
+
+.version-toggle-button .nav-symbol {
+    margin-right: 8px;
+    font-size: 1.2rem;
+    min-width: 20px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.version-toggle-button .nav-text {
+    flex: 1;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Make disabled button style match other disabled nav buttons */
+.version-toggle-button[disabled] {
+    cursor: not-allowed;
+    background: transparent;
+    color: var(--disabled-grey);
+    border-color: var(--disabled-grey);
+}
+
+.version-toggle-button[disabled]:hover {
+    background: transparent;
+}

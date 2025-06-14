@@ -1,0 +1,41 @@
+/* -----------------------------
+   Version Comparison
+----------------------------- */
+
+/* Diff view info box */
+.diff-info-box {
+    border: 1px solid var(--soft-black);
+    background-color: transparent;
+    color: var(--soft-black);
+    font-weight: var(--font-weight-medium);
+    padding: 1em;
+    margin-top: 0.5em;
+    margin-bottom: 1em;
+    line-height: 1.5;
+    font-size: 0.95em;
+}
+
+/* Highlight colors within the diff box */
+.diff-info-box .highlight-green {
+    background-color: var(--in-force-green);
+    padding: 2px 4px;
+}
+
+.diff-info-box .highlight-red {
+    background-color: var(--in-force-red);
+    padding: 2px 4px;
+    text-decoration: line-through;
+}
+
+/* Dark mode compatible colors for diffs */
+.insert {
+    background-color: var(--in-force-green) !important;
+    text-decoration: none !important;
+    padding: 1px 0 !important;
+}
+
+.delete {
+    background-color: var(--in-force-red) !important;
+    text-decoration: line-through !important;
+    padding: 1px 0 !important;
+}
