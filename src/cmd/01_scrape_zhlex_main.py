@@ -4,13 +4,15 @@
 
 # Import custom modules
 from src.modules.general_module import call_adobe_api
-
 from src.modules.law_pdf_module import crop_pdf
-
 from src.modules.zhlex_module import scrape_collection
 from src.modules.zhlex_module import download_collection
 from src.modules.zhlex_module import update_metadata
 from src.modules.dataset_generator_module import convert_csv
+
+# Import configuration
+from src.config import DataPaths, LogConfig, FilePatterns, ProcessingSteps, DateFormats
+from src.constants import Messages, RESET_DATE_COMMENT
 
 # Import external modules
 import arrow
@@ -18,13 +20,14 @@ import logging
 import glob
 import json
 from tqdm import tqdm
+from pathlib import Path
 
 # Set up logging
 logging.basicConfig(
-    filename="logs/process.log",
+    filename=str(LogConfig.LOG_FILE),
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%m/%d/%Y %I:%M:%S %p",
+    format=LogConfig.LOG_FORMAT,
+    datefmt=LogConfig.LOG_DATE_FORMAT,
 )
 
 
@@ -34,18 +37,19 @@ def main():
     error_counter = 0
 
     # Timestamp
-    timestamp = arrow.now().format("YYYYMMDD-HHmmss")
+    timestamp = arrow.now().format(DateFormats.TIMESTAMP)
 
     logging.info("Starting scraping laws")
-    scrape_collection.main("data/zhlex/zhlex_data")
+    scrape_collection.main(str(DataPaths.ZHLEX_DATA))
     logging.info("Finished scraping laws")
 
     logging.info("Starting downloading laws")
-    download_collection.main("data/zhlex/zhlex_files")
+    download_collection.main(str(DataPaths.ZHLEX_FILES))
     logging.info("Finished downloading laws")
 
     logging.info("Loading laws index")
-    pdf_files = glob.glob("data/zhlex/zhlex_files/**/**/*-original.pdf", recursive=True)
+    pdf_pattern = str(DataPaths.ZHLEX_FILES / "**" / "**" / f"*{FilePatterns.ORIGINAL_PDF}")
+    pdf_files = glob.glob(pdf_pattern, recursive=True)
     # Remove duplicates found from different junctions
     pdf_files = list(set(pdf_files))
     if not pdf_files:
@@ -54,9 +58,9 @@ def main():
 
     for pdf_file in tqdm(pdf_files):
         original_pdf_path = pdf_file
-        modified_pdf_path = pdf_file.replace("-original.pdf", "-modified.pdf")
-        marginalia_pdf_path = pdf_file.replace("-original.pdf", "-marginalia.pdf")
-        metadata_file = pdf_file.replace("-original.pdf", "-metadata.json")
+        modified_pdf_path = pdf_file.replace(FilePatterns.ORIGINAL_PDF, FilePatterns.MODIFIED_PDF)
+        marginalia_pdf_path = pdf_file.replace(FilePatterns.ORIGINAL_PDF, FilePatterns.MARGINALIA_PDF)
+        metadata_file = pdf_file.replace(FilePatterns.ORIGINAL_PDF, FilePatterns.METADATA_JSON)
 
         try:
             with open(metadata_file, "r") as f:
@@ -64,24 +68,24 @@ def main():
 
             # TODO: Replacing this by checking for the existence of files instead would be more robust
             # However, there are downstream dependencies (all operations with "doc_info")
-            # Due to inocorrect operation on live data, all timestamps before 20250308 have been set reset to this date
-            if metadata["process_steps"]["crop_pdf"] == "":
+            # Note: RESET_DATE_COMMENT
+            if metadata["process_steps"][ProcessingSteps.CROP_PDF] == "":
                 logging.info(f"Cropping PDF: {pdf_file}")
                 crop_pdf.main(original_pdf_path, modified_pdf_path, marginalia_pdf_path)
                 logging.info(f"Finished cropping PDF: {pdf_file}")
-                metadata["process_steps"]["crop_pdf"] = timestamp
+                metadata["process_steps"][ProcessingSteps.CROP_PDF] = timestamp
 
-            if metadata["process_steps"]["call_api_law"] == "":
+            if metadata["process_steps"][ProcessingSteps.CALL_API_LAW] == "":
                 logging.info(f"Extracting text law: {pdf_file}")
                 call_adobe_api.main(modified_pdf_path, pdf_file)
                 logging.info(f"Finished extracting text law: {pdf_file}")
-                metadata["process_steps"]["call_api_law"] = timestamp
+                metadata["process_steps"][ProcessingSteps.CALL_API_LAW] = timestamp
 
-            if metadata["process_steps"]["call_api_marginalia"] == "":
+            if metadata["process_steps"][ProcessingSteps.CALL_API_MARGINALIA] == "":
                 logging.info(f"Extracting text marginalia: {pdf_file}")
                 call_adobe_api.main(marginalia_pdf_path, pdf_file)
                 logging.info(f"Finished extracting text marginalia: {pdf_file}")
-                metadata["process_steps"]["call_api_marginalia"] = timestamp
+                metadata["process_steps"][ProcessingSteps.CALL_API_MARGINALIA] = timestamp
 
             # Save the updated metadata
             with open(metadata_file, "w") as f:
@@ -104,9 +108,9 @@ def main():
                 continue
 
     # Update source metadata for all laws
-    processed_data = "data/zhlex/zhlex_data/zhlex_data_processed.json"
+    processed_data = str(DataPaths.ZHLEX_DATA / "zhlex_data_processed.json")
     logging.info("Updating metadata for all laws")
-    update_metadata.main("data/zhlex/zhlex_files", processed_data)
+    update_metadata.main(str(DataPaths.ZHLEX_FILES), processed_data)
     logging.info("Finished updating metadata for all laws")
 
     # Save relevant keys from processed data to CSV

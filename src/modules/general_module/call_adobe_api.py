@@ -6,6 +6,8 @@ import os
 import zipfile
 import json
 import logging
+import shutil
+from pathlib import Path
 from adobe.pdfservices.operation.auth.credentials import Credentials
 from adobe.pdfservices.operation.execution_context import ExecutionContext
 from adobe.pdfservices.operation.io.file_ref import FileRef
@@ -22,6 +24,10 @@ from adobe.pdfservices.operation.pdfops.options.extractpdf.extract_renditions_el
 from adobe.pdfservices.operation.pdfops.options.extractpdf.table_structure_type import (
     TableStructureType,
 )
+
+# Import configuration
+from src.config import Environment
+from src.constants import Messages
 
 # Get logger from main module
 logger = logging.getLogger(__name__)
@@ -43,7 +49,8 @@ def setup_adobe_credentials(credentials_file):
 
 
 def extract_pdf_to_json(pdf_path, output_zip):
-    execution_context = setup_adobe_credentials("credentials.json")
+    credentials_path = str(Environment.get_adobe_credentials_path())
+    execution_context = setup_adobe_credentials(credentials_path)
     extract_pdf_operation = ExtractPDFOperation.create_new()
     source = FileRef.create_from_local_file(pdf_path)
     extract_pdf_operation.set_input(source)
@@ -85,8 +92,8 @@ def parse_extracted_data(zip_file, output_folder):
                 for fname in csv_files:
                     with open(fname) as infile:
                         outfile.write(infile.read())
-            # Force remove the tables folder
-            os.system(f"rm -rf {tables_folder}")
+            # Remove the tables folder using shutil (safer than os.system)
+            shutil.rmtree(tables_folder)
 
         logging.info(f"Processed and saved JSON data for {zip_file}")
     except Exception as e:

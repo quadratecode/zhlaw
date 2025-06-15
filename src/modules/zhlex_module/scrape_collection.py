@@ -12,14 +12,14 @@ import json
 import arrow
 from tqdm import tqdm
 import re
+from pathlib import Path
+
+# Import configuration
+from src.config import URLs, APIConfig, DateFormats
+from src.constants import Messages
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-BASE_URL = "https://www.zh.ch"
-
-ORIG_DATE_FORMAT = "DD.MM.YYYY"
-NEW_DATE_FORMAT = "YYYYMMDD"
 
 
 def scrape_laws(folder):
@@ -30,8 +30,8 @@ def scrape_laws(folder):
     page = 0
 
     while True:
-        time.sleep(0.5)
-        url = f"{BASE_URL}/de/politik-staat/gesetze-beschluesse/gesetzessammlung/_jcr_content/main/lawcollectionsearch_312548694.zhweb-zhlex-ls.zhweb-cache.json?includeRepealedEnactments=on&page={page}"
+        time.sleep(APIConfig.WEB_REQUEST_DELAY)
+        url = f"{URLs.ZHLEX_API}?includeRepealedEnactments=on&page={page}"
 
         try:
             # Request from CH-IP
@@ -308,7 +308,7 @@ def process_laws(folder):
         highest_nachtragsnummer_erlasstitel = None
         highest_nachtragsnummer_abbreviation = None
 
-        law_page_url = BASE_URL + law["link"]
+        law_page_url = URLs.ZH_BASE + law["link"]
         try:
             response = requests.get(law_page_url, headers={"User-Agent": "Mozilla/5.0"})
             response.raise_for_status()
@@ -318,7 +318,7 @@ def process_laws(folder):
             versions = []
 
             for item in version_items:
-                version_law_page_url = BASE_URL + item["href"]
+                version_law_page_url = URLs.ZH_BASE + item["href"]
                 nachtragsnummer = item.input["value"]
 
                 version_response = requests.get(
@@ -336,24 +336,24 @@ def process_laws(folder):
 
                 # Convert all dates that are not "-" to YYYYMMDD
                 if erlassdatum != "-":
-                    erlassdatum = arrow.get(erlassdatum, ORIG_DATE_FORMAT).format(
-                        NEW_DATE_FORMAT
+                    erlassdatum = arrow.get(erlassdatum, DateFormats.ORIGINAL).format(
+                        DateFormats.STANDARD
                     )
                 if inkraftsetzungsdatum != "-":
                     inkraftsetzungsdatum = arrow.get(
-                        inkraftsetzungsdatum, ORIG_DATE_FORMAT
-                    ).format(NEW_DATE_FORMAT)
+                        inkraftsetzungsdatum, DateFormats.ORIGINAL
+                    ).format(DateFormats.STANDARD)
                 if aufhebungsdatum != "-":
                     in_force_status = False
                     aufhebungsdatum = arrow.get(
-                        aufhebungsdatum, ORIG_DATE_FORMAT
-                    ).format(NEW_DATE_FORMAT)
+                        aufhebungsdatum, DateFormats.ORIGINAL
+                    ).format(DateFormats.STANDARD)
                 else:
                     in_force_status = True
                 if publikationsdatum != "-":
                     publikationsdatum = arrow.get(
-                        publikationsdatum, ORIG_DATE_FORMAT
-                    ).format(NEW_DATE_FORMAT)
+                        publikationsdatum, DateFormats.ORIGINAL
+                    ).format(DateFormats.STANDARD)
 
                 # Extract PDF URL
                 pdf_link_tag = version_soup.find(

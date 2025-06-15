@@ -11,6 +11,10 @@ from src.modules.law_pdf_module import (
     create_hyperlinks,
 )
 
+# Import configuration
+from src.config import DataPaths, LogConfig, FilePatterns, ProcessingSteps, DateFormats
+from src.constants import Messages
+
 # Import external modules
 import arrow
 import logging
@@ -20,13 +24,14 @@ from tqdm import tqdm
 import argparse
 import sys
 import concurrent.futures
+from pathlib import Path
 
 # Set up logging
 logging.basicConfig(
-    filename="logs/process.log",
+    filename=str(LogConfig.LOG_FILE),
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%m/%d/%Y %I:%M:%S %p",
+    format=LogConfig.LOG_FORMAT,
+    datefmt=LogConfig.LOG_DATE_FORMAT,
 )
 
 
@@ -36,17 +41,17 @@ def generate_file_paths(pdf_file: str) -> dict:
     """
     return {
         "original_pdf_path": pdf_file,
-        "json_file_law": pdf_file.replace("-original.pdf", "-modified.json"),
+        "json_file_law": pdf_file.replace(FilePatterns.ORIGINAL_PDF, "-modified.json"),
         "json_file_law_updated": pdf_file.replace(
-            "-original.pdf", "-modified-updated.json"
+            FilePatterns.ORIGINAL_PDF, "-modified-updated.json"
         ),
-        "modified_pdf_path": pdf_file.replace("-original.pdf", "-modified.pdf"),
-        "json_file_marginalia": pdf_file.replace("-original.pdf", "-marginalia.json"),
+        "modified_pdf_path": pdf_file.replace(FilePatterns.ORIGINAL_PDF, FilePatterns.MODIFIED_PDF),
+        "json_file_marginalia": pdf_file.replace(FilePatterns.ORIGINAL_PDF, "-marginalia.json"),
         "json_file_marginalia_updated": pdf_file.replace(
-            "-original.pdf", "-marginalia-updated.json"
+            FilePatterns.ORIGINAL_PDF, "-marginalia-updated.json"
         ),
         "modified_pdf_path_marginalia": pdf_file.replace(
-            "-original.pdf", "-marginalia.pdf"
+            FilePatterns.ORIGINAL_PDF, FilePatterns.MARGINALIA_PDF
         ),
         "metadata_file": pdf_file.replace("-original.pdf", "-metadata.json"),
         "html_file_law": pdf_file.replace("-original.pdf", "-modified.html"),

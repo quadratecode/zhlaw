@@ -9,6 +9,9 @@ from xml.dom import minidom
 import html
 import re
 
+# Import configuration
+from src.config import AFFAIR_TYPE_PRIORITIES, DEFAULT_PRIORITY, URLs, DateFormats
+
 
 def format_rfc822_date(date_str):
     """
@@ -176,19 +179,12 @@ def main(dispatch_data, site_url="https://www.zhlaw.ch"):
         pub_date = format_rfc822_date(dispatch_date)
 
         # Sort affairs by type priority
-        affair_type_priorities = {
-            "vorlage": 1,
-            "einzelinitiative": 2,
-            "behördeninitiative": 3,
-            "parlamentarische initiative": 4,
-        }
-
         def get_priority(affair):
             affair_type = affair.get("affair_type", "").lower()
-            for key, priority in affair_type_priorities.items():
+            for key, priority in AFFAIR_TYPE_PRIORITIES.items():
                 if key in affair_type:
                     return priority
-            return 5  # Default priority
+            return DEFAULT_PRIORITY
 
         sorted_affairs = sorted(dispatch["affairs"], key=get_priority)
 

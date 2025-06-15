@@ -8,12 +8,17 @@ import json
 import logging
 import traceback
 import re
+import time
+
+# Import configuration
+from src.config import Environment, APIConfig
+from src.constants import Messages
 
 # Setup logging
 logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=Environment.get_openai_key())
 
 
 def clean_json_response(text):
@@ -90,14 +95,14 @@ def main(pdf_file, metadata):
             # Upload the file first
             logger.info(f"Uploading PDF file: {pdf_file}")
             file_obj = client.files.create(
-                file=open(pdf_file, "rb"), purpose="user_data"
+                file=open(pdf_file, "rb"), purpose=APIConfig.OPENAI_FILE_PURPOSE
             )
             logger.info(f"File uploaded successfully with ID: {file_obj.id}")
 
             # Approach 1: Try the newer responses API first (per docs)
             logger.info("Trying responses.create API...")
             response = client.responses.create(
-                model="gpt-4o",
+                model=APIConfig.OPENAI_MODEL,
                 input=[
                     {"role": "system", "content": system_prompt},
                     {
@@ -158,9 +163,9 @@ def main(pdf_file, metadata):
                 # Approach 3: Fall back to assistants API if both others fail
                 # Create an assistant with the file attached
                 assistant = client.beta.assistants.create(
-                    name="Law Change Analyzer",
+                    name=APIConfig.OPENAI_ASSISTANT_NAME,
                     instructions=system_prompt,
-                    model="gpt-4o",
+                    model=APIConfig.OPENAI_MODEL,
                     tools=[{"type": "file_search"}],
                 )
 
@@ -181,8 +186,6 @@ def main(pdf_file, metadata):
                 )
 
                 # Poll for completion
-                import time
-
                 while True:
                     run_status = client.beta.threads.runs.retrieve(
                         thread_id=thread.id, run_id=run.id
@@ -191,7 +194,7 @@ def main(pdf_file, metadata):
                         break
                     elif run_status.status in ["failed", "cancelled", "expired"]:
                         raise Exception(f"Run failed with status: {run_status.status}")
-                    time.sleep(2)
+                    time.sleep(APIConfig.OPENAI_POLL_DELAY)
 
                 # Get the messages
                 messages = client.beta.threads.messages.list(thread_id=thread.id)

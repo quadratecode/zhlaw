@@ -11,18 +11,12 @@ from time import sleep
 import traceback
 import os
 
+# Import configuration
+from src.config import URLs, APIConfig
+from src.constants import Language
+
 # Setup logging
 logger = logging.getLogger(__name__)
-
-# Base ufl from opendata.swiss
-base_url_dispatch = (
-    "https://parlzhcdws.cmicloud.ch/parlzh1/cdws/Index/KRVERSAND/searchdetails"
-)
-
-# Base URL vorlagen
-base_url_vorlagen = (
-    "https://parlzhcdws.cmicloud.ch/parlzh5/cdws/Index/GESCHAEFT/searchdetails"
-)
 
 
 def get_ablaufschritte(kr_nr, vorlagen_nr):
@@ -39,13 +33,13 @@ def get_ablaufschritte(kr_nr, vorlagen_nr):
     params_vorlagen = {
         "q": f"krnr any {affair_nr_encoded} sortby beginn_start/sort.descending",
         # Number of fetched entries, max is 1k
-        "m": "20",
+        "m": str(APIConfig.KRZH_FETCH_LIMIT),
         # Language
-        "l": "de-CH",
+        "l": Language.DE + "-CH",
     }
 
     # Make a request
-    response = requests.get(base_url_vorlagen, params=params_vorlagen)
+    response = requests.get(URLs.KRZH_GESCHAEFT_API, params=params_vorlagen)
     response.raise_for_status()  # Raise an exception for HTTP errors
 
     # Parse the XML with BeautifulSoup
@@ -92,9 +86,9 @@ def main(folder):
         # Entries younger than 2040-01-01 to catch latest entries
         "q": 'datum_start < "2040-01-01 00:00:00" sortBy datum_start/sort.descending',
         # Number of fetched entries, max is 1k
-        "m": "20",
+        "m": str(APIConfig.KRZH_FETCH_LIMIT),
         # Language
-        "l": "de-CH",
+        "l": Language.DE + "-CH",
     }
 
     # Create file path
@@ -203,8 +197,8 @@ def main(folder):
             json.dump(existing_data, f, indent=4, ensure_ascii=False)
 
     try:
-        response = requests.get(base_url_dispatch, params=params_dispatch)
-        sleep(0.1)
+        response = requests.get(URLs.KRZH_VERSAND_API, params=params_dispatch)
+        sleep(APIConfig.WEB_REQUEST_DELAY)
         if response.status_code == 200:
             logging.info(f"API call successful. Parsing and downloading PDFs.")
             parse_and_download(response.content)
