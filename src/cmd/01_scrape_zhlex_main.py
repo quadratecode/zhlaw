@@ -1,36 +1,242 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+#!/usr/bin/env python3
+"""
+ZH-Lex Scraping Pipeline - Main Entry Point
 
-# Import custom modules
-from src.modules.general_module import call_adobe_api
-from src.modules.law_pdf_module import crop_pdf
-from src.modules.zhlex_module import scrape_collection
-from src.modules.zhlex_module import download_collection
-from src.modules.zhlex_module import update_metadata
-from src.modules.dataset_generator_module import convert_csv
+This module orchestrates the complete ZH-Lex law scraping and processing pipeline:
+1. Scrapes law metadata from the ZH website
+2. Downloads PDF files for each law
+3. Processes PDFs (cropping, text extraction)
+4. Updates metadata with processing information
+5. Exports data to CSV format
 
-# Import configuration and error handling
-from src.config import DataPaths, LogConfig, FilePatterns, ProcessingSteps, DateFormats
-from src.constants import Messages, RESET_DATE_COMMENT
-from src.logging_config import setup_logging, get_logger, OperationLogger
-from src.exceptions import (
-    FileProcessingException, JSONParsingException, QuotaExceededException,
-    PDFProcessingException, MetadataException
-)
+Usage:
+    python -m src.cmd.01_scrape_zhlex_main
 
-# Import external modules
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
+
+from typing import List, Dict, Any, Optional
 import arrow
 import glob
 import json
 from tqdm import tqdm
 from pathlib import Path
 
-# Set up logging using the new centralized system
+# Import custom modules
+from src.modules.general_module import call_adobe_api
+from src.modules.law_pdf_module import crop_pdf
+from src.modules.zhlex_module import (
+    scrape_collection,
+    download_collection,
+    update_metadata
+)
+from src.modules.dataset_generator_module import convert_csv
+
+# Import configuration and error handling
+from src.config import DataPaths, FilePatterns, ProcessingSteps, DateFormats
+from src.constants import RESET_DATE_COMMENT
+from src.logging_config import setup_logging, get_logger, OperationLogger
+from src.exceptions import (
+    FileProcessingException, JSONParsingException, QuotaExceededException,
+    PDFProcessingException, MetadataException
+)
+from src.types import MetadataDocument, ProcessingResult
+
+# Set up logging
 setup_logging()
+logger = get_logger(__name__)
 
 
-def main():
+def process_single_pdf(
+    pdf_file: str,
+    timestamp: str,
+    op_logger: OperationLogger
+) -> ProcessingResult:
+    """
+    Process a single PDF file through all pipeline steps.
+    
+    Args:
+        pdf_file: Path to the original PDF file
+        timestamp: Current timestamp for tracking
+        op_logger: Operation logger instance
+        
+    Returns:
+        ProcessingResult with success status and any error information
+        
+    Raises:
+        QuotaExceededException: If API quota is exceeded (propagated to stop processing)
+    """
+    pdf_path = Path(pdf_file)
+    
+    # Generate all related file paths
+    file_paths = {
+        'original': pdf_file,
+        'modified': pdf_file.replace(FilePatterns.ORIGINAL_PDF, FilePatterns.MODIFIED_PDF),
+        'marginalia': pdf_file.replace(FilePatterns.ORIGINAL_PDF, FilePatterns.MARGINALIA_PDF),
+        'metadata': pdf_file.replace(FilePatterns.ORIGINAL_PDF, FilePatterns.METADATA_JSON)
+    }
+    
+    try:
+        # Load metadata
+        metadata = _load_metadata(file_paths['metadata'], pdf_path.name)
+        if metadata is None:
+            return ProcessingResult(
+                success=False,
+                message=f"Metadata not found for {pdf_path.name}",
+                data=None,
+                error="FileNotFoundError",
+                processing_time=None
+            )
+        
+        # Process each step if not already completed
+        steps_completed = []
+        
+        # Step 1: Crop PDF
+        if _process_crop_pdf(metadata, file_paths, timestamp, pdf_path):
+            steps_completed.append(ProcessingSteps.CROP_PDF)
+        
+        # Step 2: Extract text from main PDF
+        if _process_extract_law(metadata, file_paths, timestamp, pdf_path):
+            steps_completed.append(ProcessingSteps.CALL_API_LAW)
+        
+        # Step 3: Extract text from marginalia PDF
+        if _process_extract_marginalia(metadata, file_paths, timestamp, pdf_path):
+            steps_completed.append(ProcessingSteps.CALL_API_MARGINALIA)
+        
+        # Save updated metadata if any steps were completed
+        if steps_completed:
+            _save_metadata(file_paths['metadata'], metadata, pdf_path)
+        
+        return ProcessingResult(
+            success=True,
+            message=f"Successfully processed {pdf_path.name}",
+            data={'steps_completed': steps_completed},
+            error=None,
+            processing_time=None
+        )
+        
+    except QuotaExceededException:
+        # Re-raise quota exceptions to stop processing
+        raise
+        
+    except (FileProcessingException, JSONParsingException, 
+            PDFProcessingException, MetadataException) as e:
+        op_logger.log_error(f"Error processing {pdf_path.name}: {e}")
+        return ProcessingResult(
+            success=False,
+            message=f"Failed to process {pdf_path.name}",
+            data=None,
+            error=str(e),
+            processing_time=None
+        )
+        
+    except Exception as e:
+        # Unexpected error
+        op_logger.log_error(f"Unexpected error processing {pdf_path.name}: {e}")
+        logger.exception(f"Unexpected error for file: {pdf_file}")
+        return ProcessingResult(
+            success=False,
+            message=f"Unexpected error processing {pdf_path.name}",
+            data=None,
+            error=f"{type(e).__name__}: {str(e)}",
+            processing_time=None
+        )
+
+
+def _load_metadata(metadata_file: str, pdf_name: str) -> Optional[MetadataDocument]:
+    """Load metadata from JSON file with error handling."""
+    try:
+        with open(metadata_file, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logger.warning(f"Metadata file not found for {pdf_name}, skipping")
+        return None
+    except json.JSONDecodeError as e:
+        raise JSONParsingException(metadata_file, e)
+
+
+def _save_metadata(metadata_file: str, metadata: MetadataDocument, pdf_path: Path) -> None:
+    """Save metadata to JSON file with error handling."""
+    try:
+        with open(metadata_file, "w") as f:
+            json.dump(metadata, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        raise MetadataException("save", Path(metadata_file), {"error": str(e)})
+
+
+def _process_crop_pdf(
+    metadata: MetadataDocument,
+    file_paths: Dict[str, str],
+    timestamp: str,
+    pdf_path: Path
+) -> bool:
+    """Process PDF cropping step if not already completed."""
+    if metadata["process_steps"].get(ProcessingSteps.CROP_PDF, "") == "":
+        try:
+            logger.debug(f"Cropping PDF: {pdf_path.name}")
+            crop_pdf.main(
+                file_paths['original'],
+                file_paths['modified'],
+                file_paths['marginalia']
+            )
+            metadata["process_steps"][ProcessingSteps.CROP_PDF] = timestamp
+            logger.info(f"Successfully cropped PDF: {pdf_path.name}")
+            return True
+        except Exception as e:
+            raise PDFProcessingException(pdf_path, "crop", e)
+    return False
+
+
+def _process_extract_law(
+    metadata: MetadataDocument,
+    file_paths: Dict[str, str],
+    timestamp: str,
+    pdf_path: Path
+) -> bool:
+    """Process law text extraction step if not already completed."""
+    if metadata["process_steps"].get(ProcessingSteps.CALL_API_LAW, "") == "":
+        try:
+            logger.debug(f"Extracting text from law PDF: {pdf_path.name}")
+            call_adobe_api.main(file_paths['modified'], file_paths['original'])
+            metadata["process_steps"][ProcessingSteps.CALL_API_LAW] = timestamp
+            logger.info(f"Successfully extracted text from law PDF: {pdf_path.name}")
+            return True
+        except Exception as e:
+            if "quota" in str(e).lower():
+                raise QuotaExceededException("Adobe API", {"file": pdf_path.name})
+            raise PDFProcessingException(pdf_path, "extract text (law)", e)
+    return False
+
+
+def _process_extract_marginalia(
+    metadata: MetadataDocument,
+    file_paths: Dict[str, str],
+    timestamp: str,
+    pdf_path: Path
+) -> bool:
+    """Process marginalia text extraction step if not already completed."""
+    if metadata["process_steps"].get(ProcessingSteps.CALL_API_MARGINALIA, "") == "":
+        try:
+            logger.debug(f"Extracting text from marginalia PDF: {pdf_path.name}")
+            call_adobe_api.main(file_paths['marginalia'], file_paths['original'])
+            metadata["process_steps"][ProcessingSteps.CALL_API_MARGINALIA] = timestamp
+            logger.info(f"Successfully extracted text from marginalia PDF: {pdf_path.name}")
+            return True
+        except Exception as e:
+            if "quota" in str(e).lower():
+                raise QuotaExceededException("Adobe API", {"file": pdf_path.name})
+            raise PDFProcessingException(pdf_path, "extract text (marginalia)", e)
+    return False
+
+
+def main() -> None:
+    """
+    Main entry point for the ZH-Lex scraping pipeline.
+    
+    Orchestrates the complete process of scraping, downloading, and processing
+    ZH-Lex law documents. Tracks errors and provides detailed logging.
+    """
     # Get logger for this module
     logger = get_logger(__name__)
     
@@ -74,80 +280,19 @@ def main():
 
         # Process each PDF file
         for pdf_file in tqdm(pdf_files, desc="Processing PDFs"):
-            pdf_path = Path(pdf_file)
-            original_pdf_path = pdf_file
-            modified_pdf_path = pdf_file.replace(FilePatterns.ORIGINAL_PDF, FilePatterns.MODIFIED_PDF)
-            marginalia_pdf_path = pdf_file.replace(FilePatterns.ORIGINAL_PDF, FilePatterns.MARGINALIA_PDF)
-            metadata_file = pdf_file.replace(FilePatterns.ORIGINAL_PDF, FilePatterns.METADATA_JSON)
-
             try:
-                # Load metadata
-                try:
-                    with open(metadata_file, "r") as f:
-                        metadata = json.load(f)
-                except FileNotFoundError:
-                    logger.warning(f"Metadata file not found for {pdf_path.name}, skipping")
-                    continue
-                except json.JSONDecodeError as e:
-                    raise JSONParsingException(metadata_file, e)
-
-                # Process PDF cropping if not done
-                if metadata["process_steps"].get(ProcessingSteps.CROP_PDF, "") == "":
-                    try:
-                        logger.debug(f"Cropping PDF: {pdf_path.name}")
-                        crop_pdf.main(original_pdf_path, modified_pdf_path, marginalia_pdf_path)
-                        metadata["process_steps"][ProcessingSteps.CROP_PDF] = timestamp
-                        logger.info(f"Successfully cropped PDF: {pdf_path.name}")
-                    except Exception as e:
-                        raise PDFProcessingException(pdf_path, "crop", e)
-
-                # Extract text from main PDF if not done
-                if metadata["process_steps"].get(ProcessingSteps.CALL_API_LAW, "") == "":
-                    try:
-                        logger.debug(f"Extracting text from law PDF: {pdf_path.name}")
-                        call_adobe_api.main(modified_pdf_path, pdf_file)
-                        metadata["process_steps"][ProcessingSteps.CALL_API_LAW] = timestamp
-                        logger.info(f"Successfully extracted text from law PDF: {pdf_path.name}")
-                    except Exception as e:
-                        if "quota" in str(e).lower():
-                            raise QuotaExceededException("Adobe API", {"file": pdf_path.name})
-                        raise PDFProcessingException(pdf_path, "extract text (law)", e)
-
-                # Extract text from marginalia PDF if not done
-                if metadata["process_steps"].get(ProcessingSteps.CALL_API_MARGINALIA, "") == "":
-                    try:
-                        logger.debug(f"Extracting text from marginalia PDF: {pdf_path.name}")
-                        call_adobe_api.main(marginalia_pdf_path, pdf_file)
-                        metadata["process_steps"][ProcessingSteps.CALL_API_MARGINALIA] = timestamp
-                        logger.info(f"Successfully extracted text from marginalia PDF: {pdf_path.name}")
-                    except Exception as e:
-                        if "quota" in str(e).lower():
-                            raise QuotaExceededException("Adobe API", {"file": pdf_path.name})
-                        raise PDFProcessingException(pdf_path, "extract text (marginalia)", e)
-
-                # Save the updated metadata
-                try:
-                    with open(metadata_file, "w") as f:
-                        json.dump(metadata, f, indent=4, ensure_ascii=False)
-                except Exception as e:
-                    raise MetadataException("save", Path(metadata_file), {"error": str(e)})
-
+                result = process_single_pdf(pdf_file, timestamp, op_logger)
+                if result['success']:
+                    steps = result.get('data', {}).get('steps_completed', [])
+                    if steps:
+                        logger.debug(f"Completed steps for {Path(pdf_file).name}: {steps}")
+                else:
+                    error_counter += 1
+                    
             except QuotaExceededException as e:
                 op_logger.log_error(f"API quota exceeded: {e}")
-                logger.error(f"Stopping processing due to quota limit")
+                logger.error("Stopping processing due to quota limit")
                 break
-                
-            except (FileProcessingException, JSONParsingException, PDFProcessingException, MetadataException) as e:
-                op_logger.log_error(f"Error processing {pdf_path.name}: {e}")
-                error_counter += 1
-                continue
-                
-            except Exception as e:
-                # Unexpected error
-                op_logger.log_error(f"Unexpected error processing {pdf_path.name}: {e}")
-                logger.exception(f"Unexpected error for file: {pdf_file}")
-                error_counter += 1
-                continue
 
         # Update source metadata for all laws
         processed_data = str(DataPaths.ZHLEX_DATA / "zhlex_data_processed.json")
