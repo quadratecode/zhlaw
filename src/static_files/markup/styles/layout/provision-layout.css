@@ -35,8 +35,46 @@
 
 /* Highlight rules */
 .provision-container.highlight,
-.subprovision-container.highlight {
+.subprovision-container.highlight,
+p.footnote.highlight {
     background-color: var(--light-anchor);
+    cursor: pointer;
+    position: relative;
+}
+
+/* Explicit hover state with outline - not when anchor is hovered */
+.provision-container.highlight:hover:not(.anchor-hover),
+.subprovision-container.highlight:hover:not(.anchor-hover),
+p.footnote.highlight:hover:not(.anchor-hover) {
+    outline: 2px solid rgba(0, 0, 0, 0.2);
+    outline-offset: -2px;
+}
+
+/* Dark mode hover state */
+.dark-mode .provision-container.highlight:hover:not(.anchor-hover),
+.dark-mode .subprovision-container.highlight:hover:not(.anchor-hover),
+.dark-mode p.footnote.highlight:hover:not(.anchor-hover) {
+    outline: 2px solid rgba(255, 255, 255, 0.2);
+    outline-offset: -2px;
+}
+
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode):not(.dark-mode) .provision-container.highlight:hover:not(.anchor-hover),
+    html:not(.light-mode):not(.dark-mode) .subprovision-container.highlight:hover:not(.anchor-hover),
+    html:not(.light-mode):not(.dark-mode) p.footnote.highlight:hover:not(.anchor-hover) {
+        outline: 2px solid rgba(255, 255, 255, 0.2);
+        outline-offset: -2px;
+    }
+}
+
+/* When anchor inside is hovered, maintain original color - higher specificity */
+.provision-container.highlight.anchor-hover,
+.subprovision-container.highlight.anchor-hover,
+p.footnote.highlight.anchor-hover,
+.provision-container.highlight.anchor-hover:hover,
+.subprovision-container.highlight.anchor-hover:hover,
+p.footnote.highlight.anchor-hover:hover {
+    background-color: var(--light-anchor) !important;
 }
 
 .provision-container.highlight {

@@ -21,6 +21,7 @@
 @import url('styles/components/forms.css');
 @import url('styles/components/tables.css');
 @import url('styles/components/footnotes.css');
+@import url('styles/components/tooltips.css');
 @import url('styles/components/version-comparison.css');
 
 /* 4. Themes Layer - Color schemes and responsive design */

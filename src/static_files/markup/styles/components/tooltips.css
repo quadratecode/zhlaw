@@ -1,0 +1,86 @@
+/* -----------------------------
+   Anchor Tooltips
+   
+   Styles for the anchor link tooltips that appear
+   on hover/focus of provision and subprovision links
+----------------------------- */
+
+/* Tooltip container */
+.anchor-tooltip {
+    position: absolute;
+    padding: 4px 8px;
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translateX(-50%) translateY(-100%);
+    margin-top: -4px;
+    
+    /* Light mode styles - dark background, light text */
+    background-color: var(--dark-shade);
+    color: var(--soft-white);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Dark mode tooltip - light background, dark text */
+[data-theme="dark"] .anchor-tooltip {
+    background-color: var(--dark-dark-shade);
+    color: var(--dark-soft-white);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Anchor warning for missing provisions */
+.anchor-warning {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--color-warning-bg);
+    color: var(--color-warning-text);
+    padding: 12px 16px;
+    z-index: 10000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.anchor-warning-content {
+    max-width: var(--container-max-width);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.anchor-warning-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    color: inherit;
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.anchor-warning-close:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Define warning colors if not already defined */
+:root {
+    --color-warning-bg: #fff3cd;
+    --color-warning-text: #856404;
+}
+
+[data-theme="dark"] {
+    --color-warning-bg: #332701;
+    --color-warning-text: #ffecb5;
+}

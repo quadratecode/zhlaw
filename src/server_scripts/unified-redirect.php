@@ -1,14 +1,19 @@
 <?php
-// redirector.php
-// This script constructs dynamic URLs for laws, weheras the user can only enter www.zhlaw.ch/col-zh/<ordnungsnummer>
-// and be redirected to the newest version
+/**
+ * Unified redirect script for both col-zh and col-ch collections
+ * Handles URLs like: /col-zh/131.1 -> /col-zh/131.1-125.html (newest version)
+ */
 
-
-// Set the directory to the current directory (col-zh/)
-$directory = './';
-
-// Get the 'ordnungsnummer' from the query parameter
+// Get parameters
+$collection = isset($_GET['collection']) ? $_GET['collection'] : '';
 $ordnungsnummer = isset($_GET['ordnungsnummer']) ? $_GET['ordnungsnummer'] : '';
+
+// Validate collection
+if (!in_array($collection, ['col-zh', 'col-ch'])) {
+    header('HTTP/1.0 400 Bad Request');
+    echo 'Invalid collection';
+    exit;
+}
 
 // Sanitize the 'ordnungsnummer' to prevent security issues (allow only numbers and dots)
 $ordnungsnummer = preg_replace('/[^0-9\.]/', '', $ordnungsnummer);
@@ -20,10 +25,20 @@ if (empty($ordnungsnummer)) {
     exit;
 }
 
+// Set the directory based on collection
+$directory = __DIR__ . '/' . $collection . '/';
+
 // Initialize variables
-$highestNachtragsnummer = -1; // Start with -1 so any non-negative integer will be higher
-$highestNachtragsnummerStr = ''; // To keep track of the original string with leading zeros
+$highestNachtragsnummer = -1;
+$highestNachtragsnummerStr = '';
 $highestFile = '';
+
+// Check if directory exists
+if (!is_dir($directory)) {
+    header('HTTP/1.0 404 Not Found');
+    echo 'Collection not found';
+    exit;
+}
 
 // Scan the directory for files
 $files = scandir($directory);
@@ -31,21 +46,19 @@ $files = scandir($directory);
 // Loop through the files
 foreach ($files as $file) {
     // Check if the file starts with the ordnungsnummer and matches the pattern
-    // The filename should be in the format ordnungsnummer-nachtragsnummer.html
     $pattern = '/^' . preg_quote($ordnungsnummer, '/') . '\-([0-9]+)\.html$/';
 
     if (preg_match($pattern, $file, $matches)) {
         $nachtragsnummerStr = $matches[1];
-        // Convert nachtragsnummer to integer for comparison
         $nachtragsnummerInt = intval($nachtragsnummerStr);
 
         // Check if this nachtragsnummer is higher than the current highest
         if ($nachtragsnummerInt > $highestNachtragsnummer) {
             $highestNachtragsnummer = $nachtragsnummerInt;
-            $highestNachtragsnummerStr = $nachtragsnummerStr; // Keep the string with leading zeros
+            $highestNachtragsnummerStr = $nachtragsnummerStr;
             $highestFile = $file;
         } elseif ($nachtragsnummerInt == $highestNachtragsnummer) {
-            // If the integer values are equal, compare the strings to keep the one with the highest value considering leading zeros
+            // If equal, compare strings to handle leading zeros
             if ($nachtragsnummerStr > $highestNachtragsnummerStr) {
                 $highestNachtragsnummerStr = $nachtragsnummerStr;
                 $highestFile = $file;
@@ -56,11 +69,9 @@ foreach ($files as $file) {
 
 // Redirect to the highest file if found
 if (!empty($highestFile)) {
-    // Redirect to the file
-    header('Location: ' . $highestFile);
+    header('Location: /' . $collection . '/' . $highestFile);
     exit;
 } else {
-    // No matching files found
     header('HTTP/1.0 404 Not Found');
     echo 'No file found for ordnungsnummer ' . htmlspecialchars($ordnungsnummer);
     exit;

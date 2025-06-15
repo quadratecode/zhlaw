@@ -21,6 +21,7 @@ from src.modules.site_generator_module import generate_index
 from src.modules.site_generator_module.create_sitemap import SitemapGenerator
 from src.modules.dataset_generator_module import build_markdown
 from src.modules.site_generator_module import html_diff
+from src.modules.site_generator_module import generate_anchor_maps
 
 # Set up logging
 logging.basicConfig(
@@ -423,31 +424,54 @@ def main(
         STATIC_PATH,
         dirs_exist_ok=True,
     )
+    
+    # Copy router.php and unified redirect scripts for local development
+    shutil.copy(
+        "src/server_scripts/router.php",
+        STATIC_PATH,
+    )
+    shutil.copy(
+        "src/server_scripts/unified-redirect.php",
+        STATIC_PATH,
+    )
+    shutil.copy(
+        "src/server_scripts/unified-redirect-latest.php",
+        STATIC_PATH,
+    )
 
-    # If ZH was processed, copy redirect script & metadata for ZH
+    # If ZH was processed, copy metadata for ZH
     if process_zh:
-        shutil.copy(
-            "src/server_scripts/redirect.php",
-            COLLECTION_PATH_ZH,
-        )
         shutil.copy(
             COLLECTION_DATA_ZH,
             os.path.join(STATIC_PATH, "collection-metadata-zh.json"),
         )
 
-    # If FedLex was processed, copy redirect script & metadata for CH
+    # If FedLex was processed, copy metadata for CH
     if process_ch:
-        shutil.copy(
-            "src/server_scripts/redirect.php",
-            COLLECTION_PATH_CH,
-        )
         shutil.copy(
             COLLECTION_DATA_CH,
             os.path.join(STATIC_PATH, "collection-metadata-ch.json"),
         )
 
     # -------------------------------------------------------------------------
-    # 7) Generate a sitemap (covering everything under public/)
+    # 7) Generate anchor maps for processed collections
+    # -------------------------------------------------------------------------
+    if process_zh:
+        logging.info("Generating anchor maps for ZH collection")
+        generate_anchor_maps.generate_anchor_maps_for_collection(
+            STATIC_PATH, "col-zh", concurrent=(processing_mode == "concurrent"), max_workers=max_workers
+        )
+        logging.info("Finished generating anchor maps for ZH collection")
+    
+    if process_ch:
+        logging.info("Generating anchor maps for CH collection")
+        generate_anchor_maps.generate_anchor_maps_for_collection(
+            STATIC_PATH, "col-ch", concurrent=(processing_mode == "concurrent"), max_workers=max_workers
+        )
+        logging.info("Finished generating anchor maps for CH collection")
+
+    # -------------------------------------------------------------------------
+    # 8) Generate a sitemap (covering everything under public/)
     # -------------------------------------------------------------------------
     logging.info("Generating sitemap")
     site_url = "https://zhlaw.ch"
@@ -458,7 +482,7 @@ def main(
     logging.info("Finished generating sitemap")
 
     # -------------------------------------------------------------------------
-    # 8) Build Pagefind search index (covering everything in public/)
+    # 9) Build Pagefind search index (covering everything in public/)
     # -------------------------------------------------------------------------
     logging.info("Building search index")
     subprocess.run(["npx", "pagefind", "--site", STATIC_PATH, "--serve"])

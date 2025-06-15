@@ -209,6 +209,23 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
     if body:
         body.append(footer)
 
+        # Add JavaScript files
+        # Anchor highlight script
+        anchor_highlight_script = soup.new_tag(
+            "script",
+            src="../anchor-highlight.js",
+            defer=True
+        )
+        body.append(anchor_highlight_script)
+        
+        # Anchor tooltip script
+        anchor_tooltip_script = soup.new_tag(
+            "script",
+            src="../anchor-tooltip.js",
+            defer=True
+        )
+        body.append(anchor_tooltip_script)
+
         # Add GoatCounter script
         # Comment out if not needed on clone
         goatcounter_script = soup.new_tag(
@@ -1080,10 +1097,16 @@ def main(
 
         # Apply attributes based on version status
         law_div: Union[Tag, None] = soup.find("div", id="law")
-        if law_div and is_newest:
-            # Only add data-pagefind-body to newest version
-            law_div["data-pagefind-body"] = None
-            # No filter for "Versionen" is needed anymore
+        if law_div:
+            # Add law metadata as data attributes
+            law_div["data-ordnungsnummer"] = ordnungsnummer
+            law_div["data-nachtragsnummer"] = current_nachtragsnummer
+            law_div["data-title"] = erlasstitel
+            
+            if is_newest:
+                # Only add data-pagefind-body to newest version
+                law_div["data-pagefind-body"] = None
+                # No filter for "Versionen" is needed anymore
 
         annex: Union[Tag, None] = soup.find("details", id="annex")
         if annex:
