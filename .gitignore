@@ -168,5 +168,6 @@ _notes
 # Deployment
 deploy.sh
 
-# AI
+# Documentation
 CLAUDE.md
+PRIVATEREADME.MD
