@@ -18,13 +18,14 @@ logger = logging.getLogger(__name__)
 class AnchorMapGenerator:
     """Generate anchor maps for law collections."""
     
-    def __init__(self, public_dir: str, collection: str):
+    def __init__(self, public_dir: str, collection: str, collection_data: Optional[List[Dict]] = None):
         """
         Initialize the anchor map generator.
         
         Args:
             public_dir: Path to the public directory
             collection: Collection name ('col-zh' or 'col-ch')
+            collection_data: Optional collection metadata from processed JSON
         """
         self.public_dir = Path(public_dir)
         self.collection = collection
@@ -39,6 +40,15 @@ class AnchorMapGenerator:
         
         # Pattern to extract provision/subprovision from anchor IDs
         self.anchor_pattern = re.compile(r'seq-\d+-prov-(\d+[a-z]?)(?:-sub-(\d+))?')
+        
+        # Create metadata lookup dictionary if collection data provided
+        self.metadata_lookup = {}
+        if collection_data:
+            for law in collection_data:
+                self.metadata_lookup[law['ordnungsnummer']] = {
+                    'title': law.get('erlasstitel', ''),
+                    'abbreviation': law.get('abkuerzung', '')
+                }
     
     def generate_all_maps(self, concurrent: bool = True, max_workers: int = 10) -> None:
         """
@@ -110,11 +120,14 @@ class AnchorMapGenerator:
             ordnungsnummer: The law's ordnungsnummer
             files: List of (filename, nachtragsnummer) tuples for this law
         """
+        # Get metadata from lookup if available
+        law_metadata = self.metadata_lookup.get(ordnungsnummer, {})
+        
         anchor_map = {
             "metadata": {
                 "ordnungsnummer": ordnungsnummer,
-                "title": "",
-                "abbreviation": "",
+                "title": law_metadata.get('title', ''),
+                "abbreviation": law_metadata.get('abbreviation', ''),
                 "provision_type": ""
             },
             "provisions": {}
@@ -147,9 +160,9 @@ class AnchorMapGenerator:
         with open(file_path, 'r', encoding='utf-8') as f:
             soup = BeautifulSoup(f.read(), 'html.parser')
         
-        # Extract metadata from the latest version
-        if not anchor_map["metadata"]["title"]:
-            self._extract_metadata(soup, anchor_map["metadata"])
+        # Extract provision type from the HTML (title/abbreviation already set from collection data)
+        if not anchor_map["metadata"]["provision_type"]:
+            self._extract_provision_type(soup, anchor_map["metadata"])
         
         # Find all provision and subprovision anchors
         provisions = anchor_map["provisions"]
@@ -202,25 +215,14 @@ class AnchorMapGenerator:
                     prov_data["versions"].append(version_str)
                     prov_data["latest_version"] = version_str
     
-    def _extract_metadata(self, soup: BeautifulSoup, metadata: Dict) -> None:
+    def _extract_provision_type(self, soup: BeautifulSoup, metadata: Dict) -> None:
         """
-        Extract metadata from the law HTML.
+        Extract provision type from the law HTML.
         
         Args:
             soup: BeautifulSoup object of the HTML
             metadata: Metadata dictionary to update
         """
-        # Extract title
-        title_elem = soup.find('h1', class_='main-title')
-        if title_elem:
-            metadata["title"] = title_elem.get_text(strip=True)
-        
-        # Extract abbreviation from title if present
-        if metadata["title"] and '(' in metadata["title"] and ')' in metadata["title"]:
-            match = re.search(r'\(([^)]+)\)$', metadata["title"])
-            if match:
-                metadata["abbreviation"] = match.group(1)
-        
         # Determine provision type by looking at provision links
         provision_link = soup.find('a', href=re.compile(r'#seq-\d+-prov-\d+'))
         if provision_link:
@@ -235,6 +237,7 @@ class AnchorMapGenerator:
 
 
 def generate_anchor_maps_for_collection(public_dir: str, collection: str, 
+                                      collection_data: Optional[List[Dict]] = None,
                                       concurrent: bool = True, max_workers: int = 10) -> None:
     """
     Generate anchor maps for a specific collection.
@@ -242,10 +245,11 @@ def generate_anchor_maps_for_collection(public_dir: str, collection: str,
     Args:
         public_dir: Path to the public directory
         collection: Collection name ('col-zh' or 'col-ch')
+        collection_data: Optional collection metadata from processed JSON
         concurrent: Whether to process laws concurrently
         max_workers: Maximum number of concurrent workers
     """
-    generator = AnchorMapGenerator(public_dir, collection)
+    generator = AnchorMapGenerator(public_dir, collection, collection_data)
     generator.generate_all_maps(concurrent, max_workers)
 
 
@@ -260,4 +264,4 @@ def generate_all_anchor_maps(public_dir: str, concurrent: bool = True, max_worke
     """
     for collection in ['col-zh', 'col-ch']:
         logger.info(f"Generating anchor maps for {collection}")
-        generate_anchor_maps_for_collection(public_dir, collection, concurrent, max_workers)
+        generate_anchor_maps_for_collection(public_dir, collection, None, concurrent, max_workers)

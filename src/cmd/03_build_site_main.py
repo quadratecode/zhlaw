@@ -458,15 +458,23 @@ def main(
     # -------------------------------------------------------------------------
     if process_zh:
         logging.info("Generating anchor maps for ZH collection")
+        # Load ZH collection data for anchor map generation
+        with open(COLLECTION_DATA_ZH, "r", encoding="utf-8") as file:
+            zh_collection_data = json.load(file)
         generate_anchor_maps.generate_anchor_maps_for_collection(
-            STATIC_PATH, "col-zh", concurrent=(processing_mode == "concurrent"), max_workers=max_workers
+            STATIC_PATH, "col-zh", zh_collection_data, 
+            concurrent=(processing_mode == "concurrent"), max_workers=max_workers
         )
         logging.info("Finished generating anchor maps for ZH collection")
     
     if process_ch:
         logging.info("Generating anchor maps for CH collection")
+        # Load CH collection data for anchor map generation
+        with open(COLLECTION_DATA_CH, "r", encoding="utf-8") as file:
+            ch_collection_data = json.load(file)
         generate_anchor_maps.generate_anchor_maps_for_collection(
-            STATIC_PATH, "col-ch", concurrent=(processing_mode == "concurrent"), max_workers=max_workers
+            STATIC_PATH, "col-ch", ch_collection_data,
+            concurrent=(processing_mode == "concurrent"), max_workers=max_workers
         )
         logging.info("Finished generating anchor maps for CH collection")
 
