@@ -84,3 +84,36 @@
     --color-warning-bg: #332701;
     --color-warning-text: #ffecb5;
 }
+
+/* -----------------------------
+   Copy Button Tooltips
+   
+   Styles for the copy button tooltips that appear
+   on hover/focus of URL copy buttons in sidebar
+----------------------------- */
+
+/* Copy tooltip container */
+.copy-tooltip {
+    position: absolute;
+    padding: 4px 8px;
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translateX(-50%) translateY(-100%);
+    margin-top: -4px;
+    
+    /* Light mode styles - dark background, light text */
+    background-color: var(--dark-shade);
+    color: var(--soft-white);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Dark mode copy tooltip */
+[data-theme="dark"] .copy-tooltip {
+    background-color: var(--dark-dark-shade);
+    color: var(--dark-soft-white);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}

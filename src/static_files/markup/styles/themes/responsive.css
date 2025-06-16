@@ -209,4 +209,26 @@
     body {
         --pagefind-ui-scale: 0.7;
     }
+    
+    /* Responsive adjustments for copy buttons */
+    .link-url-container {
+        flex-direction: row;
+        gap: 0.25rem;
+    }
+    
+    .link-url-container .link-url {
+        height: 2rem;
+        font-size: 0.75rem;
+    }
+    
+    .link-copy-btn {
+        width: 2rem;
+        height: 2rem;
+        padding: 0.375rem;
+    }
+    
+    .link-copy-btn svg {
+        width: 1rem;
+        height: 1rem;
+    }
 }

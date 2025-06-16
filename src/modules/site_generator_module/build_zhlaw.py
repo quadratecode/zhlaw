@@ -212,19 +212,19 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
         # Add JavaScript files
         # Anchor highlight script
         anchor_highlight_script = soup.new_tag(
-            "script",
-            src="../anchor-highlight.js",
-            defer=True
+            "script", src="../anchor-highlight.js", defer=True
         )
         body.append(anchor_highlight_script)
-        
+
         # Anchor tooltip script
         anchor_tooltip_script = soup.new_tag(
-            "script",
-            src="../anchor-tooltip.js",
-            defer=True
+            "script", src="../anchor-tooltip.js", defer=True
         )
         body.append(anchor_tooltip_script)
+
+        # Copy links script
+        copy_links_script = soup.new_tag("script", src="../copy-links.js", defer=True)
+        body.append(copy_links_script)
 
         # Add GoatCounter script
         # Comment out if not needed on clone
@@ -980,10 +980,48 @@ def create_links_display(
     static_title.string = "Zu dieser Version:"
     static_group.append(static_title)
 
+    # Static Link URL Container
+    static_url_container: Tag = soup.new_tag("div", **{"class": "link-url-container"})
+    static_group.append(static_url_container)
+
     # Static Link URL
     static_url: Tag = soup.new_tag("div", **{"class": "link-url"})
     static_url.string = f"https://www.zhlaw.ch{current_url}"
-    static_group.append(static_url)
+    static_url_container.append(static_url)
+
+    # Static Link Copy Button (only visible with JS)
+    static_copy_wrapper: Tag = soup.new_tag("div", **{"class": "js-only"})
+    static_copy_btn: Tag = soup.new_tag(
+        "button",
+        **{
+            "class": "link-copy-btn",
+            "data-copy-text": f"https://www.zhlaw.ch{current_url}",
+            "aria-label": "Link kopieren",
+            "title": "Link kopieren",
+        },
+    )
+
+    # Add SVG copy icon
+    copy_svg = soup.new_tag(
+        "svg",
+        xmlns="http://www.w3.org/2000/svg",
+        width="16",
+        height="16",
+        viewBox="0 0 24 24",
+        fill="none",
+        stroke="currentColor",
+        **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round"},
+    )
+    rect1 = soup.new_tag("rect", x="9", y="9", width="13", height="13", rx="2", ry="2")
+    path1 = soup.new_tag(
+        "path", d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+    )
+    copy_svg.append(rect1)
+    copy_svg.append(path1)
+    static_copy_btn.append(copy_svg)
+
+    static_copy_wrapper.append(static_copy_btn)
+    static_url_container.append(static_copy_wrapper)
 
     # Add separator
     separator: Tag = soup.new_tag("hr", **{"class": "links-separator"})
@@ -998,10 +1036,48 @@ def create_links_display(
     dynamic_title.string = "Immer zur neusten Version:"
     dynamic_group.append(dynamic_title)
 
+    # Dynamic Link URL Container
+    dynamic_url_container: Tag = soup.new_tag("div", **{"class": "link-url-container"})
+    dynamic_group.append(dynamic_url_container)
+
     # Dynamic Link URL
     dynamic_url_tag: Tag = soup.new_tag("div", **{"class": "link-url"})
     dynamic_url_tag.string = dynamic_url
-    dynamic_group.append(dynamic_url_tag)
+    dynamic_url_container.append(dynamic_url_tag)
+
+    # Dynamic Link Copy Button (only visible with JS)
+    dynamic_copy_wrapper: Tag = soup.new_tag("div", **{"class": "js-only"})
+    dynamic_copy_btn: Tag = soup.new_tag(
+        "button",
+        **{
+            "class": "link-copy-btn",
+            "data-copy-text": dynamic_url,
+            "aria-label": "Link kopieren",
+            "title": "Link kopieren",
+        },
+    )
+
+    # Add SVG copy icon
+    copy_svg2 = soup.new_tag(
+        "svg",
+        xmlns="http://www.w3.org/2000/svg",
+        width="16",
+        height="16",
+        viewBox="0 0 24 24",
+        fill="none",
+        stroke="currentColor",
+        **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round"},
+    )
+    rect2 = soup.new_tag("rect", x="9", y="9", width="13", height="13", rx="2", ry="2")
+    path2 = soup.new_tag(
+        "path", d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+    )
+    copy_svg2.append(rect2)
+    copy_svg2.append(path2)
+    dynamic_copy_btn.append(copy_svg2)
+
+    dynamic_copy_wrapper.append(dynamic_copy_btn)
+    dynamic_url_container.append(dynamic_copy_wrapper)
 
     # Add source link if available
     if law_page_url:
@@ -1102,7 +1178,7 @@ def main(
             law_div["data-ordnungsnummer"] = ordnungsnummer
             law_div["data-nachtragsnummer"] = current_nachtragsnummer
             law_div["data-title"] = erlasstitel
-            
+
             if is_newest:
                 # Only add data-pagefind-body to newest version
                 law_div["data-pagefind-body"] = None
