@@ -1,6 +1,19 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for creating hyperlinks in legal HTML documents.
+
+This module processes HTML documents to identify and create hyperlinks for legal references,
+including provisions, subprovisions, footnotes, and cross-references. It handles various
+patterns of legal citations and creates proper anchor links within the document structure.
+
+Key features:
+- Identifies provisions and subprovisions with proper ID assignment
+- Processes footnotes and creates bidirectional links
+- Handles cross-references to other legal texts
+- Manages table of contents and structural elements
+- Refines document structure for proper navigation
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import json
 import re

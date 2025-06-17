@@ -1,6 +1,15 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""
+Module for cropping PDF margins to separate main content from marginalia.
+
+This module provides functionality to:
+- Crop PDF pages to isolate main content and marginalia
+- Handle different margin widths for odd and even pages
+- Create separate PDF files for main content and marginalia
+- Support the marginalia extraction and matching pipeline
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import logging
 import fitz

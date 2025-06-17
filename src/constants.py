@@ -3,6 +3,9 @@ Constants module for ZHLaw processing system.
 
 This module contains string constants, enums, and other immutable values
 used throughout the application.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 from enum import Enum

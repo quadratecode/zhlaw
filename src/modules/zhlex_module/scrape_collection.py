@@ -1,6 +1,20 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for scraping legal text collections from ZH-Lex.
+
+This module provides functionality to scrape legal texts from the Canton of Zurich's
+ZH-Lex system. It fetches law metadata from the API, processes individual law pages
+to extract detailed information, and handles version history tracking.
+
+Key features:
+- Fetches all laws from ZH-Lex API with pagination support
+- Extracts detailed metadata from individual law pages
+- Handles redirected URLs and version tracking
+- Processes repealed and active enactments
+- Extracts law text URLs and additional metadata fields
+- Supports both full and test dataset processing
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import sys
 import arrow

@@ -1,6 +1,19 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for building KRZH dispatch HTML pages.
+
+This module generates HTML pages for parliamentary dispatches (KRZH dispatches).
+It handles:
+- Converting dispatch data to HTML format
+- Creating a sidebar with dispatch controls (expand/collapse all)
+- Generating dispatch listings with collapsible details
+- Adding RSS feed links and metadata
+- Implementing client-side JavaScript for interactivity
+
+The module creates a structured layout similar to law pages but optimized for
+dispatches, with controls to expand/collapse all dispatch entries at once.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import arrow
 import re

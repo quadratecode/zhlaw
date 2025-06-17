@@ -3,6 +3,9 @@ File operation utilities for ZHLaw processing system.
 
 This module provides common file operations with consistent error handling
 and logging, reducing code duplication across the codebase.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 import json

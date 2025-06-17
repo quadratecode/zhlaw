@@ -1,6 +1,17 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""
+Module for converting Adobe Extract API JSON output to structured HTML.
+
+This module provides functionality to:
+- Parse JSON data from Adobe Extract API
+- Convert text elements to semantic HTML
+- Detect and handle provisions, headings, and tables
+- Process text formatting (superscript, subscript, fractions)
+- Handle marginalia and annotations
+- Generate well-structured HTML with metadata attributes
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import json
 import logging

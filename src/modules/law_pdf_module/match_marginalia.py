@@ -1,6 +1,19 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for matching and positioning marginalia in legal HTML documents.
+
+This module processes HTML documents to properly position marginalia (side notes) relative
+to their associated provisions. It calculates vertical overlap between marginalia and main
+text elements, adjusts positioning, and merges marginalia HTML with the main document.
+
+Key features:
+- Calculates vertical overlap between marginalia and provisions
+- Adjusts marginalia positioning to align with appropriate provisions
+- Sorts paragraphs by page and vertical position
+- Merges separate marginalia HTML files with main document HTML
+- Maintains proper document structure and flow
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 from bs4 import BeautifulSoup, NavigableString
 import re

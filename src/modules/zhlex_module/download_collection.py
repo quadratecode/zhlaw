@@ -1,6 +1,20 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for downloading legal text files from ZH-Lex.
+
+This module downloads the actual PDF and HTML files for legal texts that have been
+previously scraped from the ZH-Lex system. It creates a structured directory hierarchy
+for organizing the downloaded files and generates metadata files for each version.
+
+Key features:
+- Downloads PDF and HTML files for each law version
+- Creates organized directory structure by law number and version
+- Generates metadata files with download timestamps
+- Handles both direct URLs and redirected URLs
+- Implements rate limiting to respect server resources
+- Skips already downloaded files to support resumption
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import os
 import requests

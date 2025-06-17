@@ -3,6 +3,9 @@ HTTP operation utilities for ZHLaw processing system.
 
 This module provides common HTTP operations with consistent error handling,
 retries, and logging.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 import time

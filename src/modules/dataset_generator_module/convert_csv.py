@@ -1,6 +1,17 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Converts processed law metadata to CSV format for dataset export.
+
+This module takes the processed JSON metadata from law files and converts it
+into a structured CSV format suitable for data analysis and distribution.
+It extracts key metadata fields and version information.
+
+Functions:
+    extract_latest_version_info(versions): Extracts info from latest version
+    convert_json_to_csv(json_file_path, csv_file_path): Main conversion function
+    process_law_entry(entry): Processes individual law metadata entry
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import json
 import csv

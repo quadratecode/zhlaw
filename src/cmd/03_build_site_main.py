@@ -1,6 +1,29 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+#!/usr/bin/env python3
+"""
+Static Site Generation Pipeline - Main Entry Point
+
+This module generates the static website from processed law data:
+1. Generates index pages for law collections
+2. Processes HTML files from ZH-Lex and/or FedLex collections
+3. Creates placeholder pages for missing documents
+4. Builds markdown dataset for processed collections
+5. Generates anchor maps for cross-referencing
+6. Creates sitemaps for SEO
+7. Copies static assets and deploys search functionality
+
+Usage:
+    python -m src.cmd.03_build_site_main [options]
+
+Options:
+    --folder: Choose collections to build (zhlex_files, ch_files, all_files, test_files)
+    --db-build: Build markdown dataset (yes/no)
+    --placeholders: Create placeholder pages (yes/no)
+    --mode: Processing mode (concurrent or sequential)
+    --workers: Number of worker processes for concurrent mode
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import logging
 import glob

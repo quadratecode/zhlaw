@@ -3,6 +3,9 @@ Centralized logging configuration for ZHLaw processing system.
 
 This module provides a consistent logging setup across all modules,
 with features like log rotation, formatting, and multiple handlers.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 import logging

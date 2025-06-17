@@ -1,6 +1,20 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for generating the main index page with systematic law overview.
+
+This module creates the hierarchical index page that displays all laws organized
+by their systematic categories. It:
+- Builds a nested tree structure from law metadata
+- Filters to show only laws currently in force
+- Organizes laws by category, section, and subsection
+- Generates collapsible HTML using details/summary elements
+- Creates responsive flex containers for law listings
+- Provides navigation links to individual law pages
+
+The resulting index serves as the main entry point for browsing the complete
+collection of laws in a structured manner.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 
 import json

@@ -3,6 +3,9 @@ HTML operation utilities for ZHLaw processing system.
 
 This module provides common HTML operations with BeautifulSoup,
 reducing code duplication across HTML processing modules.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 from typing import List, Dict, Any, Optional, Callable, Union

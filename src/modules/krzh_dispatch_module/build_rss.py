@@ -1,6 +1,19 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Generates RSS feed for parliamentary dispatches.
+
+This module creates an RSS feed containing parliamentary dispatch entries,
+including metadata, legal changes, and links to source documents. The feed
+is formatted according to RSS 2.0 specifications.
+
+Functions:
+    format_rfc822_date(date_str): Converts date to RFC 822 format for RSS
+    escape_xml_content(text): Escapes special characters for XML
+    get_priority(affair_type): Determines priority based on affair type
+    create_rss_item(item_data): Creates individual RSS item element
+    build_rss_feed(metadata_file, output_file): Main function to build RSS feed
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import arrow
 from email.utils import formatdate

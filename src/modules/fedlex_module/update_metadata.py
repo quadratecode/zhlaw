@@ -1,4 +1,19 @@
 #!/usr/bin/env python3
+"""Updates federal law metadata with additional information from Fedlex.
+
+This module enriches existing federal law metadata by querying additional
+information from Fedlex, including version details, document URLs, and
+publication information. It handles rate limiting and error recovery.
+
+Functions:
+    query_fedlex_sparql(query): Executes SPARQL queries against Fedlex
+    update_law_metadata(sr_number, metadata): Updates metadata for a specific law
+    process_metadata_updates(input_file): Main function to update all metadata
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
+
 import os
 import json
 import re

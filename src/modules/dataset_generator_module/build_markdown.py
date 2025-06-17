@@ -1,5 +1,21 @@
-# Imports and other functions (is_ascii_art_or_noise, read_file_with_fallback_encoding,
-# sanitize_headings, flatten_dict) remain the same as the previous version.
+"""Converts processed law HTML files to Markdown format for dataset distribution.
+
+This module processes HTML law texts and converts them to clean Markdown format,
+suitable for machine learning datasets and text analysis. It handles special
+law formatting, removes noise, and creates structured output with YAML frontmatter.
+
+Functions:
+    is_ascii_art_or_noise(text): Detects ASCII art or formatting noise
+    read_file_with_fallback_encoding(file_path): Reads files with encoding detection
+    sanitize_headings(text): Cleans up heading formatting
+    flatten_dict(d, parent_key, sep): Flattens nested dictionaries
+    convert_html_to_markdown(html_content, metadata): Main conversion function
+    build_markdown_dataset(input_dir, output_dir): Processes all law files
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
+
 import os
 import json
 import re

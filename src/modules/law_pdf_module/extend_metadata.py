@@ -1,6 +1,20 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for extending PDF metadata with structural information.
+
+This module analyzes PDF documents to extract and enhance metadata about document structure,
+including provisions, marginalia, and spatial positioning. It uses PyMuPDF (fitz) to process
+PDF files and enriches the extracted data with additional structural information.
+
+Key features:
+- Extracts vertical and horizontal positioning data from PDF elements
+- Identifies and splits provision markers from text
+- Merges comma-separated elements intelligently
+- Processes marginalia (side notes) and their relationships to main text
+- Adds structural metadata for downstream processing
+- Supports debug visualization of extracted regions
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import fitz
 import re

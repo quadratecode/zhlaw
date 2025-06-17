@@ -1,6 +1,19 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for generating XML sitemaps for the zhlaw website.
+
+This module creates sitemap.xml files following the sitemap protocol to help
+search engines discover and index all pages. It:
+- Scans the public directory for all HTML files
+- Determines priority based on file type and location
+- Assigns higher priority to latest law versions
+- Assigns lower priority to diff pages
+- Generates properly formatted XML with last modified dates
+
+The sitemap helps improve SEO and ensures all law pages, including different
+versions and collections, are discoverable by search engines.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import os
 from datetime import datetime

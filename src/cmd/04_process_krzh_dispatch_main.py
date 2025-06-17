@@ -1,6 +1,21 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+#!/usr/bin/env python3
+"""
+Parliamentary Dispatch Processing Pipeline - Main Entry Point
+
+This module processes parliamentary dispatches from the Kantonsrat Zürich:
+1. Scrapes dispatch metadata from the parliamentary website
+2. Downloads PDF files for each dispatch
+3. Analyzes dispatch content using OpenAI to identify law changes
+4. Generates HTML pages for each dispatch with change analysis
+5. Builds an RSS feed for recent dispatches
+6. Integrates processed dispatches into the static website
+
+Usage:
+    python -m src.cmd.04_process_krzh_dispatch_main
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 # Import custom modules
 from src.modules.krzh_dispatch_module import scrape_dispatch

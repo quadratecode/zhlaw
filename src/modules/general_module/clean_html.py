@@ -1,6 +1,17 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""
+Module for cleaning and post-processing HTML files generated from law PDFs.
+
+This module provides functionality to:
+- Clean up whitespace and formatting issues
+- Merge fragmented elements (punctuation, fractions, enumerations)
+- Handle footnotes and annotations
+- Wrap annexes in semantic containers
+- Remove unwanted attributes from HTML elements
+- Normalize heading structures
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 import string

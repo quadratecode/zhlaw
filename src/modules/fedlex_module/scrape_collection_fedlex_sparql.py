@@ -1,3 +1,18 @@
+"""Scrapes federal law metadata from Fedlex SPARQL endpoint.
+
+This module queries the Fedlex SPARQL endpoint to retrieve metadata about
+Swiss federal laws in the Classified Compilation (SR). It fetches information
+such as SR numbers, titles, abbreviations, and publication dates.
+
+Functions:
+    execute_sparql_query(): Executes the SPARQL query against Fedlex
+    process_query_results(results): Processes SPARQL query results
+    save_metadata(data, timestamp): Saves scraped metadata to JSON file
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
+
 import os
 import json
 import time

@@ -3,6 +3,9 @@ Type definitions for ZHLaw processing system.
 
 This module provides type aliases and TypedDict definitions for complex
 data structures used throughout the codebase.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 from typing import (

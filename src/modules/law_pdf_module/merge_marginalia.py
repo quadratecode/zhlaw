@@ -1,6 +1,20 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for merging marginalia paragraphs in legal HTML documents.
+
+This module processes HTML documents to intelligently merge marginalia (side notes) that
+have been split across multiple paragraphs during PDF extraction. It uses positional data
+and text patterns to determine which paragraphs should be merged together.
+
+Key features:
+- Merges adjacent marginalia paragraphs based on positional data
+- Handles split text from hyphenation at line breaks
+- Preserves numbered lists and enumeration patterns
+- Removes empty or superscript-only paragraphs
+- Maintains proper spacing and text flow
+- Uses configurable thresholds for adjacency detection
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 from bs4 import BeautifulSoup, NavigableString
 import re

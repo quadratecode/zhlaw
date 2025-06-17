@@ -3,6 +3,9 @@ Custom exception classes for ZHLaw processing system.
 
 This module defines specific exception types for different error scenarios,
 making error handling more precise and informative.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 from typing import Optional, Dict, Any

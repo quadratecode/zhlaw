@@ -1,6 +1,15 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""
+Module for extracting text and structure from PDF files using Adobe Extract API.
+
+This module provides functionality to:
+- Set up Adobe API credentials
+- Extract text, tables, and structural elements from PDFs
+- Convert extracted data to JSON format
+- Handle API quotas and errors gracefully
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import os
 import zipfile

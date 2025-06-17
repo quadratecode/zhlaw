@@ -4,6 +4,9 @@ Configuration module for ZHLaw processing system.
 This module centralizes all configuration values, paths, and constants
 used throughout the application. It supports environment variables for
 sensitive data and deployment-specific settings.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 import os

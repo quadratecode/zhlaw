@@ -1,6 +1,17 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Extracts legal change details from parliamentary dispatch HTML.
+
+This module parses dispatch HTML content to extract specific legal provisions
+that are being modified. It identifies article numbers, law references, and
+the nature of changes (additions, modifications, deletions).
+
+Functions:
+    custom_sort_key(item): Custom sorting for article numbers with letters
+    extract_provision_details(text): Extracts provision numbers from text
+    extract_changes_from_html(html_content): Main function to extract changes from HTML
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import re
 from bs4 import BeautifulSoup

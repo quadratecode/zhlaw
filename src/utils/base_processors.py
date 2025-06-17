@@ -3,6 +3,9 @@ Base processor classes for ZHLaw processing system.
 
 This module provides abstract base classes and common functionality
 for different types of processors in the system.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 from abc import ABC, abstractmethod

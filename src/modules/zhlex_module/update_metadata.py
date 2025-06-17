@@ -1,6 +1,21 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for updating metadata files with enriched information.
+
+This module processes existing metadata files and enriches them with additional information
+from the scraped ZH-Lex data. It matches files based on law numbers (ordnungsnummer) and
+updates metadata with detailed document information, version data, and processing timestamps.
+
+Key features:
+- Updates existing metadata files with enriched information
+- Handles missing or corrupted metadata files gracefully
+- Extracts metadata from filenames when necessary
+- Matches files to source data by ordnungsnummer
+- Updates version-specific information
+- Preserves existing processing timestamps
+- Creates valid metadata structures for files without proper metadata
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 
 import os

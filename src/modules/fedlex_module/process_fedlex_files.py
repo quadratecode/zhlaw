@@ -21,6 +21,9 @@ Performs extensive cleanup and restructuring:
 
 Usage:
     python process_fedlex_files.py [--folder {fedlex_files,test_files}] [--mode {concurrent,sequential}]
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 # Standard library imports

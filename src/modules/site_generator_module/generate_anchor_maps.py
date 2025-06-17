@@ -1,5 +1,8 @@
 """
 Generate anchor maps for laws to enable dynamic linking to the latest version of provisions.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 import json

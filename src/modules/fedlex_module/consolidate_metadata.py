@@ -1,4 +1,19 @@
 #!/usr/bin/env python3
+"""Consolidates individual federal law metadata files into a single dataset.
+
+This module reads individual metadata JSON files for each federal law and
+consolidates them into a single comprehensive metadata file. It organizes
+law versions and maintains the relationship between different versions.
+
+Functions:
+    extract_version_data(doc_info): Extracts version-specific data
+    consolidate_law_metadata(base_dir): Consolidates all law metadata
+    write_consolidated_file(data, output_file): Writes consolidated data
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
+
 import os
 import json
 

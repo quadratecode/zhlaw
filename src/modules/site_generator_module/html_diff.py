@@ -1,6 +1,9 @@
 """
 Module for generating HTML diffs between consecutive versions of laws.
 Uses the htmldiff library to create diffs, then applies proper styling and structure.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
 import os

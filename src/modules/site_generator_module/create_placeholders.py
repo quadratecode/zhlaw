@@ -1,6 +1,19 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for creating placeholder HTML files for missing law documents.
+
+This module generates placeholder HTML pages for law versions that exist in the
+metadata but don't have corresponding HTML files (e.g., due to processing errors
+or missing source documents). It:
+- Identifies missing HTML files by comparing metadata with existing files
+- Creates placeholder pages with appropriate messaging
+- Processes placeholders through the standard build pipeline
+- Ensures consistent formatting with regular law pages
+
+Placeholder pages inform users that the text is unavailable and provide a link
+to the original source for verification.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import logging
 import os

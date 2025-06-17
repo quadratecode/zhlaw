@@ -1,6 +1,19 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for processing legacy HTML law documents.
+
+This module handles the conversion of older HTML formats to the current zhlaw
+structure. It performs various cleanup and transformation tasks including:
+- Removing JavaScript and unwanted attributes
+- Converting deprecated font tags to semantic HTML
+- Creating proper document structure with source-text and law divs
+- Unwrapping unnecessary formatting tags
+- Ensuring consistent structure for further processing
+
+The module is essential for handling historical law documents that may have
+been created with different tools or standards.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import logging
 import re

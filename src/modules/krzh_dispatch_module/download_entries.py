@@ -1,6 +1,17 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Downloads and processes parliamentary dispatch documents.
+
+This module downloads dispatch texts and PDF documents from the Kantonsrat Zürich
+website. It handles both HTML text extraction and PDF file downloads, organizing
+the content into a structured directory hierarchy.
+
+Functions:
+    download_dispatch_text(url, dispatch_dir, file_name): Downloads dispatch HTML text
+    download_dispatch_pdfs(doc_list, dispatch_dir): Downloads associated PDF documents
+    download_krzh_dispatch_entries(metadata_file): Main function to download all dispatches
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import os
 import requests

@@ -1,6 +1,17 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Analyzes parliamentary dispatch texts using OpenAI API to extract legal changes.
+
+This module uses OpenAI's GPT models to analyze dispatch texts and identify
+proposed changes to existing laws. It extracts structured information about
+which laws will be modified, added, or removed.
+
+Functions:
+    call_openai_api(dispatch_data): Main function to analyze dispatch with OpenAI
+    parse_json_response(response_text): Parses JSON from OpenAI response
+    process_dispatch_with_retries(dispatch_data, max_retries): Processes with retry logic
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 from openai import OpenAI
 import os

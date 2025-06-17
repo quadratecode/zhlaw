@@ -1,6 +1,18 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Scrapes parliamentary dispatch metadata from the Kantonsrat Zürich website.
+
+This module fetches dispatch metadata from the Kantonsrat Zürich website, including
+dispatch numbers, titles, dates, and document URLs. It processes paginated results
+and saves the metadata as JSON files.
+
+Functions:
+    scrape_krzh_dispatch_files(): Main function to scrape all dispatch metadata
+    send_request(url, headers, body): Sends POST request to the dispatch API
+    process_single_dispatch(dispatch_data): Processes individual dispatch data
+    save_metadata(metadata, timestamp): Saves scraped metadata to JSON file
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import requests
 from bs4 import BeautifulSoup

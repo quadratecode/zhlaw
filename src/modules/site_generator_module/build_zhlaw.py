@@ -1,6 +1,22 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+"""Module for building and processing ZHLaw HTML documents.
+
+This module handles the conversion and enhancement of raw legal HTML documents into
+the final structured format for the zhlaw static site. It processes various elements
+including:
+- Navigation buttons and version controls
+- Headers with search functionality and dark mode toggle
+- Sidebar with metadata and external links
+- Document structure (provisions, marginalia, footnotes)
+- Cross-references and internal links
+- Styling and layout improvements
+
+The module transforms BeautifulSoup objects representing legal documents, adding
+required UI elements, processing content structure, and ensuring consistent
+formatting across all law pages.
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 import logging
 import re
@@ -997,7 +1013,6 @@ def create_links_display(
             "class": "link-copy-btn",
             "data-copy-text": f"https://www.zhlaw.ch{current_url}",
             "aria-label": "Link kopieren",
-            "title": "Link kopieren",
         },
     )
 
@@ -1053,7 +1068,6 @@ def create_links_display(
             "class": "link-copy-btn",
             "data-copy-text": dynamic_url,
             "aria-label": "Link kopieren",
-            "title": "Link kopieren",
         },
     )
 

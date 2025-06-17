@@ -1,6 +1,25 @@
-# §§
-# LICENSE: https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
-# §§
+#!/usr/bin/env python3
+"""
+ZH-Lex PDF Processing Pipeline - Main Entry Point
+
+This module processes ZH-Lex law PDF files that have been scraped and downloaded:
+1. Extends metadata with color and style information from PDFs
+2. Converts JSON data from Adobe Extract API to structured HTML
+3. Processes and merges marginalia (side notes and references)
+4. Matches marginalia with corresponding law text
+5. Creates hyperlinks between cross-references
+6. Cleans and finalizes HTML output
+
+Usage:
+    python -m src.cmd.02_process_zhlex_main [options]
+
+Options:
+    --folder: Choose folder to process (zhlex_files or test_files)
+    --mode: Processing mode (concurrent or sequential)
+
+License:
+    https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
+"""
 
 # Import custom modules
 from src.modules.general_module import clean_html, json_to_html
