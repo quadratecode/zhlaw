@@ -290,7 +290,24 @@ def main(
     logging.info(f"Processed {len(version_map)} versioned assets and {len(non_versionable)} non-versioned assets")
 
     # -------------------------------------------------------------------------
-    # 2) Generate index (for ZH) if we are processing ZH
+    # 2) Process markdown content to HTML
+    # -------------------------------------------------------------------------
+    logging.info("Processing markdown content files")
+    from src.modules.static_content_module.markdown_processor import MarkdownProcessor
+    
+    markdown_processor = MarkdownProcessor()
+    markdown_content_dir = "src/static_files/content"
+    markdown_output_dir = "src/static_files/html"
+    
+    # Only process if markdown content directory exists
+    if os.path.exists(markdown_content_dir):
+        markdown_processor.process_content_directory(markdown_content_dir, markdown_output_dir)
+        logging.info("Finished processing markdown content files")
+    else:
+        logging.info("No markdown content directory found, skipping markdown processing")
+
+    # -------------------------------------------------------------------------
+    # 3) Generate index (for ZH) if we are processing ZH
     # -------------------------------------------------------------------------
     if process_zh:
         logging.info("Generating ZH index")
@@ -302,7 +319,7 @@ def main(
         logging.info("Finished generating ZH index")
 
     # -------------------------------------------------------------------------
-    # 3) Process ZH-Lex HTML files (if requested)
+    # 4) Process ZH-Lex HTML files (if requested)
     # -------------------------------------------------------------------------
     if process_zh and zh_folder:
         logging.info(f"Loading ZH-Lex HTML files from '{zh_folder}'")
@@ -348,7 +365,7 @@ def main(
             logging.info(f"ZH-Lex: encountered {error_counter_zh} errors.")
 
     # -------------------------------------------------------------------------
-    # 3) Process FedLex HTML files (if requested)
+    # 5) Process FedLex HTML files (if requested)
     # -------------------------------------------------------------------------
     if process_ch:
         logging.info("Loading FedLex HTML files")
@@ -386,7 +403,7 @@ def main(
             logging.info(f"FedLex: encountered {error_counter_ch} errors.")
 
     # -------------------------------------------------------------------------
-    # 4) Build MD datasets if requested (for whichever we processed)
+    # 6) Build MD datasets if requested (for whichever we processed)
     # -------------------------------------------------------------------------
     if dataset_trigger.lower() == "yes":
         if process_zh and zh_folder:
@@ -410,7 +427,7 @@ def main(
             logging.info("Finished building dataset for FedLex")
 
     # -------------------------------------------------------------------------
-    # 5) Create placeholders for ZH-Lex only if requested
+    # 7) Create placeholders for ZH-Lex only if requested
     # -------------------------------------------------------------------------
     if placeholders_trigger.lower() == "yes" and process_zh:
         # Load ZH data
@@ -469,7 +486,7 @@ def main(
     #     logging.info(f"Generated {ch_diff_count} diffs for FedLex")
 
     # -------------------------------------------------------------------------
-    # 6) Copy server scripts for local development
+    # 8) Copy server scripts for local development
     # -------------------------------------------------------------------------
     # Copy router.php and unified redirect scripts for local development
     shutil.copy(
@@ -500,7 +517,7 @@ def main(
         )
 
     # -------------------------------------------------------------------------
-    # 7) Generate anchor maps for processed collections
+    # 9) Generate anchor maps for processed collections
     # -------------------------------------------------------------------------
     if process_zh:
         logging.info("Generating anchor maps for ZH collection")
@@ -530,7 +547,7 @@ def main(
     logging.info("Finished generating anchor maps index")
 
     # -------------------------------------------------------------------------
-    # 8) Generate a sitemap (covering everything under public/)
+    # 10) Generate a sitemap (covering everything under public/)
     # -------------------------------------------------------------------------
     logging.info("Generating sitemap")
     site_url = "https://zhlaw.ch"
@@ -541,14 +558,14 @@ def main(
     logging.info("Finished generating sitemap")
 
     # -------------------------------------------------------------------------
-    # 9) Build Pagefind search index (covering everything in public/)
+    # 11) Build Pagefind search index (covering everything in public/)
     # -------------------------------------------------------------------------
     logging.info("Building search index")
     subprocess.run(["npx", "pagefind", "--site", STATIC_PATH])
     logging.info("Finished building search index")
     
     # -------------------------------------------------------------------------
-    # 10) Start PHP development server
+    # 12) Start PHP development server
     # -------------------------------------------------------------------------
     logging.info("Starting PHP development server at http://localhost:8000")
     logging.info("Press Ctrl+C to stop the server")
