@@ -443,11 +443,18 @@ document.addEventListener('DOMContentLoaded', function() {
         main_container: Tag = soup.new_tag("div", **{"class": "main-container"})
         sidebar: Tag = soup.new_tag("div", id="sidebar")
         content: Tag = soup.new_tag("div", **{"class": "content"})
-        # Create law_div without data-pagefind-body (will be added conditionally later)
-        law_div: Tag = soup.new_tag("div", **{"id": "law"})
-        while body.contents:
-            law_div.append(body.contents[0])
-        content.append(law_div)
+        # Check if there's already a #law element and handle it appropriately
+        existing_law = soup.find(id="law")
+        if existing_law:
+            # If #law already exists, move it directly to content without creating a duplicate
+            while body.contents:
+                content.append(body.contents[0])
+        else:
+            # Create law_div only if no #law exists
+            law_div: Tag = soup.new_tag("div", **{"id": "law"})
+            while body.contents:
+                law_div.append(body.contents[0])
+            content.append(law_div)
         main_container.append(sidebar)
         main_container.append(content)
         body.append(main_container)
