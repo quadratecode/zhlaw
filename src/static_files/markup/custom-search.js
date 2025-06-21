@@ -849,7 +849,7 @@ class CustomSearch {
             // Create new tooltip
             tooltip = document.createElement('div');
             tooltip.className = 'button-tooltip button-tooltip-below';
-            tooltip.textContent = 'Shortcut: "S" oder "/"';
+            tooltip.textContent = 'Shortcuts: "S" oder "/"';
             document.body.appendChild(tooltip);
             
             // Position tooltip below button (centered)

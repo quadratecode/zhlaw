@@ -119,13 +119,20 @@
     flex: 0 0 100px;
 }
 
+/* Provision field (narrower on larger screens) */
+@media (min-width: 769px) {
+    .quick-select-field-group.provision-field {
+        flex: 0 0 150px;
+    }
+}
+
 /* Autocomplete Container */
 .quick-select-autocomplete {
     position: absolute;
     top: 100%;
     left: 0;
     right: 0;
-    max-height: 200px;
+    max-height: 300px;
     overflow-y: auto;
     background: var(--soft-white);
     border: 1px solid var(--soft-black);
@@ -159,6 +166,14 @@
     font-size: 0.875rem;
     color: var(--grey);
     margin-top: 0.25rem;
+}
+
+/* No results message */
+.quick-select-autocomplete-no-results {
+    padding: 1rem;
+    text-align: center;
+    color: var(--grey);
+    font-style: italic;
 }
 
 /* Submit Button */
@@ -286,6 +301,10 @@
 [data-theme="dark"] .quick-select-autocomplete-item:hover,
 [data-theme="dark"] .quick-select-autocomplete-item.highlighted {
     background-color: var(--dark-hover-grey);
+}
+
+[data-theme="dark"] .quick-select-autocomplete-no-results {
+    color: var(--dark-grey);
 }
 
 [data-theme="dark"] .quick-select-submit {

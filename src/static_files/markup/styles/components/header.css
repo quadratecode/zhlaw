@@ -2,14 +2,11 @@
    Header & Navigation
 ----------------------------- */
 #page-header {
-    width: 100vw;
+    width: 100%;
     position: relative;
-    left: 50%;
-    right: 50%;
-    margin-left: -50vw;
-    margin-right: -50vw;
     border-bottom: 2px solid var(--soft-black);
     z-index: 100;
+    overflow-x: hidden;
 }
 
 /* Header content adjustments */
@@ -28,6 +25,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    overflow-x: hidden;
 }
 
 /* Header buttons container */
@@ -38,6 +36,8 @@
     gap: 0.5rem;
     margin-left: auto;
     height: 64px;
+    flex-shrink: 0;
+    min-width: 0;
 }
 
 /* Search container (part of buttons now) */
@@ -97,6 +97,8 @@
     height: 64px;
     overflow: hidden;
     flex-shrink: 0;
+    margin: 0;
+    padding: 0;
 }
 
 .logo-container a:hover {
@@ -107,6 +109,8 @@
     display: block;
     height: 64px;
     width: auto;
+    margin: 0;
+    padding: 0;
 }
 
 /* Logo color handling for dark mode */
@@ -142,13 +146,13 @@
         justify-content: center;
     }
     
-    /* Make logo same height as buttons on mobile */
+    /* Make logo same height as buttons on mobile - consistent with all mobile breakpoints */
     .logo-container {
-        height: 48px;
+        height: 48px !important;
     }
     
     .header-logo {
-        height: 48px;
+        height: 48px !important;
     }
 }
 

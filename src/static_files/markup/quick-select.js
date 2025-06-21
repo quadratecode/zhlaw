@@ -60,14 +60,14 @@ class QuickSelect {
                             </select>
                         </div>
                         <div class="quick-select-field-group">
-                            <label for="quick-select-abbreviation" class="quick-select-label">Abkürzung oder Kurztitel</label>
+                            <label for="quick-select-abbreviation" class="quick-select-label">Abkürzung, Kurztitel oder Ordnungsnummer</label>
                             <div style="position: relative;">
                                 <input type="text" id="quick-select-abbreviation" class="quick-select-input" 
-                                       placeholder="z.B. IDG" autocomplete="off">
+                                       placeholder="z.B. IDG oder 170.4" autocomplete="off">
                                 <div class="quick-select-autocomplete" id="quick-select-autocomplete"></div>
                             </div>
                         </div>
-                        <div class="quick-select-field-group">
+                        <div class="quick-select-field-group provision-field">
                             <label for="quick-select-provision" class="quick-select-label">Bestimmung</label>
                             <input type="text" id="quick-select-provision" class="quick-select-input" 
                                    placeholder="z.B. 1 oder 10a" maxlength="8" autocomplete="off">
@@ -162,6 +162,69 @@ class QuickSelect {
         this.abbreviationInput.addEventListener('input', () => this.handleAutocomplete());
         this.abbreviationInput.addEventListener('keydown', (e) => this.handleAutocompleteKeyboard(e));
         
+        // Auto-populate with top result on blur
+        this.abbreviationInput.addEventListener('blur', () => {
+            // Small delay to allow click events on autocomplete items to fire first
+            setTimeout(() => {
+                // If input has a value but no selection has been made yet
+                if (this.abbreviationInput.value.trim() && !this.abbreviationInput.dataset.ordnungsnummer) {
+                    // Perform search to find matches
+                    const query = this.abbreviationInput.value.trim().toLowerCase();
+                    const collection = this.collectionSelect.value;
+                    
+                    // Filter laws by collection and search query
+                    const matches = this.lawsIndex.filter(law => {
+                        if (law.collection !== collection) return false;
+                        
+                        const abbreviation = (law.abbreviation || '').toLowerCase();
+                        const title = (law.title || '').toLowerCase();
+                        const kurztitel = (law.kurztitel || '').toLowerCase();
+                        const ordnungsnummer = (law.ordnungsnummer || '').toLowerCase();
+                        
+                        return abbreviation.includes(query) || 
+                               title.includes(query) || 
+                               kurztitel.includes(query) ||
+                               ordnungsnummer.includes(query);
+                    });
+                    
+                    // Sort matches: exact abbreviation matches first, then partial matches
+                    matches.sort((a, b) => {
+                        const aAbbr = (a.abbreviation || '').toLowerCase();
+                        const bAbbr = (b.abbreviation || '').toLowerCase();
+                        
+                        if (aAbbr === query && bAbbr !== query) return -1;
+                        if (bAbbr === query && aAbbr !== query) return 1;
+                        if (aAbbr.startsWith(query) && !bAbbr.startsWith(query)) return -1;
+                        if (bAbbr.startsWith(query) && !aAbbr.startsWith(query)) return 1;
+                        
+                        return aAbbr.localeCompare(bAbbr);
+                    });
+                    
+                    // If we have matches, select the first one
+                    if (matches.length > 0) {
+                        const topMatch = matches[0];
+                        
+                        // Build the display value
+                        const parts = [];
+                        if (topMatch.abbreviation) parts.push(topMatch.abbreviation);
+                        if (topMatch.ordnungsnummer) parts.push(topMatch.ordnungsnummer);
+                        // Only add kurztitel if neither abbreviation nor ordnungsnummer exist
+                        if (!topMatch.abbreviation && !topMatch.ordnungsnummer && topMatch.kurztitel) {
+                            parts.push(topMatch.kurztitel);
+                        }
+                        const displayValue = parts.join(' ∗ ');
+                        
+                        // Update the input with the full result
+                        this.abbreviationInput.value = displayValue;
+                        this.abbreviationInput.dataset.ordnungsnummer = topMatch.ordnungsnummer;
+                        this.abbreviationInput.dataset.abbreviation = topMatch.abbreviation || '';
+                        this.abbreviationInput.dataset.kurztitel = topMatch.kurztitel || '';
+                    }
+                }
+                this.hideAutocomplete();
+            }, 200);
+        });
+        
         // Collection change
         this.collectionSelect.addEventListener('change', () => {
             this.handleAutocomplete();
@@ -207,10 +270,12 @@ class QuickSelect {
             const abbreviation = (law.abbreviation || '').toLowerCase();
             const title = (law.title || '').toLowerCase();
             const kurztitel = (law.kurztitel || '').toLowerCase();
+            const ordnungsnummer = (law.ordnungsnummer || '').toLowerCase();
             
             return abbreviation.includes(query) || 
                    title.includes(query) || 
-                   kurztitel.includes(query);
+                   kurztitel.includes(query) ||
+                   ordnungsnummer.includes(query);
         });
         
         // Sort matches: exact abbreviation matches first, then partial matches
@@ -226,26 +291,42 @@ class QuickSelect {
             return aAbbr.localeCompare(bAbbr);
         });
         
-        // Show top 10 matches
-        const topMatches = matches.slice(0, 10);
+        // Show top 15 matches for slightly longer dropdown
+        const topMatches = matches.slice(0, 15);
         this.showAutocomplete(topMatches);
     }
     
     showAutocomplete(matches) {
         if (matches.length === 0) {
-            this.hideAutocomplete();
+            // Show "no results" message
+            this.autocompleteContainer.innerHTML = `
+                <div class="quick-select-autocomplete-no-results">
+                    Kein Eintrag gefunden.
+                </div>
+            `;
+            this.autocompleteContainer.style.display = 'block';
             return;
         }
         
-        this.autocompleteContainer.innerHTML = matches.map((law, index) => `
-            <div class="quick-select-autocomplete-item" data-index="${index}" 
-                 data-ordnungsnummer="${law.ordnungsnummer}"
-                 data-abbreviation="${law.abbreviation || ''}"
-                 data-title="${law.title || ''}">
-                <div class="autocomplete-abbreviation">${this.escapeHtml(law.abbreviation || law.ordnungsnummer)}</div>
-                <div class="autocomplete-title">${this.escapeHtml(law.title)}</div>
-            </div>
-        `).join('');
+        this.autocompleteContainer.innerHTML = matches.map((law, index) => {
+            // Build first line with available fields
+            const parts = [];
+            if (law.abbreviation) parts.push(this.escapeHtml(law.abbreviation));
+            if (law.kurztitel) parts.push(this.escapeHtml(law.kurztitel));
+            if (law.ordnungsnummer) parts.push(this.escapeHtml(law.ordnungsnummer));
+            const firstLine = parts.join(' ∗ ');
+            
+            return `
+                <div class="quick-select-autocomplete-item" data-index="${index}" 
+                     data-ordnungsnummer="${law.ordnungsnummer}"
+                     data-abbreviation="${law.abbreviation || ''}"
+                     data-kurztitel="${law.kurztitel || ''}"
+                     data-title="${law.title || ''}">
+                    <div class="autocomplete-abbreviation">${firstLine}</div>
+                    <div class="autocomplete-title">${this.escapeHtml(law.title)}</div>
+                </div>
+            `;
+        }).join('');
         
         this.autocompleteContainer.style.display = 'block';
         this.currentHighlightIndex = -1;
@@ -290,7 +371,12 @@ class QuickSelect {
                 break;
             
             case 'Tab':
-                this.hideAutocomplete();
+                if (this.currentHighlightIndex >= 0) {
+                    e.preventDefault();
+                    this.selectAutocompleteItem(items[this.currentHighlightIndex]);
+                } else {
+                    this.hideAutocomplete();
+                }
                 break;
         }
     }
@@ -308,12 +394,29 @@ class QuickSelect {
     
     selectAutocompleteItem(item) {
         const abbreviation = item.dataset.abbreviation;
+        const kurztitel = item.dataset.kurztitel;
         const ordnungsnummer = item.dataset.ordnungsnummer;
         
-        this.abbreviationInput.value = abbreviation || ordnungsnummer;
+        // Build the display value showing abbreviation and ordnungsnummer (most common case)
+        const parts = [];
+        if (abbreviation) parts.push(abbreviation);
+        if (ordnungsnummer) parts.push(ordnungsnummer);
+        // Only add kurztitel if neither abbreviation nor ordnungsnummer exist
+        if (!abbreviation && !ordnungsnummer && kurztitel) {
+            parts.push(kurztitel);
+        }
+        const displayValue = parts.join(' ∗ ');
+        
+        this.abbreviationInput.value = displayValue;
         this.abbreviationInput.dataset.ordnungsnummer = ordnungsnummer;
+        this.abbreviationInput.dataset.abbreviation = abbreviation;
+        this.abbreviationInput.dataset.kurztitel = kurztitel;
         this.hideAutocomplete();
-        this.provisionInput.focus();
+        
+        // Only focus provision input if we're not already in the blur event
+        if (document.activeElement === this.abbreviationInput) {
+            this.provisionInput.focus();
+        }
     }
     
     async handleSubmit() {
@@ -324,28 +427,62 @@ class QuickSelect {
         const provision = this.provisionInput.value.trim();
         
         if (!abbreviation) {
-            this.showError('Bitte geben Sie eine Abkürzung oder einen Kurztitel ein');
+            this.showError('Bitte geben Sie eine Abkürzung, einen Kurztitel oder eine Ordnungsnummer ein');
             return;
         }
         
-        // Find the law
-        const law = this.lawsIndex.find(l => {
-            if (l.collection !== collection) return false;
-            const abbr = (l.abbreviation || '').toLowerCase();
-            const ord = l.ordnungsnummer.toLowerCase();
-            const title = (l.title || '').toLowerCase();
-            const kurz = (l.kurztitel || '').toLowerCase();
-            const input = abbreviation.toLowerCase();
-            return abbr === input || ord === input || title.includes(input) || kurz.includes(input);
-        });
+        // If ordnungsnummer was stored from selection, use that directly
+        let ordnungsnummer = this.abbreviationInput.dataset.ordnungsnummer;
+        let law = null;
+        
+        if (ordnungsnummer) {
+            // Find law by ordnungsnummer
+            law = this.lawsIndex.find(l => 
+                l.collection === collection && l.ordnungsnummer === ordnungsnummer
+            );
+        } else {
+            // Parse the input to find the law
+            const input = abbreviation.toLowerCase().trim();
+            
+            // First try exact match on any field
+            law = this.lawsIndex.find(l => {
+                if (l.collection !== collection) return false;
+                const abbr = (l.abbreviation || '').toLowerCase();
+                const ord = l.ordnungsnummer.toLowerCase();
+                const kurz = (l.kurztitel || '').toLowerCase();
+                
+                // Exact match on any single field
+                return abbr === input || ord === input || kurz === input;
+            });
+            
+            // If no exact match, try partial match
+            if (!law) {
+                law = this.lawsIndex.find(l => {
+                    if (l.collection !== collection) return false;
+                    const abbr = (l.abbreviation || '').toLowerCase();
+                    const ord = l.ordnungsnummer.toLowerCase();
+                    const kurz = (l.kurztitel || '').toLowerCase();
+                    const title = (l.title || '').toLowerCase();
+                    
+                    // For formatted display (contains ∗ separator)
+                    if (input.includes('∗')) {
+                        return input.includes(abbr) || input.includes(ord) || input.includes(kurz);
+                    }
+                    
+                    // Otherwise check if any field starts with the input
+                    return abbr.startsWith(input) || ord.startsWith(input) || 
+                           kurz.startsWith(input) || title.includes(input);
+                });
+            }
+        }
         
         if (!law) {
-            this.showError('Gesetz nicht gefunden');
+            this.showError('Erlass nicht gefunden');
             return;
         }
         
-        // If ordnungsnummer was found via input dataset, use that
-        const ordnungsnummer = this.abbreviationInput.dataset.ordnungsnummer || law.ordnungsnummer;
+        // Use the ordnungsnummer from the found law
+        ordnungsnummer = ordnungsnummer || law.ordnungsnummer;
         
         // If no provision specified, redirect to the latest version
         if (!provision) {
@@ -460,6 +597,8 @@ class QuickSelect {
         this.collectionSelect.value = 'zh';
         this.abbreviationInput.value = '';
         this.abbreviationInput.dataset.ordnungsnummer = '';
+        this.abbreviationInput.dataset.abbreviation = '';
+        this.abbreviationInput.dataset.kurztitel = '';
         this.provisionInput.value = '';
         this.clearError();
         this.hideAutocomplete();

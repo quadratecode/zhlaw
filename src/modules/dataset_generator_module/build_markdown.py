@@ -28,6 +28,7 @@ import logging
 import concurrent.futures
 from tqdm import tqdm
 from urllib.parse import urljoin
+import sys
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -111,175 +112,218 @@ def convert_html_to_md(html_content, metadata, ordnungsnummer, nachtragsnummer):
     """
     Convert HTML content to Markdown with specific transformations.
     """
-    # Parse HTML
-    soup = BeautifulSoup(html_content, "html.parser")
+    # Increase recursion limit temporarily for deeply nested HTML
+    original_recursion_limit = sys.getrecursionlimit()
+    sys.setrecursionlimit(10000)
 
-    # Base URL for resolving relative links
-    base_url = f"https://www.zhlaw.ch/col-zh/{ordnungsnummer}-{nachtragsnummer}.html"
+    try:
+        # Parse HTML
+        soup = BeautifulSoup(html_content, "html.parser")
 
-    # 1. Sanitize headings to cap at h5
-    sanitize_headings(soup)
+        # Base URL for resolving relative links
+        base_url = (
+            f"https://www.zhlaw.ch/col-zh/{ordnungsnummer}-{nachtragsnummer}.html"
+        )
 
-    # 1.5 Remove <b> and <strong> tags
-    for bold_tag in soup.find_all(["b", "strong"]):
-        bold_tag.unwrap()
+        # 1. Sanitize headings to cap at h5
+        sanitize_headings(soup)
 
-    # 2. Remove footnote references
-    for footnote_ref in soup.find_all(class_="footnote-ref"):
-        footnote_ref.decompose()
+        # 1.2 Flatten deeply nested font tags to prevent recursion issues
+        def flatten_font_tags(soup):
+            """Remove deeply nested font tags while preserving text content."""
+            font_tags = soup.find_all("font")
+            if len(font_tags) > 2000:  # Threshold for deeply nested structures
+                logger.warning(
+                    f"Found {len(font_tags)} font tags, flattening to prevent recursion"
+                )
+                for font_tag in font_tags:
+                    font_tag.unwrap()
 
-    # 3. Remove footnote definitions
-    for footnote in soup.find_all(class_="footnote"):
-        footnote.decompose()
+        flatten_font_tags(soup)
 
-    # 4. Remove element with id "footnote-line"
-    footnote_line = soup.find(id="footnote-line")
-    if footnote_line:
-        footnote_line.decompose()
+        # 1.5 Remove <b> and <strong> tags
+        for bold_tag in soup.find_all(["b", "strong"]):
+            bold_tag.unwrap()
 
-    # 5. Remove element with id "annex"
-    annex = soup.find(id="annex")
-    if annex:
-        annex.decompose()
+        # 2. Remove footnote references
+        for footnote_ref in soup.find_all(class_="footnote-ref"):
+            footnote_ref.decompose()
 
-    # 6. Process provisions (class="provision")
-    # *** MODIFIED: Use ⟨⟩ instead of <> ***
-    for provision in soup.find_all("p", class_="provision"):
-        link = provision.find("a", href=True)
-        if link:
-            provision_text = link.get_text(strip=True)
-            href = link.get("href", "")
-            absolute_url = urljoin(base_url, href)
-            # Use angle brackets ⟨⟩
-            link.string = f"⟨{provision_text}⟩"
-            link["href"] = absolute_url
-        else:
-            provision_text = provision.get_text(strip=True)
-            # Use angle brackets ⟨⟩
-            provision.string = f"⟨{provision_text}⟩"
+        # 3. Remove footnote definitions
+        for footnote in soup.find_all(class_="footnote"):
+            footnote.decompose()
 
-    # 7. Process subprovisions (class="subprovision-container")
-    containers_to_replace = []
-    for container in soup.find_all("div", class_="subprovision-container"):
-        subprovision_p = container.find("p", class_="subprovision")
-        subprovision_number = ""
-        content_paragraph_text = ""
-        original_content_paragraph = None
+        # 4. Remove element with id "footnote-line"
+        footnote_line = soup.find(id="footnote-line")
+        if footnote_line:
+            footnote_line.decompose()
 
-        if subprovision_p:
-            sup_elem = subprovision_p.find("sup")
-            if sup_elem:
-                subprovision_number = sup_elem.get_text(strip=True)
-            else:  # Fallback if no sup tag
-                link_in_sub = subprovision_p.find("a")
-                if link_in_sub:
-                    subprovision_number = link_in_sub.get_text(strip=True)
-                else:
-                    subprovision_number = subprovision_p.get_text(strip=True)
+        # 5. Remove element with id "annex"
+        annex = soup.find(id="annex")
+        if annex:
+            annex.decompose()
 
-            current = subprovision_p.next_sibling
-            while current:
-                if (
-                    isinstance(current, Tag)
-                    and current.name == "p"
-                    and "subprovision" not in current.get("class", [])
-                ):
-                    original_content_paragraph = current
-                    content_paragraph_text = " ".join(
-                        original_content_paragraph.get_text(strip=True).split()
-                    )
-                    break
-                current = current.next_sibling
+        # 6. Process provisions (class="provision")
+        # *** MODIFIED: Use ⟨⟩ instead of <> ***
+        for provision in soup.find_all("p", class_="provision"):
+            link = provision.find("a", href=True)
+            if link:
+                provision_text = link.get_text(strip=True)
+                href = link.get("href", "")
+                absolute_url = urljoin(base_url, href)
+                # Use angle brackets ⟨⟩
+                link.string = f"⟨{provision_text}⟩"
+                link["href"] = absolute_url
+            else:
+                provision_text = provision.get_text(strip=True)
+                # Use angle brackets ⟨⟩
+                provision.string = f"⟨{provision_text}⟩"
 
-        if subprovision_number and original_content_paragraph is not None:
-            new_num_p = soup.new_tag("p")
-            new_num_p.string = subprovision_number
-            new_content_p = soup.new_tag("p")
-            new_content_p.string = content_paragraph_text
-            containers_to_replace.append((container, [new_num_p, new_content_p]))
-        else:
-            logger.warning(
-                f"Could not properly parse subprovision in container. Removing."
-            )
-            containers_to_replace.append((container, []))
+        # 7. Process subprovisions (class="subprovision-container")
+        containers_to_replace = []
+        for container in soup.find_all("div", class_="subprovision-container"):
+            subprovision_p = container.find("p", class_="subprovision")
+            subprovision_number = ""
+            content_paragraph_text = ""
+            original_content_paragraph = None
 
-    for container, replacements in containers_to_replace:
-        if replacements:
-            container.replace_with(*replacements)
-        else:
-            container.decompose()
+            if subprovision_p:
+                sup_elem = subprovision_p.find("sup")
+                if sup_elem:
+                    subprovision_number = sup_elem.get_text(strip=True)
+                else:  # Fallback if no sup tag
+                    link_in_sub = subprovision_p.find("a")
+                    if link_in_sub:
+                        subprovision_number = link_in_sub.get_text(strip=True)
+                    else:
+                        subprovision_number = subprovision_p.get_text(strip=True)
 
-    # 8. Remove all *other* links (non-provision links)
-    for link in soup.find_all("a", href=True):
-        parent_p = link.find_parent("p", class_="provision")
-        if parent_p:
-            continue
-        link.replace_with(link.get_text())
+                current = subprovision_p.next_sibling
+                while current:
+                    if (
+                        isinstance(current, Tag)
+                        and current.name == "p"
+                        and "subprovision" not in current.get("class", [])
+                    ):
+                        original_content_paragraph = current
+                        content_paragraph_text = " ".join(
+                            original_content_paragraph.get_text(strip=True).split()
+                        )
+                        break
+                    current = current.next_sibling
 
-    # 9. Convert elements with class "marginalia" to h6
-    for marginalia in soup.find_all(class_="marginalia"):
-        marginalia_text = " ".join(marginalia.get_text(strip=True).split())
-        if marginalia_text:
-            h6 = soup.new_tag("h6")
-            h6.string = marginalia_text
-            marginalia.replace_with(h6)
-        else:
-            marginalia.decompose()
+            if subprovision_number and original_content_paragraph is not None:
+                new_num_p = soup.new_tag("p")
+                new_num_p.string = subprovision_number
+                new_content_p = soup.new_tag("p")
+                new_content_p.string = content_paragraph_text
+                containers_to_replace.append((container, [new_num_p, new_content_p]))
+            else:
+                logger.warning(
+                    f"Could not properly parse subprovision in container. Removing."
+                )
+                containers_to_replace.append((container, []))
 
-    soup = BeautifulSoup(str(soup), "html.parser")
+        for container, replacements in containers_to_replace:
+            if replacements:
+                container.replace_with(*replacements)
+            else:
+                container.decompose()
 
-    # 10. Generate markdown content using markdownify
-    md_content = md(str(soup), heading_style="ATX", links="inline")
+        # 8. Remove all *other* links (non-provision links)
+        for link in soup.find_all("a", href=True):
+            parent_p = link.find_parent("p", class_="provision")
+            if parent_p:
+                continue
+            link.replace_with(link.get_text())
 
-    # 11. Clean up markdown content
-    md_content = re.sub(r"\n{3,}", "\n\n", md_content)
+        # 9. Convert elements with class "marginalia" to h6
+        for marginalia in soup.find_all(class_="marginalia"):
+            marginalia_text = " ".join(marginalia.get_text(strip=True).split())
+            if marginalia_text:
+                h6 = soup.new_tag("h6")
+                h6.string = marginalia_text
+                marginalia.replace_with(h6)
+            else:
+                marginalia.decompose()
 
-    cleaned_lines = []
-    for line in md_content.splitlines():
-        line = re.sub(r"\s{2,}", " ", line)  # Collapse spaces first
-        stripped_line = line.strip()
-        if stripped_line == "":
-            continue
-        if is_ascii_art_or_noise(line):
-            logger.debug(f"Removing noise line: {line}")
-            continue
-        cleaned_lines.append(line)
+        soup = BeautifulSoup(str(soup), "html.parser")
 
-    md_content = "\n".join(cleaned_lines)
+        # 10. Generate markdown content using markdownify
+        md_content = md(str(soup), heading_style="ATX", links="inline")
 
-    # ---- POST-PROCESSING FOR DESIRED FORMATTING ----
+        # 11. Clean up markdown content
+        md_content = re.sub(r"\n{3,}", "\n\n", md_content)
 
-    # Bold subprovision numbers
-    md_content = re.sub(
-        r"^(\d+)$(\n)(.*)$", r"**\1**\2\3", md_content, flags=re.MULTILINE
-    )
+        cleaned_lines = []
+        for line in md_content.splitlines():
+            line = re.sub(r"\s{2,}", " ", line)  # Collapse spaces first
+            stripped_line = line.strip()
+            if stripped_line == "":
+                continue
+            if is_ascii_art_or_noise(line):
+                logger.debug(f"Removing noise line: {line}")
+                continue
+            cleaned_lines.append(line)
 
-    # Ensure blank line before headings
-    md_content = re.sub(
-        r"([^\n])\n(#+ .*)$", r"\1\n\n\2", md_content, flags=re.MULTILINE
-    )
-    md_content = re.sub(r"^(#+ .*)$", r"\n\1", md_content, flags=re.MULTILINE)
+        md_content = "\n".join(cleaned_lines)
 
-    # Consolidate multiple blank lines
-    md_content = re.sub(r"\n{3,}", "\n\n", md_content)
+        # ---- POST-PROCESSING FOR DESIRED FORMATTING ----
 
-    # Final strip
-    md_content = md_content.strip()
+        # Bold subprovision numbers
+        md_content = re.sub(
+            r"^(\d+)$(\n)(.*)$", r"**\1**\2\3", md_content, flags=re.MULTILINE
+        )
 
-    # ---- END POST-PROCESSING ----
+        # Ensure blank line before headings
+        md_content = re.sub(
+            r"([^\n])\n(#+ .*)$", r"\1\n\n\2", md_content, flags=re.MULTILINE
+        )
+        md_content = re.sub(r"^(#+ .*)$", r"\n\1", md_content, flags=re.MULTILINE)
 
-    # 12. Add YAML frontmatter
-    frontmatter = {}
-    if "doc_info" in metadata:
-        flat_metadata = flatten_dict(metadata["doc_info"])
-        frontmatter.update(flat_metadata)
+        # Consolidate multiple blank lines
+        md_content = re.sub(r"\n{3,}", "\n\n", md_content)
 
-    yaml_frontmatter = yaml.dump(
-        frontmatter, allow_unicode=True, sort_keys=False, default_flow_style=False
-    )
-    final_content = f"---\n{yaml_frontmatter}---\n\n{md_content}\n"
+        # Final strip
+        md_content = md_content.strip()
 
-    return final_content
+        # ---- END POST-PROCESSING ----
+
+        # 12. Add YAML frontmatter
+        frontmatter = {}
+        if "doc_info" in metadata:
+            flat_metadata = flatten_dict(metadata["doc_info"])
+            frontmatter.update(flat_metadata)
+
+        yaml_frontmatter = yaml.dump(
+            frontmatter, allow_unicode=True, sort_keys=False, default_flow_style=False
+        )
+        final_content = f"---\n{yaml_frontmatter}---\n\n{md_content}\n"
+
+        return final_content
+
+    except RecursionError as e:
+        logger.error(
+            f"Recursion error processing {ordnungsnummer}-{nachtragsnummer}: {e}"
+        )
+        # Return simplified markdown content
+        text_content = BeautifulSoup(html_content, "html.parser").get_text()
+        frontmatter = {}
+        if "doc_info" in metadata:
+            flat_metadata = flatten_dict(metadata["doc_info"])
+            frontmatter.update(flat_metadata)
+        yaml_frontmatter = yaml.dump(
+            frontmatter, allow_unicode=True, sort_keys=False, default_flow_style=False
+        )
+        return f"---\n{yaml_frontmatter}---\n\n{text_content}\n"
+
+    except Exception as e:
+        logger.error(f"Error processing {ordnungsnummer}-{nachtragsnummer}: {e}")
+        raise
+
+    finally:
+        # Reset recursion limit
+        sys.setrecursionlimit(original_recursion_limit)
 
 
 # =====================================================

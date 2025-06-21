@@ -24,17 +24,17 @@
     }
 
     .header-logo {
-        height: 50px;
+        height: 48px;
     }
 
     .logo-container {
-        height: 50px;
+        height: 48px;
     }
 
     /* Collection indicator responsive */
     .collection-indicator-container {
         margin-right: 0.5rem;
-        height: 50px;
+        height: 48px;
     }
     
     .collection-badge {
@@ -78,16 +78,16 @@
     }
 
     .header-logo {
-        height: 42px;
+        height: 48px;
     }
 
     .logo-container {
-        height: 42px;
+        height: 48px;
     }
 
     /* Collection indicator on small screens */
     .collection-indicator-container {
-        height: 42px;
+        height: 48px;
         margin-right: 0.3rem;
     }
     
@@ -179,10 +179,9 @@
         font-size: 1.25rem;
     }
 
-    /* Responsive adjustments */
+    /* Responsive adjustments - remove logo scaling to keep consistent size */
     .logo-container {
-        transform-origin: right center;
-        transform: scale(0.8);
+        transform: none;
     }
 }
 
@@ -200,6 +199,18 @@
         padding: 0.5rem 1rem 0.5rem 2.5rem;
         margin-top: 0.1rem;
         margin-bottom: 0.3rem;
+    }
+
+    /* Ensure logo is properly sized and aligned on smallest screens */
+    .header-logo {
+        height: 48px !important;
+    }
+
+    .logo-container {
+        height: 48px !important;
+        transform: none !important;
+        margin: 0;
+        padding: 0;
     }
 
     .subprovision-container .subprovision {

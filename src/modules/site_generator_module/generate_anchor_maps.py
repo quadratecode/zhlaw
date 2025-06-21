@@ -39,7 +39,8 @@ class AnchorMapGenerator:
         self.anchor_maps_dir.mkdir(parents=True, exist_ok=True)
         
         # Pattern to match law files: ordnungsnummer-nachtragsnummer.html
-        self.law_file_pattern = re.compile(r'^([\d.]+)-(\d+)\.html$')
+        # Nachtragsnummer can contain letters (e.g., 066a)
+        self.law_file_pattern = re.compile(r'^([\d.]+)-(\d+[a-zA-Z]*)\.html$')
         
         # Pattern to extract provision/subprovision from anchor IDs
         self.anchor_pattern = re.compile(r'seq-\d+-prov-(\d+[a-z]?)(?:-sub-(\d+))?')
@@ -91,12 +92,12 @@ class AnchorMapGenerator:
                 except Exception as e:
                     logger.error(f"Error generating map for {ordnungsnummer}: {e}")
     
-    def _group_laws_by_ordnungsnummer(self) -> Dict[str, List[Tuple[str, int]]]:
+    def _group_laws_by_ordnungsnummer(self) -> Dict[str, List[Tuple[str, float, str]]]:
         """
         Group law files by ordnungsnummer.
         
         Returns:
-            Dictionary mapping ordnungsnummer to list of (filename, nachtragsnummer) tuples
+            Dictionary mapping ordnungsnummer to list of (filename, numeric_nachtragsnummer, original_nachtragsnummer) tuples
         """
         laws_by_ordnungsnummer = defaultdict(list)
         
@@ -107,16 +108,43 @@ class AnchorMapGenerator:
             match = self.law_file_pattern.match(file_path.name)
             if match:
                 ordnungsnummer = match.group(1)
-                nachtragsnummer = int(match.group(2))
-                laws_by_ordnungsnummer[ordnungsnummer].append((file_path.name, nachtragsnummer))
+                nachtragsnummer = match.group(2)  # Keep as string to preserve format
+                
+                # Convert to numeric value for sorting/comparison
+                try:
+                    numeric_nachtragsnummer = float(nachtragsnummer)
+                except:
+                    # Convert any letters in the nachtragsnummer to numbers (e.g. "066a" -> 066.1, "066b" -> 066.2, etc.)
+                    # Match digits followed by letters in nachtragsnummer
+                    match_letter = re.match(r"(\d+)([a-zA-Z]+)$", nachtragsnummer)
+                    if match_letter:
+                        number_part = match_letter.group(1)
+                        letter_part = match_letter.group(2)
+
+                        # Convert each letter to its corresponding number (a=1, b=2, ..., z=26)
+                        letter_numbers = "".join(
+                            str(ord(char.lower()) - ord("a") + 1)
+                            for char in letter_part
+                        )
+
+                        # Combine the numeric and letter parts to form a float (e.g., "066a" -> 66.1)
+                        numeric_nachtragsnummer = float(
+                            f"{number_part}.{letter_numbers}"
+                        )
+                    else:
+                        # Handle cases where nachtragsnummer doesn't match the expected format
+                        logger.error(f"Invalid nachtragsnummer format: {nachtragsnummer}")
+                        continue
+                
+                laws_by_ordnungsnummer[ordnungsnummer].append((file_path.name, numeric_nachtragsnummer, nachtragsnummer))
         
-        # Sort by nachtragsnummer for each ordnungsnummer
+        # Sort by numeric_nachtragsnummer for each ordnungsnummer
         for ordnungsnummer in laws_by_ordnungsnummer:
             laws_by_ordnungsnummer[ordnungsnummer].sort(key=lambda x: x[1])
         
         return dict(laws_by_ordnungsnummer)
     
-    def _generate_map_for_law(self, ordnungsnummer: str, files: List[Tuple[str, int]]) -> None:
+    def _generate_map_for_law(self, ordnungsnummer: str, files: List[Tuple[str, float, str]]) -> None:
         """
         Generate anchor map for a specific law.
         
@@ -143,15 +171,15 @@ class AnchorMapGenerator:
         if not files:
             return
             
-        latest_filename, latest_nachtragsnummer = max(files, key=lambda x: x[1])
+        latest_filename, latest_numeric_nachtragsnummer, latest_original_nachtragsnummer = max(files, key=lambda x: x[1])
         latest_file_path = self.collection_dir / latest_filename
         
-        # Store the latest version in metadata
-        anchor_map["metadata"]["latest_version"] = str(latest_nachtragsnummer)
+        # Store the latest version in metadata using the original string format
+        anchor_map["metadata"]["latest_version"] = latest_original_nachtragsnummer
         
         # Process only the latest version to get provision type and provisions
         try:
-            self._process_law_file(latest_file_path, latest_nachtragsnummer, anchor_map)
+            self._process_law_file(latest_file_path, anchor_map)
         except Exception as e:
             logger.error(f"Error processing latest version {latest_file_path}: {e}")
         
@@ -162,13 +190,12 @@ class AnchorMapGenerator:
         
         logger.debug(f"Generated anchor map for {ordnungsnummer}")
     
-    def _process_law_file(self, file_path: Path, nachtragsnummer: int, anchor_map: Dict) -> None:
+    def _process_law_file(self, file_path: Path, anchor_map: Dict) -> None:
         """
         Process a single law file and update the anchor map.
         
         Args:
             file_path: Path to the HTML file
-            nachtragsnummer: The version number of this law
             anchor_map: The anchor map to update
         """
         with open(file_path, 'r', encoding='utf-8') as f:
