@@ -791,6 +791,7 @@ class CustomSearch {
         this.modalOpen = true;
         this.searchModal.style.display = 'flex';
         document.body.classList.add('search-modal-open');
+        document.documentElement.classList.add('search-modal-open');
         
         // Focus the search input
         setTimeout(() => {
@@ -808,6 +809,7 @@ class CustomSearch {
         this.modalOpen = false;
         this.searchModal.style.display = 'none';
         document.body.classList.remove('search-modal-open');
+        document.documentElement.classList.remove('search-modal-open');
         
         // Clear search
         this.searchInput.value = '';

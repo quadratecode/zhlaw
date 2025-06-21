@@ -96,6 +96,11 @@ body.search-modal-open {
     overflow: hidden;
 }
 
+/* Prevent document scroll when modal is open - ensures compatibility with all browsers */
+html.search-modal-open {
+    overflow: hidden;
+}
+
 /* Search input wrapper */
 .custom-search-input-wrapper {
     position: relative;
