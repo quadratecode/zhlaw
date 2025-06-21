@@ -619,6 +619,50 @@ def insert_combined_table(
     return soup
 
 
+def add_navigation_prefetch_links(
+    soup: BeautifulSoup,
+    ordnungsnummer: str,
+    prev_ver: str = None,
+    next_ver: str = None,
+    new_ver: str = None,
+) -> BeautifulSoup:
+    """
+    Adds prefetch links to the HTML head for enabled navigation buttons.
+    
+    Args:
+        soup: BeautifulSoup object to modify
+        ordnungsnummer: The law's ordnungsnummer
+        prev_ver: Previous version nachtragsnummer (if exists)
+        next_ver: Next version nachtragsnummer (if exists)
+        new_ver: Newest version nachtragsnummer (if different from current)
+    
+    Returns:
+        Modified BeautifulSoup object
+    """
+    head = soup.find("head")
+    if not head:
+        return soup
+    
+    # Generate prefetch links for enabled navigation buttons
+    prefetch_urls = []
+    
+    if prev_ver:
+        prefetch_urls.append(f"{ordnungsnummer}-{prev_ver}.html")
+    
+    if next_ver:
+        prefetch_urls.append(f"{ordnungsnummer}-{next_ver}.html")
+    
+    if new_ver:
+        prefetch_urls.append(f"{ordnungsnummer}-{new_ver}.html")
+    
+    # Add prefetch link tags to head
+    for url in prefetch_urls:
+        prefetch_link = soup.new_tag("link", rel="prefetch", href=url)
+        head.append(prefetch_link)
+    
+    return soup
+
+
 def insert_versions_and_update_navigation(
     soup: BeautifulSoup,
     versions: Any,
@@ -697,6 +741,10 @@ def insert_versions_and_update_navigation(
         button = soup.find("button", id="new_ver")
         if button:
             button["disabled"] = True
+    
+    # Add prefetch links for enabled navigation buttons
+    soup = add_navigation_prefetch_links(soup, ordnungsnummer, prev_ver, next_ver, new_ver)
+    
     return soup, all_versions
 
 
