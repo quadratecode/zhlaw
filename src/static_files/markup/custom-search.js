@@ -61,7 +61,7 @@ class CustomSearch {
                     <path d="m21 21-4.35-4.35"></path>
                 </svg>
                 <span class="search-button-text">
-                    mit <kbd>S</kbd> oder <kbd>/</kbd> zur Volltextsuche
+                    Volltextsuche
                 </span>
             </button>
         `;
@@ -113,6 +113,9 @@ class CustomSearch {
 
         // Get references to elements
         this.searchButton = this.searchContainer.querySelector('.search-button');
+        
+        // Add tooltip functionality
+        this.addTooltip();
         this.searchInput = modal.querySelector('.custom-search-input');
         this.clearButton = modal.querySelector('.custom-search-clear');
         this.dropdown = modal.querySelector('.search-modal-content');
@@ -810,6 +813,103 @@ class CustomSearch {
         this.resultsContainer.style.display = 'none';
         this.clearButton.style.display = 'none';
         this.searchInput.focus();
+    }
+    
+    addTooltip() {
+        let tooltip = null;
+        let tooltipTimer = null;
+        
+        const showTooltip = () => {
+            // Only show on larger screens
+            if (window.innerWidth <= 768) return;
+            
+            // Clear any existing timer
+            if (tooltipTimer) {
+                clearTimeout(tooltipTimer);
+            }
+            
+            // Remove existing tooltip
+            if (tooltip) {
+                tooltip.remove();
+                tooltip = null;
+            }
+            
+            // Create new tooltip
+            tooltip = document.createElement('div');
+            tooltip.className = 'button-tooltip button-tooltip-below';
+            tooltip.textContent = 'Shortcut: "S" oder "/"';
+            document.body.appendChild(tooltip);
+            
+            // Position tooltip below button (centered)
+            const buttonRect = this.searchButton.getBoundingClientRect();
+            
+            // Set initial position to measure tooltip width
+            tooltip.style.visibility = 'hidden';
+            tooltip.style.position = 'fixed';
+            tooltip.style.left = '0px';
+            tooltip.style.top = '0px';
+            
+            // Force reflow to ensure tooltip is rendered
+            tooltip.offsetHeight;
+            
+            // Get tooltip dimensions after rendering
+            const tooltipRect = tooltip.getBoundingClientRect();
+            
+            // Calculate centered position
+            const centerX = buttonRect.left + (buttonRect.width / 2);
+            const tooltipX = centerX - (tooltipRect.width / 2);
+            const tooltipY = buttonRect.bottom + 4;
+            
+            // Debug logging (can be removed later)
+            console.log('Search Tooltip Positioning:', {
+                buttonRect: { left: buttonRect.left, width: buttonRect.width, bottom: buttonRect.bottom },
+                tooltipRect: { width: tooltipRect.width, height: tooltipRect.height },
+                centerX,
+                tooltipX,
+                tooltipY
+            });
+            
+            // Apply final position and make visible
+            tooltip.style.left = Math.round(tooltipX) + 'px';
+            tooltip.style.top = Math.round(tooltipY) + 'px';
+            tooltip.style.visibility = 'visible';
+        };
+        
+        const hideTooltip = (immediate = false) => {
+            if (tooltipTimer) {
+                clearTimeout(tooltipTimer);
+            }
+            
+            if (immediate) {
+                if (tooltip) {
+                    tooltip.remove();
+                    tooltip = null;
+                }
+            } else {
+                tooltipTimer = setTimeout(() => {
+                    if (tooltip) {
+                        tooltip.remove();
+                        tooltip = null;
+                    }
+                }, 100);
+            }
+        };
+        
+        // Add event listeners
+        this.searchButton.addEventListener('mouseenter', showTooltip);
+        this.searchButton.addEventListener('mouseleave', () => hideTooltip(false));
+        this.searchButton.addEventListener('focus', showTooltip);
+        this.searchButton.addEventListener('blur', () => hideTooltip(false));
+        
+        // Hide tooltip immediately on various navigation events
+        window.addEventListener('resize', () => hideTooltip(true));
+        window.addEventListener('scroll', () => hideTooltip(true));
+        window.addEventListener('beforeunload', () => hideTooltip(true));
+        document.addEventListener('click', (e) => {
+            if (!this.searchButton.contains(e.target)) {
+                hideTooltip(true);
+            }
+        });
     }
 }
 

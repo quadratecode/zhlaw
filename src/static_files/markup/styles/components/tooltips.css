@@ -156,3 +156,55 @@
     color: var(--dark-soft-white);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
+
+/* -----------------------------
+   Button Tooltips
+   
+   Styles for tooltips that appear below header buttons
+   to show keyboard shortcuts
+----------------------------- */
+
+/* Button tooltip container */
+.button-tooltip {
+    position: fixed;
+    padding: 4px 8px;
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 9999;
+    
+    /* Light mode styles - dark background, light text */
+    background-color: var(--dark-shade);
+    color: var(--soft-white);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Button tooltips that appear below the element */
+.button-tooltip-below {
+    /* No transform - positioning handled entirely by JavaScript */
+}
+
+/* Dark mode button tooltip */
+[data-theme="dark"] .button-tooltip {
+    background-color: var(--dark-dark-shade);
+    color: var(--dark-soft-white);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Hide button tooltips on mobile screens */
+@media (max-width: 768px) {
+    .button-tooltip {
+        display: none !important;
+    }
+}
+
+/* When system preference is dark and JS is disabled */
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode):not(.dark-mode) .button-tooltip {
+        background-color: var(--dark-dark-shade);
+        color: var(--dark-soft-white);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+}

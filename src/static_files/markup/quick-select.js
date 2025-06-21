@@ -33,13 +33,16 @@ class QuickSelect {
                     <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path>
                 </svg>
                 <span class="quick-select-button-text">
-                    mit <kbd>B</kbd> zur Schnellauswahl
+                    Schnellauswahl
                 </span>
             </button>
         `;
         
         this.button = this.container.querySelector('.quick-select-button');
         this.button.addEventListener('click', () => this.open());
+        
+        // Add tooltip functionality
+        this.addTooltip();
     }
     
     createModal() {
@@ -125,10 +128,10 @@ class QuickSelect {
             }
         });
         
-        // Open on 'B' key (when not in input)
+        // Open on 'G' key (when not in input)
         document.addEventListener('keydown', (e) => {
             const isInputFocused = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
-            if ((e.key === 'b' || e.key === 'B') && !isInputFocused && !this.isOpen) {
+            if ((e.key === 'g' || e.key === 'G') && !isInputFocused && !this.isOpen) {
                 e.preventDefault();
                 this.open();
             }
@@ -495,6 +498,103 @@ class QuickSelect {
     // Note: checkForMissingAnchorWarning method removed
     // Warning display is now handled exclusively by anchor-tooltip.js
     // This prevents duplicate warnings when using quick-select
+    
+    addTooltip() {
+        let tooltip = null;
+        let tooltipTimer = null;
+        
+        const showTooltip = () => {
+            // Only show on larger screens
+            if (window.innerWidth <= 768) return;
+            
+            // Clear any existing timer
+            if (tooltipTimer) {
+                clearTimeout(tooltipTimer);
+            }
+            
+            // Remove existing tooltip
+            if (tooltip) {
+                tooltip.remove();
+                tooltip = null;
+            }
+            
+            // Create new tooltip
+            tooltip = document.createElement('div');
+            tooltip.className = 'button-tooltip button-tooltip-below';
+            tooltip.textContent = 'Shortcut: "G"';
+            document.body.appendChild(tooltip);
+            
+            // Position tooltip below button (centered)
+            const buttonRect = this.button.getBoundingClientRect();
+            
+            // Set initial position to measure tooltip width
+            tooltip.style.visibility = 'hidden';
+            tooltip.style.position = 'fixed';
+            tooltip.style.left = '0px';
+            tooltip.style.top = '0px';
+            
+            // Force reflow to ensure tooltip is rendered
+            tooltip.offsetHeight;
+            
+            // Get tooltip dimensions after rendering
+            const tooltipRect = tooltip.getBoundingClientRect();
+            
+            // Calculate centered position
+            const centerX = buttonRect.left + (buttonRect.width / 2);
+            const tooltipX = centerX - (tooltipRect.width / 2);
+            const tooltipY = buttonRect.bottom + 4;
+            
+            // Debug logging (can be removed later)
+            console.log('Quick Select Tooltip Positioning:', {
+                buttonRect: { left: buttonRect.left, width: buttonRect.width, bottom: buttonRect.bottom },
+                tooltipRect: { width: tooltipRect.width, height: tooltipRect.height },
+                centerX,
+                tooltipX,
+                tooltipY
+            });
+            
+            // Apply final position and make visible
+            tooltip.style.left = Math.round(tooltipX) + 'px';
+            tooltip.style.top = Math.round(tooltipY) + 'px';
+            tooltip.style.visibility = 'visible';
+        };
+        
+        const hideTooltip = (immediate = false) => {
+            if (tooltipTimer) {
+                clearTimeout(tooltipTimer);
+            }
+            
+            if (immediate) {
+                if (tooltip) {
+                    tooltip.remove();
+                    tooltip = null;
+                }
+            } else {
+                tooltipTimer = setTimeout(() => {
+                    if (tooltip) {
+                        tooltip.remove();
+                        tooltip = null;
+                    }
+                }, 100);
+            }
+        };
+        
+        // Add event listeners
+        this.button.addEventListener('mouseenter', showTooltip);
+        this.button.addEventListener('mouseleave', () => hideTooltip(false));
+        this.button.addEventListener('focus', showTooltip);
+        this.button.addEventListener('blur', () => hideTooltip(false));
+        
+        // Hide tooltip immediately on various navigation events
+        window.addEventListener('resize', () => hideTooltip(true));
+        window.addEventListener('scroll', () => hideTooltip(true));
+        window.addEventListener('beforeunload', () => hideTooltip(true));
+        document.addEventListener('click', (e) => {
+            if (!this.button.contains(e.target)) {
+                hideTooltip(true);
+            }
+        });
+    }
 }
 
 // Initialize when DOM is ready
