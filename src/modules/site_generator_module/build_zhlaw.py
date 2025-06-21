@@ -294,6 +294,14 @@ def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
         head = soup.new_tag("head")
         soup.html.insert(0, head)
 
+    # Remove existing CSS links that might conflict with versioned assets
+    existing_css_links = head.find_all("link", rel="stylesheet")
+    for link in existing_css_links:
+        # Remove links to styles.css (with or without leading slash)
+        href = link.get("href", "")
+        if href in ["styles.css", "/styles.css"]:
+            link.decompose()
+
     # Add CSS stylesheet with versioning
     css_href = get_versioned_asset_url("/styles.css")
     css_link: Tag = soup.new_tag("link", rel="stylesheet", href=css_href)
@@ -322,6 +330,35 @@ def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
     head.append(viewport_meta)
     encoding_meta: Tag = soup.new_tag("meta", charset="utf-8")
     head.append(encoding_meta)
+
+    # Add inline script to prevent FOUC (Flash of Unstyled Content) for dark mode
+    fouc_prevention_script: Tag = soup.new_tag("script")
+    fouc_prevention_script.string = """
+// Prevent FOUC by immediately applying theme before CSS loads
+(function() {
+    'use strict';
+    
+    // Remove the default light-mode class first
+    document.documentElement.classList.remove('light-mode');
+    
+    // Check localStorage for saved theme preference
+    const colorMode = localStorage.getItem('colorMode');
+    
+    if (colorMode === 'dark') {
+        document.documentElement.classList.add('dark-mode');
+    } else if (colorMode === 'light') {
+        document.documentElement.classList.add('light-mode');
+    } else {
+        // If no preference is saved, check system preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark-mode');
+        } else {
+            document.documentElement.classList.add('light-mode');
+        }
+    }
+})();
+"""
+    head.append(fouc_prevention_script)
 
     # Add dark mode script with versioning
     dark_mode_src = get_versioned_asset_url("/dark-mode.js")
