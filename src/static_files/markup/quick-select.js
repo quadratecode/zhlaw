@@ -70,7 +70,7 @@ class QuickSelect {
                         <div class="quick-select-field-group">
                             <label for="quick-select-provision" class="quick-select-label">Bestimmung</label>
                             <input type="text" id="quick-select-provision" class="quick-select-input" 
-                                   placeholder="z.B. 1 oder 10a" maxlength="8">
+                                   placeholder="z.B. 1 oder 10a" maxlength="8" autocomplete="off">
                         </div>
                     </div>
                     <button type="submit" class="quick-select-submit">Zur Bestimmung navigieren</button>
@@ -105,11 +105,32 @@ class QuickSelect {
             const data = await response.json();
             this.lawsIndex = data.laws || [];
             
+            // Check if we have multiple collections and hide filter if only one
+            this.updateCollectionFilterVisibility();
+            
             // Hide loading message
             this.loadingDiv.style.display = 'none';
         } catch (error) {
             console.error('Error loading laws index:', error);
             this.loadingDiv.textContent = 'Fehler beim Laden des Gesetzesindex';
+        }
+    }
+    
+    updateCollectionFilterVisibility() {
+        // Get unique collections from laws index
+        const collections = new Set();
+        this.lawsIndex.forEach(law => {
+            if (law.collection) {
+                collections.add(law.collection);
+            }
+        });
+        
+        // Hide collection filter if only one collection is available
+        const collectionFieldGroup = this.modal.querySelector('.collection-field');
+        if (collections.size <= 1) {
+            collectionFieldGroup.style.display = 'none';
+        } else {
+            collectionFieldGroup.style.display = 'block';
         }
     }
     

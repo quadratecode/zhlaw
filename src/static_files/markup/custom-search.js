@@ -227,12 +227,22 @@ class CustomSearch {
     populateFilterUI() {
         if (!this.availableFilters || !this.availableFilters['Gesetzessammlung']) return;
         
-        // Populate collection dropdown
-        let options = `<option value="">${this.translations.collection_all}</option>`;
-        for (const [value] of Object.entries(this.availableFilters['Gesetzessammlung'])) {
-            options += `<option value="${value}">${value}</option>`;
+        // Check number of available collections
+        const collections = Object.keys(this.availableFilters['Gesetzessammlung']);
+        const collectionFilterWrapper = this.searchModal.querySelector('.collection-filter-wrapper');
+        
+        if (collections.length <= 1) {
+            // Hide collection filter if only one collection available
+            collectionFilterWrapper.style.display = 'none';
+        } else {
+            // Show collection filter and populate options
+            collectionFilterWrapper.style.display = 'block';
+            let options = `<option value="">${this.translations.collection_all}</option>`;
+            for (const [value] of Object.entries(this.availableFilters['Gesetzessammlung'])) {
+                options += `<option value="${value}">${value}</option>`;
+            }
+            this.collectionFilter.innerHTML = options;
         }
-        this.collectionFilter.innerHTML = options;
     }
 
     /**
@@ -342,8 +352,10 @@ class CustomSearch {
      * Update filter counts in the UI
      */
     updateFilterCounts(filterCounts) {
-        // Update collection dropdown with result counts
-        if (this.collectionFilter && filterCounts['Gesetzessammlung']) {
+        // Update collection dropdown with result counts only if filter is visible
+        const collectionFilterWrapper = this.searchModal.querySelector('.collection-filter-wrapper');
+        if (this.collectionFilter && filterCounts['Gesetzessammlung'] && 
+            collectionFilterWrapper.style.display !== 'none') {
             const currentValue = this.collectionFilter.value;
             let options = `<option value="">${this.translations.collection_all}</option>`;
             
