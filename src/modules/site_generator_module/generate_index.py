@@ -19,8 +19,26 @@ License:
 
 import json
 import os
+from pathlib import Path
 
 from src.modules.dataset_generator_module import convert_csv
+
+def get_versioned_asset_url(asset_url: str, version_map: dict = None) -> str:
+    """
+    Convert asset URL to versioned URL using the provided version map.
+    Falls back to original URL if versioning is not available.
+    """
+    if not version_map:
+        return asset_url
+    
+    # Remove leading slash for lookup
+    clean_url = asset_url.lstrip('/')
+    
+    # Check if we have a versioned version
+    if clean_url in version_map:
+        return '/' + version_map[clean_url]
+    
+    return asset_url  # Return original if no versioned version
 
 html_template = """
 <html>
@@ -263,15 +281,20 @@ def save_html_file(html_content, file_path):
         file.write(html_content)
 
 
-def main(json_file_path, output_file_path):
+def main(json_file_path, output_file_path, version_map=None):
     # Load JSON data
     data = load_json_data(json_file_path)
 
     # Generate collapsible tree structure HTML
     tree_structure = generate_tree_structure(data)
 
-    # Replace placeholder with tree structure in the HTML template
-    final_html = html_template.format(tree_structure=tree_structure)
+    # Get versioned CSS URL
+    versioned_css_url = get_versioned_asset_url("styles.css", version_map)
+
+    # Replace placeholder with tree structure and versioned CSS in the HTML template
+    final_html = html_template.format(tree_structure=tree_structure).replace(
+        'href="styles.css"', f'href="{versioned_css_url}"'
+    )
 
     # Save the generated HTML to the output file
     save_html_file(final_html, output_file_path)

@@ -45,6 +45,7 @@ from src.modules.site_generator_module.create_sitemap import SitemapGenerator
 from src.modules.dataset_generator_module import build_markdown
 from src.modules.site_generator_module import html_diff
 from src.modules.site_generator_module import generate_anchor_maps
+from src.modules.general_module.asset_versioning import AssetVersionManager, create_htaccess_rules
 
 # Set up logging
 logging.basicConfig(
@@ -261,18 +262,47 @@ def main(
         process_ch = True
 
     # -------------------------------------------------------------------------
-    # 1) Generate index (for ZH) if we are processing ZH
+    # 1) Process static assets with versioning (before anything else)
+    # -------------------------------------------------------------------------
+    logging.info("Processing static assets with versioning")
+    
+    # Initialize asset version manager
+    asset_manager = AssetVersionManager(
+        source_dir="src/static_files/markup/",
+        output_dir=STATIC_PATH
+    )
+    
+    # Process versionable assets (CSS, JS)
+    version_map = asset_manager.process_versionable_assets()
+    
+    # Process non-versionable assets (images, fonts, etc.)
+    non_versionable = asset_manager.process_non_versionable_assets()
+    
+    # Save version map for template processing
+    asset_manager.save_version_map()
+    
+    # Set version map in build_zhlaw module for HTML processing
+    build_zhlaw.set_version_map(version_map)
+    
+    # Create .htaccess with caching rules
+    create_htaccess_rules(STATIC_PATH, version_map, non_versionable)
+    
+    logging.info(f"Processed {len(version_map)} versioned assets and {len(non_versionable)} non-versioned assets")
+
+    # -------------------------------------------------------------------------
+    # 2) Generate index (for ZH) if we are processing ZH
     # -------------------------------------------------------------------------
     if process_zh:
         logging.info("Generating ZH index")
         generate_index.main(
             COLLECTION_DATA_ZH,
             "src/static_files/html/index.html",  # Template
+            version_map=version_map  # Pass version map for CSS versioning
         )
         logging.info("Finished generating ZH index")
 
     # -------------------------------------------------------------------------
-    # 2) Process ZH-Lex HTML files (if requested)
+    # 3) Process ZH-Lex HTML files (if requested)
     # -------------------------------------------------------------------------
     if process_zh and zh_folder:
         logging.info(f"Loading ZH-Lex HTML files from '{zh_folder}'")
@@ -439,15 +469,8 @@ def main(
     #     logging.info(f"Generated {ch_diff_count} diffs for FedLex")
 
     # -------------------------------------------------------------------------
-    # 6) Copy static markup, server scripts, and relevant metadata JSON
+    # 6) Copy server scripts for local development
     # -------------------------------------------------------------------------
-    # Copy markup (CSS, JS, etc.) to public
-    shutil.copytree(
-        "src/static_files/markup/",
-        STATIC_PATH,
-        dirs_exist_ok=True,
-    )
-    
     # Copy router.php and unified redirect scripts for local development
     shutil.copy(
         "src/server_scripts/router.php",

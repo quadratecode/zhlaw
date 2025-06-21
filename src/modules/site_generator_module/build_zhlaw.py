@@ -20,12 +20,37 @@ License:
 
 import logging
 import re
+import json
+import os
+from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 from bs4 import BeautifulSoup, Tag
 import arrow
 
 # Get logger from main module
 logger = logging.getLogger(__name__)
+
+# Global version map variable - will be set by the build process
+_VERSION_MAP = {}
+
+def set_version_map(version_map: dict):
+    """Set the global version map for asset URL resolution."""
+    global _VERSION_MAP
+    _VERSION_MAP = version_map
+
+def get_versioned_asset_url(asset_url: str) -> str:
+    """
+    Convert asset URL to versioned URL using the global version map.
+    Falls back to original URL if versioning is not available.
+    """
+    # Remove leading slash for lookup
+    clean_url = asset_url.lstrip('/')
+    
+    # Check if we have a versioned version in the global map
+    if clean_url in _VERSION_MAP:
+        return '/' + _VERSION_MAP[clean_url]
+    
+    return asset_url  # Return original if no versioned version
 
 # -----------------------------------------------------------------------------
 # Module-Level Constants
@@ -147,13 +172,15 @@ def insert_header(soup: BeautifulSoup, law_origin: str = None) -> BeautifulSoup:
     head: Union[Tag, None] = soup.find("head")
     if head:
 
-        # Add dark mode script
-        dark_mode_script: Tag = soup.new_tag("script", src="/dark-mode.js", defer=True)
+        # Add dark mode script with versioning
+        dark_mode_src = get_versioned_asset_url("/dark-mode.js")
+        dark_mode_script: Tag = soup.new_tag("script", src=dark_mode_src, defer=True)
         head.append(dark_mode_script)
 
-        # Add anchor handling script
+        # Add anchor handling script with versioning
+        anchor_highlight_src = get_versioned_asset_url("/anchor-highlight.js")
         anchor_handling_script: Tag = soup.new_tag(
-            "script", src="/anchor-highlight.js", defer=True
+            "script", src=anchor_highlight_src, defer=True
         )
         head.append(anchor_handling_script)
 
@@ -207,27 +234,31 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
     if body:
         body.append(footer)
 
-        # Add JavaScript files
+        # Add JavaScript files with versioning
         # Custom search script (load early for search functionality)
+        custom_search_src = get_versioned_asset_url("/custom-search.js")
         custom_search_script = soup.new_tag(
-            "script", src="/custom-search.js", defer=True
+            "script", src=custom_search_src, defer=True
         )
         body.append(custom_search_script)
         
         # Quick select script
+        quick_select_src = get_versioned_asset_url("/quick-select.js")
         quick_select_script = soup.new_tag(
-            "script", src="/quick-select.js", defer=True
+            "script", src=quick_select_src, defer=True
         )
         body.append(quick_select_script)
         
         # Anchor tooltip script
+        anchor_tooltip_src = get_versioned_asset_url("/anchor-tooltip.js")
         anchor_tooltip_script = soup.new_tag(
-            "script", src="/anchor-tooltip.js", defer=True
+            "script", src=anchor_tooltip_src, defer=True
         )
         body.append(anchor_tooltip_script)
 
         # Copy links script
-        copy_links_script = soup.new_tag("script", src="/copy-links.js", defer=True)
+        copy_links_src = get_versioned_asset_url("/copy-links.js")
+        copy_links_script = soup.new_tag("script", src=copy_links_src, defer=True)
         body.append(copy_links_script)
 
         # Add GoatCounter script
@@ -263,8 +294,9 @@ def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
         head = soup.new_tag("head")
         soup.html.insert(0, head)
 
-    # Add CSS stylesheet
-    css_link: Tag = soup.new_tag("link", rel="stylesheet", href="/styles.css")
+    # Add CSS stylesheet with versioning
+    css_href = get_versioned_asset_url("/styles.css")
+    css_link: Tag = soup.new_tag("link", rel="stylesheet", href=css_href)
     head.append(css_link)
 
     # Add favicon links
@@ -291,8 +323,9 @@ def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
     encoding_meta: Tag = soup.new_tag("meta", charset="utf-8")
     head.append(encoding_meta)
 
-    # Add dark mode script
-    dark_mode_script: Tag = soup.new_tag("script", src="/dark-mode.js", defer=True)
+    # Add dark mode script with versioning
+    dark_mode_src = get_versioned_asset_url("/dark-mode.js")
+    dark_mode_script: Tag = soup.new_tag("script", src=dark_mode_src, defer=True)
     head.append(dark_mode_script)
     
     # Add inline script to prevent scrolling to missing anchors
