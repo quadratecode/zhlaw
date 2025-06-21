@@ -1350,12 +1350,72 @@ def create_links_display(
     return links_container
 
 
+def update_css_references_for_site_elements(soup: BeautifulSoup) -> BeautifulSoup:
+    """
+    Updates CSS references in static site element pages to use versioned assets.
+    This function is specifically for site_element type files (about.html, dispatch.html, etc.)
+    that have hardcoded CSS references.
+    """
+    head: Union[Tag, None] = soup.head
+    if head:
+        # Remove existing CSS links that might conflict with versioned assets
+        existing_css_links = head.find_all("link", rel="stylesheet")
+        for link in existing_css_links:
+            # Remove links to styles.css (with or without leading slash)
+            href = link.get("href", "")
+            if href in ["styles.css", "/styles.css"]:
+                link.decompose()
+        
+        # Add CSS stylesheet with versioning
+        css_href = get_versioned_asset_url("/styles.css")
+        css_link: Tag = soup.new_tag("link", rel="stylesheet", href=css_href)
+        # Insert at the beginning of head to ensure it loads early
+        head.insert(0, css_link)
+        
+        # Add the FOUC prevention script for consistency
+        fouc_prevention_script: Tag = soup.new_tag("script")
+        fouc_prevention_script.string = """
+// Prevent FOUC by immediately applying theme before CSS loads
+(function() {
+    'use strict';
+    
+    // Remove the default light-mode class first
+    document.documentElement.classList.remove('light-mode');
+    
+    // Check localStorage for saved theme preference
+    const colorMode = localStorage.getItem('colorMode');
+    
+    if (colorMode === 'dark') {
+        document.documentElement.classList.add('dark-mode');
+    } else if (colorMode === 'light') {
+        document.documentElement.classList.add('light-mode');
+    } else {
+        // If no preference is saved, check system preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark-mode');
+        } else {
+            document.documentElement.classList.add('light-mode');
+        }
+    }
+})();
+"""
+        # Insert after the CSS link
+        head.insert(1, fouc_prevention_script)
+        
+        # Also ensure the HTML tag has the proper classes
+        html_tag = soup.html
+        if html_tag:
+            html_tag["class"] = html_tag.get("class", []) + ["no-js", "light-mode"]
+    
+    return soup
+
+
 # -----------------------------------------------------------------------------
 # Main Processing Function
 # -----------------------------------------------------------------------------
 def main(
     soup: BeautifulSoup,
-    html_file: str,
+    html_file: str,  # Required parameter for compatibility
     doc_info: Dict[str, Any],
     type_str: str,
     law_origin: str,
@@ -1450,6 +1510,9 @@ def main(
             else:
                 annex_info.string = "ACHTUNG: Anhänge weisen im Vergleich zur Originalquelle oft Konvertierungsfehler auf."
             annex.insert(0, annex_info)
+    else:
+        # For site_element type files, update CSS references to use versioned URLs
+        soup = update_css_references_for_site_elements(soup)
 
     soup = insert_header(soup, law_origin)
     soup = insert_footer(soup)

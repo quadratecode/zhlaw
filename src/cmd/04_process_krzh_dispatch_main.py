@@ -24,6 +24,7 @@ from src.modules.krzh_dispatch_module import call_openai_api
 from src.modules.site_generator_module import build_zhlaw
 from src.modules.site_generator_module import build_dispatch
 from src.modules.krzh_dispatch_module import build_rss
+from src.modules.general_module.asset_versioning import AssetVersionManager
 
 # Import external modules
 import arrow
@@ -228,6 +229,19 @@ def main():
     logging.info("Building page")
     html_file_path = DISPATCH_HTML_FILE
     os.makedirs(os.path.dirname(html_file_path), exist_ok=True)
+    
+    # Load asset version map if available
+    logging.info("Loading asset version map")
+    asset_manager = AssetVersionManager(
+        source_dir="src/static_files/markup/",
+        output_dir="public"
+    )
+    version_map = asset_manager.load_version_map()
+    if version_map:
+        build_zhlaw.set_version_map(version_map)
+        logging.info(f"Loaded version map with {len(version_map)} entries")
+    else:
+        logging.warning("No asset version map found - CSS versioning will not be applied")
 
     logging.info(f"Starting page build")
     with open(DISPATCH_DATA_FILE, "r") as f:
@@ -253,6 +267,8 @@ def main():
     with open(html_file_path, "r") as file:
         soup = BeautifulSoup(file, "html.parser")
 
+    # Update CSS references to use versioned assets
+    soup = build_zhlaw.update_css_references_for_site_elements(soup)
     soup = build_zhlaw.insert_header(soup)
     soup = build_zhlaw.insert_footer(soup)
 
