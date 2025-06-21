@@ -32,46 +32,85 @@
 }
 
 /* Anchor warning for missing provisions */
-.anchor-warning {
+/* Anchor Warning Modal */
+.anchor-warning-modal {
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;
-    background-color: var(--color-warning-bg);
-    color: var(--color-warning-text);
-    padding: 12px 16px;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
     z-index: 10000;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.anchor-warning-content {
-    max-width: var(--container-max-width);
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-}
-
-.anchor-warning-close {
-    background: none;
-    border: none;
-    font-size: 24px;
-    line-height: 1;
-    cursor: pointer;
-    color: inherit;
-    padding: 0;
-    width: 28px;
-    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
-    transition: background-color 0.2s;
+    padding: 1rem;
+    overflow: hidden;
 }
 
-.anchor-warning-close:hover {
-    background-color: rgba(0, 0, 0, 0.1);
+.anchor-warning-modal-content {
+    background-color: var(--soft-white);
+    border: 2px solid var(--soft-black);
+    padding: 2rem;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    text-align: center;
+}
+
+.anchor-warning-message {
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--soft-black);
+    margin-bottom: 1.5rem;
+    font-family: var(--font-text);
+}
+
+.anchor-warning-close-button {
+    background: var(--soft-black);
+    color: var(--soft-white);
+    border: 2px solid var(--soft-black);
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-family: var(--font-text);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.anchor-warning-close-button:hover {
+    background: var(--soft-white);
+    color: var(--soft-black);
+}
+
+.anchor-warning-close-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .anchor-warning-modal-content {
+    background-color: var(--dark-subtle-grey);
+    border-color: var(--soft-white);
+}
+
+[data-theme="dark"] .anchor-warning-message {
+    color: var(--soft-white);
+}
+
+[data-theme="dark"] .anchor-warning-close-button {
+    background: var(--soft-white);
+    color: var(--soft-black);
+    border-color: var(--soft-white);
+}
+
+[data-theme="dark"] .anchor-warning-close-button:hover {
+    background: var(--dark-subtle-grey);
+    color: var(--soft-white);
+}
+
+[data-theme="dark"] .anchor-warning-close-button:focus {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
 }
 
 /* Define warning colors if not already defined */

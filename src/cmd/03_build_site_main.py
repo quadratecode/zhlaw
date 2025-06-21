@@ -500,6 +500,11 @@ def main(
             concurrent=(processing_mode == "concurrent"), max_workers=max_workers
         )
         logging.info("Finished generating anchor maps for CH collection")
+    
+    # Generate anchor maps index for quick select
+    logging.info("Generating anchor maps index")
+    generate_anchor_maps.generate_anchor_maps_index(STATIC_PATH)
+    logging.info("Finished generating anchor maps index")
 
     # -------------------------------------------------------------------------
     # 8) Generate a sitemap (covering everything under public/)
@@ -516,8 +521,16 @@ def main(
     # 9) Build Pagefind search index (covering everything in public/)
     # -------------------------------------------------------------------------
     logging.info("Building search index")
-    subprocess.run(["npx", "pagefind", "--site", STATIC_PATH, "--serve"])
+    subprocess.run(["npx", "pagefind", "--site", STATIC_PATH])
     logging.info("Finished building search index")
+    
+    # -------------------------------------------------------------------------
+    # 10) Start PHP development server
+    # -------------------------------------------------------------------------
+    logging.info("Starting PHP development server at http://localhost:8000")
+    logging.info("Press Ctrl+C to stop the server")
+    os.chdir(STATIC_PATH)
+    subprocess.run(["php", "-S", "localhost:8000", "router.php"])
 
 
 if __name__ == "__main__":

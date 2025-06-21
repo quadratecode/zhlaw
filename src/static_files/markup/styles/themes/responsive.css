@@ -31,9 +31,30 @@
         height: 50px;
     }
 
+    /* Collection indicator responsive */
+    .collection-indicator-container {
+        margin-right: 0.5rem;
+        height: 50px;
+    }
+    
+    .collection-badge {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+    }
+
     /* Handle the UI when search results are displayed */
     #page-header:has(.pagefind-ui__results) .dark-mode-toggle-container {
         transform: scale(0.9);
+    }
+    
+    /* Anchor warning modal responsive */
+    .anchor-warning-modal-content {
+        padding: 1.5rem;
+        margin: 0 1rem;
+    }
+    
+    .anchor-warning-message {
+        font-size: 0.9375rem;
     }
 }
 
@@ -62,6 +83,18 @@
 
     .logo-container {
         height: 42px;
+    }
+
+    /* Collection indicator on small screens */
+    .collection-indicator-container {
+        height: 42px;
+        margin-right: 0.3rem;
+    }
+    
+    .collection-badge {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.4rem;
+        border-width: 1.5px;
     }
 }
 

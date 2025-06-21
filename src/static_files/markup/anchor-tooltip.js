@@ -53,7 +53,7 @@
     }
 
     // Generate human-readable reference
-    function generateHumanReference(provision, subprovision) {
+    function generateHumanReference(provision, subprovision, includeTitle = true) {
         if (!anchorMap || !anchorMap.metadata) return '';
 
         const provType = anchorMap.metadata.provision_type || '§';
@@ -63,7 +63,9 @@
         if (subprovision) {
             reference += ` Abs. ${subprovision}`;
         }
-        reference += ` ${title}`;
+        if (includeTitle && title) {
+            reference += ` ${title}`;
+        }
         
         return reference;
     }
@@ -78,11 +80,12 @@
         
         if (subprovision) {
             return provData.subprovisions && 
-                   provData.subprovisions[subprovision] && 
-                   provData.subprovisions[subprovision].latest_version;
+                   provData.subprovisions[subprovision] &&
+                   provData.subprovisions[subprovision].sequences > 0;
         }
         
-        return provData.latest_version;
+        // Check if provision exists (has at least one sequence)
+        return provData.sequences && provData.sequences > 0;
     }
 
     // Create tooltip element
@@ -296,31 +299,152 @@
         }
     }
 
+    // Get current version number from page
+    function getCurrentVersion() {
+        // Try multiple ways to get the version number
+        let currentVersion = document.querySelector('[data-pagefind-meta="nachtragsnummer"]')?.getAttribute('content') || '';
+        if (!currentVersion) {
+            // Try to extract from URL as fallback
+            const urlMatch = window.location.pathname.match(/-(\d+)\.html$/);
+            if (urlMatch) {
+                currentVersion = urlMatch[1];
+            }
+        }
+        return currentVersion;
+    }
+
+    // Show warning modal for missing anchors
+    function showWarningModal(humanRef, currentVersion) {
+        // Remove any existing warning modal
+        const existingModal = document.querySelector('.anchor-warning-modal');
+        if (existingModal) {
+            existingModal.remove();
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+        }
+
+        // Create modal using clean CSS approach
+        const modal = document.createElement('div');
+        modal.className = 'anchor-warning-modal';
+        modal.innerHTML = `
+            <div class="anchor-warning-modal-content">
+                <div class="anchor-warning-message">
+                    Die Bestimmung ${humanRef} ist in Nachtragsnummer ${currentVersion} nicht verfügbar.
+                </div>
+                <button class="anchor-warning-close-button">Meldung schliessen</button>
+            </div>
+        `;
+        
+        // Add to DOM immediately
+        document.body.appendChild(modal);
+        
+        // THEN scroll to top and prevent scrolling
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        
+        // Prevent scrolling on both html and body elements
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+        
+        // Function to close modal and cleanup
+        const closeModal = () => {
+            modal.remove();
+            // Restore scrolling
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+            // Clear the prevent scroll flag
+            delete window.__preventAnchorScroll;
+            document.removeEventListener('keydown', escapeHandler);
+        };
+        
+        // Add click handler to close button
+        const closeButton = modal.querySelector('.anchor-warning-close-button');
+        closeButton.addEventListener('click', closeModal);
+        
+        // Add click handler to backdrop for closing
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+        
+        // Add escape key handler
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        };
+        document.addEventListener('keydown', escapeHandler);
+        
+        // Focus the close button for accessibility
+        closeButton.focus();
+    }
+
+    // Check if anchor exists in current page (for static version access)
+    function checkAnchorExistsInPage(anchorId) {
+        return document.getElementById(anchorId) !== null;
+    }
+
     // Show warning for missing anchors
     function showMissingAnchorWarning() {
-        const hash = window.location.hash.substring(1);
+        // Check for hash that was removed early to prevent scrolling
+        let hash = window.__originalMissingAnchor || window.location.hash.substring(1);
         if (!hash) return;
 
         const parsed = parseAnchorId(hash);
         if (!parsed) return;
 
-        // Check if this was a redirect from /latest
+        const currentVersion = getCurrentVersion();
         const urlParams = new URLSearchParams(window.location.search);
+        
+        // Check for metadata from quick-select in sessionStorage
+        const storedMetadata = sessionStorage.getItem('quickSelectLawMetadata');
+        if (storedMetadata) {
+            try {
+                const metadata = JSON.parse(storedMetadata);
+                // Update anchorMap metadata if we have stored data
+                if (anchorMap && anchorMap.metadata) {
+                    anchorMap.metadata.provision_type = metadata.provision_type || anchorMap.metadata.provision_type;
+                    anchorMap.metadata.title = metadata.title || anchorMap.metadata.title;
+                }
+                sessionStorage.removeItem('quickSelectLawMetadata'); // Clean up
+            } catch (e) {}
+        }
+        
+        const humanRef = generateHumanReference(parsed.provision, parsed.subprovision, false);
+
+        // Case 1 & 2: Redirected from /latest or quick-select
         if (urlParams.get('redirected') === 'true' && urlParams.get('anchor_missing') === 'true') {
-            const humanRef = generateHumanReference(parsed.provision, parsed.subprovision);
-            const currentVersion = document.querySelector('[data-pagefind-meta="nachtragsnummer"]')?.getAttribute('content') || '';
+            // Clean URL immediately on page load - remove parameters
+            const url = new URL(window.location);
+            url.searchParams.delete('redirected');
+            url.searchParams.delete('anchor_missing');
+            history.replaceState(null, '', url.toString());
             
-            const warning = document.createElement('div');
-            warning.className = 'anchor-warning';
-            warning.innerHTML = `
-                <div class="anchor-warning-content">
-                    <span>Die verlinkte Bestimmung ${humanRef} ist in der Nachtragsnummer ${currentVersion} nicht mehr enthalten.</span>
-                    <button class="anchor-warning-close" onclick="this.parentElement.parentElement.remove()">×</button>
-                </div>
-            `;
-            document.body.insertBefore(warning, document.body.firstChild);
+            // Clean up stored hash
+            delete window.__originalMissingAnchor;
+            
+            // Show warning modal
+            showWarningModal(humanRef, currentVersion);
+        } 
+        // Case 3: Direct access to static version - check if anchor exists in DOM
+        else if (!checkAnchorExistsInPage(hash)) {
+            // Set flag to prevent scrolling
+            window.__preventAnchorScroll = true;
+            
+            // Remove anchor from URL first
+            const url = new URL(window.location);
+            url.hash = '';
+            history.replaceState(null, '', url.toString());
+            
+            // Show warning
+            showWarningModal(humanRef, currentVersion);
         }
     }
+    
+    // Note: Early anchor checking is now handled by inline script in the HTML
+    // to ensure it runs before any external scripts are loaded
 
     // Initialize when DOM is ready
     function initialize() {

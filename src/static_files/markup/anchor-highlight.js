@@ -278,9 +278,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (performance.navigation.type === performance.navigation.TYPE_NAVIGATE || 
         performance.navigation.type === performance.navigation.TYPE_RELOAD ||
         performance.navigation.type === undefined) { // Fallback for older browsers
-        // Use a timeout to ensure the browser has rendered the page before scrolling
-        setTimeout(() => {
-            scrollToAnchorWithOffset(window.location.hash);
-        }, 50);
+        
+        // Check if scrolling is prevented due to missing anchor
+        if (!window.__preventAnchorScroll) {
+            // Use a timeout to ensure the browser has rendered the page before scrolling
+            setTimeout(() => {
+                scrollToAnchorWithOffset(window.location.hash);
+            }, 50);
+        }
     }
 });

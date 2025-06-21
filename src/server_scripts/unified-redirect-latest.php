@@ -95,9 +95,11 @@ if ($anchor && $anchor !== '#') {
                 
                 if ($subprovision) {
                     $anchorExists = isset($provData['subprovisions'][$subprovision]) &&
-                                  in_array(strval($maxNachtragsnummer), $provData['subprovisions'][$subprovision]['versions']);
+                                  isset($provData['subprovisions'][$subprovision]['sequences']) &&
+                                  $provData['subprovisions'][$subprovision]['sequences'] > 0;
                 } else {
-                    $anchorExists = in_array(strval($maxNachtragsnummer), $provData['versions']);
+                    // Provision exists if it has sequences
+                    $anchorExists = isset($provData['sequences']) && $provData['sequences'] > 0;
                 }
             } else {
                 $anchorExists = false;

@@ -78,50 +78,20 @@ def create_nav_buttons(soup: BeautifulSoup) -> Tag:
     return nav_div
 
 
-def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
+def insert_header(soup: BeautifulSoup, law_origin: str = None) -> BeautifulSoup:
     """
-    Inserts a header with search bar on the left, toggle in the middle, and logo on the right.
+    Inserts a header with logo on the left, dark mode toggle after logo, and search on the right.
     Also adds Pagefind UI assets to the <head> and dark mode toggle button.
+    
+    Args:
+        soup: BeautifulSoup object to modify
+        law_origin: Source of the law ("zh" for Zurich laws, "ch" for Federal laws)
     """
     header: Tag = soup.new_tag("div", **{"id": "page-header"})
     header_content: Tag = soup.new_tag("div", **{"class": "header-content"})
     header.append(header_content)
 
-    # Search container (now first)
-    search_container: Tag = soup.new_tag("div", **{"class": "search-container"})
-    search_div: Tag = soup.new_tag("div", id="search")
-    search_container.append(search_div)
-    header_content.append(search_container)
-
-    # Dark mode toggle container (now second)
-    dark_mode_container: Tag = soup.new_tag(
-        "div", **{"class": "dark-mode-toggle-container"}
-    )
-    dark_mode_toggle: Tag = soup.new_tag(
-        "button", id="dark-mode-toggle", **{"aria-label": "Toggle dark mode"}
-    )
-
-    # Use SVG for moon icon (default)
-    moon_svg = soup.new_tag(
-        "svg",
-        xmlns="http://www.w3.org/2000/svg",
-        width="28",
-        height="28",
-        viewBox="0 0 24 24",
-        fill="none",
-        stroke="currentColor",
-        **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round"},
-    )
-    moon_path = soup.new_tag(
-        "path", d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
-    )
-    moon_svg.append(moon_path)
-    dark_mode_toggle.append(moon_svg)
-
-    dark_mode_container.append(dark_mode_toggle)
-    header_content.append(dark_mode_container)
-
-    # Logo container (now third/last)
+    # Logo container (now first)
     logo_container: Tag = soup.new_tag("div", **{"class": "logo-container"})
     logo_link: Tag = soup.new_tag("a", href="/")
     logo_img: Tag = soup.new_tag(
@@ -131,15 +101,51 @@ def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
     logo_container.append(logo_link)
     header_content.append(logo_container)
 
-    # Insert Pagefind UI assets into <head>
+    # Create a right-side container for all buttons
+    buttons_container: Tag = soup.new_tag("div", **{"class": "header-buttons-container"})
+    
+    # Dark mode toggle
+    dark_mode_toggle: Tag = soup.new_tag(
+        "button", id="dark-mode-toggle", **{"aria-label": "Dark Mode umschalten", "class": "dark-mode-button"}
+    )
+
+    # Use SVG for moon icon (default)
+    moon_svg = soup.new_tag(
+        "svg",
+        xmlns="http://www.w3.org/2000/svg",
+        width="24",
+        height="24",
+        viewBox="0 0 24 24",
+        fill="none",
+        stroke="currentColor",
+        **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round", "class": "dark-mode-icon"},
+    )
+    moon_path = soup.new_tag(
+        "path", d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+    )
+    moon_svg.append(moon_path)
+    dark_mode_toggle.append(moon_svg)
+    
+    # Add text span
+    dark_mode_text: Tag = soup.new_tag("span", **{"class": "dark-mode-button-text"})
+    dark_mode_text.string = "Dark Mode"
+    dark_mode_toggle.append(dark_mode_text)
+    
+    buttons_container.append(dark_mode_toggle)
+    
+    # Quick selection button container
+    quick_select_div: Tag = soup.new_tag("div", id="quick-select")
+    buttons_container.append(quick_select_div)
+    
+    # Regular search button container
+    search_div: Tag = soup.new_tag("div", id="search")
+    buttons_container.append(search_div)
+    
+    header_content.append(buttons_container)
+
+    # Insert scripts into <head>
     head: Union[Tag, None] = soup.find("head")
     if head:
-        css_link: Tag = soup.new_tag(
-            "link", href="/pagefind/pagefind-ui.css", rel="stylesheet"
-        )
-        head.append(css_link)
-        script_tag: Tag = soup.new_tag("script", src="/pagefind/pagefind-ui.js")
-        head.append(script_tag)
 
         # Add dark mode script
         dark_mode_script: Tag = soup.new_tag("script", src="/dark-mode.js", defer=True)
@@ -158,31 +164,7 @@ def insert_header(soup: BeautifulSoup) -> BeautifulSoup:
         # )
         # head.append(version_comparison_script)
 
-    # Pagefind initialization script
-    search_script: Tag = soup.new_tag("script")
-    search_script.string = """
-        window.addEventListener('DOMContentLoaded', (event) => {
-            new PagefindUI({
-                element: "#search",
-                showSubResults: false,
-                pageSize: 15,
-                excerptLength: 25,
-                ranking: {
-                    termFrequency: 0.0,
-                    termSaturation: 1.6,
-                    termSimilarity: 2.0,
-                },
-                translations: {
-                    placeholder: "Gesetzessammlung durchsuchen",
-                    zero_results: "Keine Treffer für [SEARCH_TERM]"
-                },
-                openFilters: ["Text in Kraft"],
-                autofocus: true,
-                showImages: false
-            });
-        });
-    """
-    header.append(search_script)
+    # Custom search is initialized by custom-search.js, no inline script needed
 
     body: Union[Tag, None] = soup.find("body")
     if body:
@@ -226,20 +208,26 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
         body.append(footer)
 
         # Add JavaScript files
-        # Anchor highlight script
-        anchor_highlight_script = soup.new_tag(
-            "script", src="../anchor-highlight.js", defer=True
+        # Custom search script (load early for search functionality)
+        custom_search_script = soup.new_tag(
+            "script", src="/custom-search.js", defer=True
         )
-        body.append(anchor_highlight_script)
-
+        body.append(custom_search_script)
+        
+        # Quick select script
+        quick_select_script = soup.new_tag(
+            "script", src="/quick-select.js", defer=True
+        )
+        body.append(quick_select_script)
+        
         # Anchor tooltip script
         anchor_tooltip_script = soup.new_tag(
-            "script", src="../anchor-tooltip.js", defer=True
+            "script", src="/anchor-tooltip.js", defer=True
         )
         body.append(anchor_tooltip_script)
 
         # Copy links script
-        copy_links_script = soup.new_tag("script", src="../copy-links.js", defer=True)
+        copy_links_script = soup.new_tag("script", src="/copy-links.js", defer=True)
         body.append(copy_links_script)
 
         # Add GoatCounter script
@@ -276,16 +264,16 @@ def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
         soup.html.insert(0, head)
 
     # Add CSS stylesheet
-    css_link: Tag = soup.new_tag("link", rel="stylesheet", href="../styles.css")
+    css_link: Tag = soup.new_tag("link", rel="stylesheet", href="/styles.css")
     head.append(css_link)
 
     # Add favicon links
     shortcut_icon: Tag = soup.new_tag(
-        "link", rel="shortcut icon", href="../favicon.ico", type="image/x-icon"
+        "link", rel="shortcut icon", href="/favicon.ico", type="image/x-icon"
     )
     head.append(shortcut_icon)
     favicon: Tag = soup.new_tag(
-        "link", rel="icon", href="../favicon.ico", type="image/x-icon"
+        "link", rel="icon", href="/favicon.ico", type="image/x-icon"
     )
     head.append(favicon)
 
@@ -304,8 +292,117 @@ def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
     head.append(encoding_meta)
 
     # Add dark mode script
-    dark_mode_script: Tag = soup.new_tag("script", src="../dark-mode.js", defer=True)
+    dark_mode_script: Tag = soup.new_tag("script", src="/dark-mode.js", defer=True)
     head.append(dark_mode_script)
+    
+    # Add inline script to prevent scrolling to missing anchors
+    anchor_check_script: Tag = soup.new_tag("script")
+    anchor_check_script.string = """
+// Immediate check to prevent scrolling to missing anchors
+(function() {
+    'use strict';
+    
+    // Parse anchor ID to extract provision and subprovision numbers
+    function parseAnchorId(anchorId) {
+        const match = anchorId.match(/seq-\\d+-prov-(\\d+[a-z]?)(?:-sub-(\\d+))?/);
+        if (match) {
+            return {
+                provision: match[1],
+                subprovision: match[2] || null
+            };
+        }
+        return null;
+    }
+    
+    // Force scroll to top immediately
+    window.scrollTo(0, 0);
+    
+    // This runs immediately when the script loads, before DOM is ready
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+        const parsed = parseAnchorId(hash);
+        if (parsed) {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Case 1: Redirect with missing anchor
+            if (urlParams.get('redirected') === 'true' && urlParams.get('anchor_missing') === 'true') {
+                // Store the original hash for later use
+                window.__originalMissingAnchor = hash;
+                // Remove hash to prevent browser scrolling
+                history.replaceState(null, '', window.location.pathname + window.location.search);
+                // Set flag to prevent anchor-highlight.js from scrolling
+                window.__preventAnchorScroll = true;
+                // Force position at top
+                window.__forceTopPosition = true;
+            }
+            // Case 2: Direct access - we need to check if anchor exists after DOM loads
+            else {
+                // Store hash for checking later
+                window.__pendingAnchorCheck = hash;
+                // Temporarily remove hash to prevent immediate browser scroll
+                history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
+        }
+    }
+})();
+
+// Continuously force top position until modal is shown
+if (window.__forceTopPosition) {
+    let scrollInterval = setInterval(function() {
+        window.scrollTo(0, 0);
+        // Stop when modal appears
+        if (document.querySelector('.anchor-warning-modal')) {
+            clearInterval(scrollInterval);
+            delete window.__forceTopPosition;
+        }
+    }, 10);
+    
+    // Failsafe: stop after 2 seconds
+    setTimeout(function() {
+        clearInterval(scrollInterval);
+        delete window.__forceTopPosition;
+    }, 2000);
+}
+
+// Check for direct access to missing anchors after DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.__pendingAnchorCheck) {
+        const hash = window.__pendingAnchorCheck;
+        const anchorExists = document.getElementById(hash);
+        
+        if (!anchorExists) {
+            // Anchor doesn't exist - keep it removed and store for warning
+            window.__originalMissingAnchor = hash;
+            window.__preventAnchorScroll = true;
+            window.__forceTopPosition = true;
+            
+            // Start forcing top position
+            let scrollInterval = setInterval(function() {
+                window.scrollTo(0, 0);
+                // Stop when modal appears
+                if (document.querySelector('.anchor-warning-modal')) {
+                    clearInterval(scrollInterval);
+                    delete window.__forceTopPosition;
+                }
+            }, 10);
+            
+            // Failsafe: stop after 2 seconds
+            setTimeout(function() {
+                clearInterval(scrollInterval);
+                delete window.__forceTopPosition;
+            }, 2000);
+        } else {
+            // Anchor exists - restore it and let normal scrolling happen
+            history.replaceState(null, '', '#' + hash);
+            // Trigger hashchange event to update highlighting
+            window.dispatchEvent(new Event('hashchange'));
+        }
+        
+        delete window.__pendingAnchorCheck;
+    }
+});
+"""
+    head.append(anchor_check_script)
 
     # Reorganize body contents into structured containers
     body: Union[Tag, None] = soup.body
@@ -843,6 +940,21 @@ def merge_paragraphs_with_footnote_refs(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
+def exclude_footnotes_from_search(soup: BeautifulSoup) -> BeautifulSoup:
+    """
+    Adds data-pagefind-ignore attribute to all footnote-ref elements
+    to exclude them from search indexing.
+    """
+    # Find all footnote reference elements
+    footnote_refs = soup.find_all("sup", class_="footnote-ref")
+    
+    for ref in footnote_refs:
+        # Add the data-pagefind-ignore attribute
+        ref["data-pagefind-ignore"] = "all"
+    
+    return soup
+
+
 def wrap_provisions(soup: BeautifulSoup) -> BeautifulSoup:
     """
     Wraps blocks starting with marginalia or provisions into a 'provision-container'.
@@ -1142,6 +1254,7 @@ def main(
         soup = wrap_subprovisions(soup)
         soup = merge_paragraphs_with_footnote_refs(soup)
         soup = wrap_provisions(soup)
+        soup = exclude_footnotes_from_search(soup)
         soup = modify_html(soup, erlasstitel)
         soup = insert_combined_table(
             soup,
@@ -1213,7 +1326,7 @@ def main(
                 annex_info.string = "ACHTUNG: Anhänge weisen im Vergleich zur Originalquelle oft Konvertierungsfehler auf."
             annex.insert(0, annex_info)
 
-    soup = insert_header(soup)
+    soup = insert_header(soup, law_origin)
     soup = insert_footer(soup)
     return soup
 

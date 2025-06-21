@@ -1,0 +1,344 @@
+/**
+ * Quick Select Styles - Brutalist Design
+ * Modal-based quick selection with three fields
+ */
+
+/* Quick Select Button */
+.quick-select-button {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    height: 64px;
+    border: 1px solid var(--soft-black);
+    background: var(--subtle-grey);
+    cursor: pointer;
+    font-family: var(--font-text);
+    color: var(--soft-black);
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+    transition: background-color 0.3s ease;
+    margin-right: 0.5rem;
+}
+
+.quick-select-button:hover {
+    background-color: var(--hover-grey);
+}
+
+.quick-select-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    transform: scaleX(-1);
+}
+
+.quick-select-button-text {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.quick-select-button-text kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border: 1px solid var(--soft-black);
+    background: var(--soft-white);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: var(--font-weight-medium);
+    line-height: 1;
+    vertical-align: middle;
+    margin: 0 0.125rem;
+}
+
+/* Quick Select Modal */
+.quick-select-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 1rem;
+}
+
+.quick-select-modal-content {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    margin: 0;
+    background: var(--soft-white);
+    border: 2px solid var(--soft-black);
+    box-sizing: border-box;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Form */
+.quick-select-form {
+    padding: 1.5rem;
+}
+
+/* Form Fields Container */
+.quick-select-fields {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+/* Field Groups */
+.quick-select-field-group {
+    flex: 1;
+    min-width: 0;
+}
+
+.quick-select-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-medium);
+    margin-bottom: 0.5rem;
+    color: var(--soft-black);
+}
+
+/* Form Controls */
+.quick-select-input,
+.quick-select-select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--subtle-grey);
+    border: 1px solid var(--soft-black);
+    font-size: 1rem;
+    font-family: var(--font-text);
+    color: var(--soft-black);
+    outline: none;
+    height: 48px;
+    box-sizing: border-box;
+}
+
+.quick-select-input:focus,
+.quick-select-select:focus {
+    background: var(--soft-white);
+    border-width: 2px;
+    padding: calc(0.75rem - 1px) calc(1rem - 1px);
+}
+
+/* Collection field (narrower) */
+.quick-select-field-group.collection-field {
+    flex: 0 0 100px;
+}
+
+/* Autocomplete Container */
+.quick-select-autocomplete {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--soft-white);
+    border: 1px solid var(--soft-black);
+    border-top: none;
+    z-index: 1000;
+    display: none;
+}
+
+.quick-select-autocomplete-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--hover-grey);
+    transition: background-color 0.2s ease;
+}
+
+.quick-select-autocomplete-item:hover,
+.quick-select-autocomplete-item.highlighted {
+    background-color: var(--hover-grey);
+}
+
+.quick-select-autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-abbreviation {
+    font-weight: var(--font-weight-bold);
+    color: var(--soft-black);
+}
+
+.autocomplete-title {
+    font-size: 0.875rem;
+    color: var(--grey);
+    margin-top: 0.25rem;
+}
+
+/* Submit Button */
+.quick-select-submit {
+    margin-top: 1.5rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--soft-black);
+    color: var(--soft-white);
+    border: 2px solid var(--soft-black);
+    font-size: 1rem;
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.quick-select-submit:hover:not(:disabled) {
+    background: var(--soft-white);
+    color: var(--soft-black);
+}
+
+.quick-select-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Error Message */
+.quick-select-error {
+    display: none;
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--in-force-red);
+    border: 1px solid var(--in-force-dark-red);
+    color: var(--in-force-dark-red);
+    font-size: 0.875rem;
+}
+
+/* Loading State */
+.quick-select-loading {
+    display: none;
+    text-align: center;
+    padding: 1rem;
+    color: var(--grey);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .quick-select-fields {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .quick-select-field-group {
+        width: 100%;
+    }
+    
+    .quick-select-field-group.collection-field {
+        flex: 1;
+        width: 100%;
+    }
+    
+    .quick-select-button-text {
+        display: none;
+    }
+    
+    .quick-select-button {
+        width: 48px;
+        height: 48px;
+        padding: 0;
+        margin-right: 0;
+        justify-content: center;
+    }
+    
+    /* Modal takes full width on mobile */
+    .quick-select-modal {
+        padding-top: 0.5rem;
+    }
+    
+    .quick-select-modal-content {
+        margin: 0 0.5rem;
+        max-width: calc(100vw - 1rem);
+    }
+}
+
+/* Dark Mode */
+[data-theme="dark"] .quick-select-button {
+    border-color: var(--dark-soft-black);
+    background: var(--dark-subtle-grey);
+    color: var(--dark-soft-black);
+}
+
+[data-theme="dark"] .quick-select-button:hover {
+    background-color: var(--dark-hover-grey);
+}
+
+[data-theme="dark"] .quick-select-button-text kbd {
+    border-color: var(--dark-soft-black);
+    background: var(--dark-soft-white);
+}
+
+[data-theme="dark"] .quick-select-modal-content {
+    background: var(--dark-soft-white);
+    border-color: var(--dark-soft-black);
+}
+
+
+[data-theme="dark"] .quick-select-input,
+[data-theme="dark"] .quick-select-select {
+    background: var(--dark-subtle-grey);
+    border-color: var(--dark-soft-black);
+    color: var(--dark-soft-black);
+}
+
+[data-theme="dark"] .quick-select-input:focus,
+[data-theme="dark"] .quick-select-select:focus {
+    background: var(--dark-soft-white);
+}
+
+[data-theme="dark"] .quick-select-autocomplete {
+    background: var(--dark-soft-white);
+    border-color: var(--dark-soft-black);
+}
+
+[data-theme="dark"] .quick-select-autocomplete-item {
+    border-color: var(--dark-hover-grey);
+}
+
+[data-theme="dark"] .quick-select-autocomplete-item:hover,
+[data-theme="dark"] .quick-select-autocomplete-item.highlighted {
+    background-color: var(--dark-hover-grey);
+}
+
+[data-theme="dark"] .quick-select-submit {
+    background: var(--dark-soft-black);
+    color: var(--dark-soft-white);
+    border-color: var(--dark-soft-black);
+}
+
+[data-theme="dark"] .quick-select-submit:hover:not(:disabled) {
+    background: var(--dark-soft-white);
+    color: var(--dark-soft-black);
+}
+
+[data-theme="dark"] .quick-select-error {
+    background: var(--dark-in-force-red);
+    border-color: var(--dark-in-force-dark-red);
+    color: var(--dark-in-force-dark-red);
+}
+
+/* When system preference is dark and JS is disabled */
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode):not(.dark-mode) .quick-select-button {
+        border-color: var(--dark-soft-black);
+        background: var(--dark-subtle-grey);
+        color: var(--dark-soft-black);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .quick-select-button:hover {
+        background-color: var(--dark-hover-grey);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .quick-select-button-text kbd {
+        border-color: var(--dark-soft-black);
+        background: var(--dark-soft-white);
+    }
+}

@@ -12,15 +12,13 @@
     z-index: 100;
 }
 
-/* Header content with search results present */
-#page-header:has(.pagefind-ui__results) {
-    height: auto;
-    overflow: visible;
-    padding-bottom: 1rem;
-    background-color: var(--soft-white);
+/* Header content adjustments */
+.header-content {
+    position: relative;
+    z-index: 101;
 }
 
-/* Updated header layout with search on left, toggle in middle, logo on right */
+/* Updated header layout with logo on left, toggle after logo, search on right */
 .header-content {
     width: 100%;
     max-width: 50rem;
@@ -32,37 +30,69 @@
     justify-content: space-between;
 }
 
-/* Search container now on the left */
+/* Header buttons container */
+.header-buttons-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+    height: 64px;
+}
+
+/* Search container (part of buttons now) */
 .search-container {
     display: flex;
-    flex: 1;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    min-width: 0;
-    margin-right: 1rem;
-    margin-left: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
     transition: all 0.3s ease;
     height: 64px;
+    position: relative;
+    z-index: 100;
 }
 
-/* Dark mode toggle in the middle */
-.dark-mode-toggle-container {
+/* Dark mode button - styled like search/quick-select */
+.dark-mode-button {
     display: flex;
     align-items: center;
-    justify-content: center;
-    margin-right: 1rem;
-    transition: all 0.3s ease;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
     height: 64px;
-    flex-shrink: 0;
+    border: 1px solid var(--soft-black);
+    background: var(--subtle-grey);
+    cursor: pointer;
+    font-family: var(--font-text);
+    color: var(--soft-black);
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+    transition: background-color 0.3s ease;
+    margin-right: 0.5rem;
 }
 
-/* Logo container now on the right */
+.dark-mode-button:hover {
+    background-color: var(--hover-grey);
+}
+
+.dark-mode-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+}
+
+.dark-mode-button-text {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* Logo container now on the left */
 .logo-container {
     display: flex;
     align-items: center;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
     opacity: 1;
     height: 64px;
     overflow: hidden;
@@ -91,47 +121,133 @@
     }
 }
 
-/* When search results are visible, hide toggle and logo */
-#page-header:has(.pagefind-ui__results) .dark-mode-toggle-container,
-#page-header:has(.pagefind-ui__results) .logo-container {
-    opacity: 0;
-    width: 0;
-    margin: 0;
-    transform: translateX(20px);
-    overflow: hidden;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .header-buttons-container {
+        gap: 0.5rem;
+        height: 48px;
+    }
+    
+    /* Hide button text on mobile, show only icons */
+    .dark-mode-button-text {
+        display: none;
+    }
+    
+    /* Make dark mode button square on mobile */
+    .dark-mode-button {
+        width: 48px;
+        height: 48px;
+        padding: 0;
+        margin-right: 0;
+        justify-content: center;
+    }
+    
+    /* Make logo same height as buttons on mobile */
+    .logo-container {
+        height: 48px;
+    }
+    
+    .header-logo {
+        height: 48px;
+    }
 }
 
-/* Search container expands to full width when results are shown */
-#page-header:has(.pagefind-ui__results) .search-container {
-    margin-right: 0;
-    width: 100%;
-    height: auto;
+/* Page header when search is expanded */
+#page-header {
+    transition: all 0.3s ease;
 }
 
-/* Push down main content when search results appear */
-#page-header:has(.pagefind-ui__results)+.main-container {
-    margin-top: 1rem;
+/* Ensure header takes full width */
+#page-header.search-active {
+    position: relative;
+    z-index: 1000;
 }
 
-/* Dark mode toggle button */
-#dark-mode-toggle {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.6rem;
+
+/* Collection indicator container */
+.collection-indicator-container {
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-right: 1rem;
+    height: 64px;
+    flex-shrink: 0;
+}
+
+/* Collection badge */
+.collection-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.75rem;
+    border: 2px solid var(--soft-black);
+    font-weight: var(--font-weight-bold);
+    font-size: 0.875rem;
+    letter-spacing: 0.05em;
+    transition: all 0.3s ease;
+}
+
+/* ZH collection style */
+.collection-badge.collection-zh {
+    background-color: var(--subtle-grey);
     color: var(--soft-black);
-    border-radius: 50%;
-    transition: background-color 0.3s ease;
 }
 
-#dark-mode-toggle svg {
-    width: 28px;
-    height: 28px;
+/* CH collection style */
+.collection-badge.collection-ch {
+    background-color: var(--light-orange);
+    color: var(--soft-white);
 }
 
-#dark-mode-toggle:hover {
-    background-color: var(--hover-grey);
+/* Dark mode button styles in dark mode */
+.dark-mode .dark-mode-button {
+    border-color: var(--dark-soft-black);
+    background: var(--dark-subtle-grey);
+    color: var(--dark-soft-black);
+}
+
+.dark-mode .dark-mode-button:hover {
+    background-color: var(--dark-hover-grey);
+}
+
+/* Dark mode collection styles */
+.dark-mode .collection-badge {
+    border-color: var(--dark-soft-black);
+}
+
+.dark-mode .collection-badge.collection-zh {
+    background-color: var(--dark-subtle-grey);
+    color: var(--dark-soft-black);
+}
+
+.dark-mode .collection-badge.collection-ch {
+    background-color: var(--dark-orange);
+    color: var(--dark-soft-white);
+}
+
+/* When system preference is dark and JS is disabled */
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode):not(.dark-mode) .dark-mode-button {
+        border-color: var(--dark-soft-black);
+        background: var(--dark-subtle-grey);
+        color: var(--dark-soft-black);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .dark-mode-button:hover {
+        background-color: var(--dark-hover-grey);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .collection-badge {
+        border-color: var(--dark-soft-black);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .collection-badge.collection-zh {
+        background-color: var(--dark-subtle-grey);
+        color: var(--dark-soft-black);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .collection-badge.collection-ch {
+        background-color: var(--dark-orange);
+        color: var(--dark-soft-white);
+    }
 }
