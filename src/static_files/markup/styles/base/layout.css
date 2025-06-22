@@ -34,7 +34,7 @@ body {
 .content {
     width: 100%;
     position: relative;
-    min-height: calc(100vh - 350px);
+    min-height: calc(100vh - 550px);
 }
 
 /* Law content basic structure */

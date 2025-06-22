@@ -107,7 +107,7 @@
         align-items: flex-start;
         padding: 0 2rem;
         position: relative;
-        min-height: calc(100vh - 120px);
+        min-height: calc(100vh - 400px);
     }
 
     #sidebar {
