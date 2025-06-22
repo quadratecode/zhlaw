@@ -104,6 +104,35 @@
     font-weight: var(--font-weight-medium);
 }
 
+/* Row layout for metadata items */
+.metadata-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.metadata-item-row .metadata-label {
+    flex: 0 0 auto;
+    margin-right: 0.5rem;
+}
+
+.metadata-item-row .metadata-value {
+    flex: 1;
+    text-align: right;
+    margin-left: 0.5rem;
+}
+
+/* Full-width layout for erlasstitel and versions */
+.metadata-item-full {
+    display: block;
+}
+
+.metadata-item-full .metadata-label,
+.metadata-item-full .metadata-value {
+    display: block;
+    text-align: left;
+}
+
 .metadata-separator {
     height: 1px;
     background-color: var(--line-grey);

@@ -111,7 +111,7 @@
     }
 
     #sidebar {
-        width: 300px;
+        width: 400px;
         flex-shrink: 0;
         margin-bottom: 0;
         position: sticky;
@@ -234,7 +234,7 @@
     }
 
     .nav-text {
-        font-size: 0.75rem;
+        display: none; /* Hide text on mobile, keep only arrow icons */
     }
 
     .metadata-container {

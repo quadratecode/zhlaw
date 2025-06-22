@@ -91,6 +91,7 @@ def create_nav_buttons(soup: BeautifulSoup) -> Tag:
                 "class": "nav-button",
                 "id": config["id"],
                 "onclick": "location.href='#';",
+                "data-tooltip": config["text"],
             },
         )
         symbol: Tag = soup.new_tag("span", **{"class": "nav-symbol"})
@@ -260,6 +261,11 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
         copy_links_src = get_versioned_asset_url("/copy-links.js")
         copy_links_script = soup.new_tag("script", src=copy_links_src, defer=True)
         body.append(copy_links_script)
+
+        # Nav button tooltips script
+        nav_tooltips_src = get_versioned_asset_url("/nav-button-tooltips.js")
+        nav_tooltips_script = soup.new_tag("script", src=nav_tooltips_src, defer=True)
+        body.append(nav_tooltips_script)
 
         # Add GoatCounter script
         # Comment out if not needed on clone
@@ -575,8 +581,22 @@ def insert_combined_table(
     details.append(summary)
     metadata_content: Tag = soup.new_tag("div", **{"class": "metadata-content"})
 
-    metadata_fields = [
-        ("erlasstitel", "Titel"),
+    # Create Erlasstitel as full-width item (top-bottom layout)
+    erlasstitel_item: Tag = soup.new_tag("div", **{"class": "metadata-item metadata-item-full"})
+    erlasstitel_label: Tag = soup.new_tag("div", **{"class": "metadata-label"})
+    erlasstitel_label.string = "Erlasstitel:"
+    erlasstitel_value: Tag = soup.new_tag("div", **{"class": "metadata-value"})
+    erlasstitel_text = doc_info.get("erlasstitel", "N/A")
+    erlasstitel_value.string = erlasstitel_text
+    erlasstitel_value.attrs["data-pagefind-weight"] = "10"
+    erlasstitel_item.append(erlasstitel_label)
+    erlasstitel_item.append(erlasstitel_value)
+    erlasstitel_separator: Tag = soup.new_tag("div", **{"class": "metadata-separator"})
+    erlasstitel_item.append(erlasstitel_separator)
+    metadata_content.append(erlasstitel_item)
+
+    # Create row-like layout for other fields
+    row_fields = [
         ("kurztitel", "Kurztitel"),
         ("abkuerzung", "Abkürzung"),
         ("ordnungsnummer", "Ordnungsnummer"),
@@ -585,11 +605,10 @@ def insert_combined_table(
         ("inkraftsetzungsdatum", "Inkraftsetzungsdatum"),
         ("publikationsdatum", "Publikationsdatum"),
         ("aufhebungsdatum", "Aufhebungsdatum"),
-        # Removed "in_force" entry as it's now handled via meta tags in the head
     ]
 
-    for key, label in metadata_fields:
-        item_div: Tag = soup.new_tag("div", **{"class": "metadata-item"})
+    for key, label in row_fields:
+        item_div: Tag = soup.new_tag("div", **{"class": "metadata-item metadata-item-row"})
         label_div: Tag = soup.new_tag("div", **{"class": "metadata-label"})
         label_div.string = f"{label}:"
         value_div: Tag = soup.new_tag("div", **{"class": "metadata-value"})
@@ -604,9 +623,6 @@ def insert_combined_table(
         ]:
             value = format_date(value) if value != "N/A" else "N/A"
             value_div.string = value
-        elif key == "erlasstitel":
-            value_div.string = value
-            value_div.attrs["data-pagefind-weight"] = "10"
         elif key == "kurztitel":
             value_div.string = value
         elif key == "abkuerzung":
@@ -622,12 +638,10 @@ def insert_combined_table(
             value_div.string = str(value)
         item_div.append(label_div)
         item_div.append(value_div)
-        # Always add a separator after each metadata item
-        separator: Tag = soup.new_tag("div", **{"class": "metadata-separator"})
-        item_div.append(separator)
         metadata_content.append(item_div)
 
-    law_origin_div: Tag = soup.new_tag("div", **{"class": "metadata-item"})
+    # Add Gesetzessammlung as row item
+    law_origin_div: Tag = soup.new_tag("div", **{"class": "metadata-item metadata-item-row"})
     law_origin_label: Tag = soup.new_tag("div", **{"class": "metadata-label"})
     law_origin_label.string = "Gesetzessammlung:"
     law_origin_value: Tag = soup.new_tag("div", **{"class": "metadata-value"})
@@ -639,9 +653,11 @@ def insert_combined_table(
         law_origin_value.string = "N/A"
     law_origin_div.append(law_origin_label)
     law_origin_div.append(law_origin_value)
-    separator = soup.new_tag("div", **{"class": "metadata-separator"})
-    law_origin_div.append(separator)
     metadata_content.append(law_origin_div)
+
+    # Add final separator
+    final_separator: Tag = soup.new_tag("div", **{"class": "metadata-separator"})
+    metadata_content.append(final_separator)
 
     versions_container: Tag = soup.new_tag(
         "div", **{"class": "metadata-item versions-container"}

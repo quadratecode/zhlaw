@@ -101,3 +101,19 @@
 .version-toggle-button[disabled]:hover {
     background: transparent;
 }
+
+/* Reduce nav-button height on larger screens and hide text (replace with tooltips) */
+@media (min-width: 1200px) {
+    .nav-button,
+    .dispatch-button {
+        padding: 0.375rem;
+    }
+    
+    .nav-symbol {
+        font-size: 1.5rem;
+    }
+    
+    .nav-text {
+        display: none;
+    }
+}
