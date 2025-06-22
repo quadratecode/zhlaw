@@ -109,7 +109,7 @@ class ProvisionJump {
                     <div class="provision-jump-field-group">
                         <label for="provision-jump-input" class="provision-jump-label">Bestimmung</label>
                         <input type="text" id="provision-jump-input" class="provision-jump-input" 
-                               placeholder="z.B. 1 oder 10a oder 2.3" maxlength="8" autocomplete="off">
+                               placeholder="z.B. 1 oder 10a" maxlength="8" autocomplete="off">
                     </div>
                     <button type="submit" class="provision-jump-submit">Zur Bestimmung springen</button>
                     <div class="provision-jump-error" id="provision-jump-error" style="display: none;">
