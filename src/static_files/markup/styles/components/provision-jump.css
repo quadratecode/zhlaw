@@ -1,0 +1,197 @@
+/**
+ * Provision Jump Styles
+ * Modal-based provision navigation with single field
+ */
+
+/* Provision Jump Modal */
+.provision-jump-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 2rem;
+}
+
+.provision-jump-modal-content {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    margin: 0;
+    background: var(--soft-white);
+    border: 2px solid var(--soft-black);
+    box-sizing: border-box;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Form */
+.provision-jump-form {
+    padding: 1.5rem;
+}
+
+/* Field Group */
+.provision-jump-field-group {
+    width: 100%;
+    margin-bottom: 1.5rem;
+}
+
+.provision-jump-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-medium);
+    margin-bottom: 0.5rem;
+    color: var(--soft-black);
+}
+
+/* Form Input */
+.provision-jump-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--subtle-grey);
+    border: 1px solid var(--soft-black);
+    font-size: 1rem;
+    font-family: var(--font-text);
+    color: var(--soft-black);
+    outline: none;
+    height: 48px;
+    box-sizing: border-box;
+}
+
+.provision-jump-input:focus {
+    background: var(--soft-white);
+    border-width: 2px;
+    padding: calc(0.75rem - 1px) calc(1rem - 1px);
+}
+
+/* Submit Button */
+.provision-jump-submit {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--soft-black);
+    color: var(--soft-white);
+    border: 2px solid var(--soft-black);
+    font-size: 1rem;
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.provision-jump-submit:hover:not(:disabled) {
+    background: var(--soft-white);
+    color: var(--soft-black);
+}
+
+.provision-jump-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Error Message */
+.provision-jump-error {
+    display: none;
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--in-force-red);
+    border: 1px solid var(--in-force-dark-red);
+    color: var(--in-force-dark-red);
+    font-size: 0.875rem;
+}
+
+/* Loading State */
+.provision-jump-loading {
+    display: none;
+    text-align: center;
+    padding: 1rem;
+    color: var(--grey);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .provision-jump-modal {
+        padding-top: 1rem;
+    }
+    
+    .provision-jump-modal-content {
+        margin: 0 0.5rem;
+        max-width: calc(100vw - 1rem);
+    }
+}
+
+/* Dark Mode */
+[data-theme="dark"] .provision-jump-modal-content {
+    background: var(--dark-soft-white);
+    border-color: var(--dark-soft-black);
+}
+
+[data-theme="dark"] .provision-jump-label {
+    color: var(--dark-soft-black);
+}
+
+[data-theme="dark"] .provision-jump-input {
+    background: var(--dark-subtle-grey);
+    border-color: var(--dark-soft-black);
+    color: var(--dark-soft-black);
+}
+
+[data-theme="dark"] .provision-jump-input:focus {
+    background: var(--dark-soft-white);
+}
+
+[data-theme="dark"] .provision-jump-submit {
+    background: var(--dark-soft-black);
+    color: var(--dark-soft-white);
+    border-color: var(--dark-soft-black);
+}
+
+[data-theme="dark"] .provision-jump-submit:hover:not(:disabled) {
+    background: var(--dark-soft-white);
+    color: var(--dark-soft-black);
+}
+
+[data-theme="dark"] .provision-jump-error {
+    background: var(--dark-in-force-red);
+    border-color: var(--dark-in-force-dark-red);
+    color: var(--dark-in-force-dark-red);
+}
+
+[data-theme="dark"] .provision-jump-loading {
+    color: var(--dark-grey);
+}
+
+/* When system preference is dark and JS is disabled */
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode):not(.dark-mode) .provision-jump-modal-content {
+        background: var(--dark-soft-white);
+        border-color: var(--dark-soft-black);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .provision-jump-label {
+        color: var(--dark-soft-black);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .provision-jump-input {
+        background: var(--dark-subtle-grey);
+        border-color: var(--dark-soft-black);
+        color: var(--dark-soft-black);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .provision-jump-input:focus {
+        background: var(--dark-soft-white);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .provision-jump-submit {
+        background: var(--dark-soft-black);
+        color: var(--dark-soft-white);
+        border-color: var(--dark-soft-black);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .provision-jump-submit:hover:not(:disabled) {
+        background: var(--dark-soft-white);
+        color: var(--dark-soft-black);
+    }
+}

@@ -59,6 +59,7 @@ BUTTON_CONFIGS: List[Dict[str, str]] = [
     {"symbol": "⇽", "text": "vorherige Version", "id": "prev_ver"},
     {"symbol": "⇾", "text": "nächste Version", "id": "next_ver"},
     {"symbol": "⇥", "text": "neuste Version", "id": "new_ver"},
+    {"symbol": "⚡", "text": "Bestimmung", "id": "provision_jump", "special": True},
 ]
 ENUM_CLASSES: List[str] = ["enum-lit", "enum-ziff", "enum-dash"]
 EXCLUDED_MERGE_CLASSES = {"marginalia", "provision", "subprovision"}
@@ -85,15 +86,26 @@ def create_nav_buttons(soup: BeautifulSoup) -> Tag:
     """
     nav_div: Tag = soup.new_tag("div", **{"class": "nav-buttons"})
     for config in BUTTON_CONFIGS:
-        button: Tag = soup.new_tag(
-            "button",
-            **{
-                "class": "nav-button",
-                "id": config["id"],
-                "onclick": "location.href='#';",
-                "data-tooltip": config["text"],
-            },
-        )
+        # Handle special buttons (like provision jump) differently
+        if config.get("special"):
+            button: Tag = soup.new_tag(
+                "button",
+                **{
+                    "class": "nav-button provision-jump-button",
+                    "id": config["id"],
+                    "data-tooltip": "Zur Bestimmung springen",
+                },
+            )
+        else:
+            button: Tag = soup.new_tag(
+                "button",
+                **{
+                    "class": "nav-button",
+                    "id": config["id"],
+                    "onclick": "location.href='#';",
+                    "data-tooltip": config["text"],
+                },
+            )
         symbol: Tag = soup.new_tag("span", **{"class": "nav-symbol"})
         symbol.string = config["symbol"]
         button.append(symbol)
@@ -249,6 +261,13 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
             "script", src=quick_select_src, defer=True
         )
         body.append(quick_select_script)
+        
+        # Provision jump script
+        provision_jump_src = get_versioned_asset_url("/provision-jump.js")
+        provision_jump_script = soup.new_tag(
+            "script", src=provision_jump_src, defer=True
+        )
+        body.append(provision_jump_script)
         
         # Anchor tooltip script
         anchor_tooltip_src = get_versioned_asset_url("/anchor-tooltip.js")
