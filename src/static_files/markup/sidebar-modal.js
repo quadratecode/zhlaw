@@ -41,8 +41,7 @@
             createSidebarClone();
         }
 
-        // Store scroll position for restoration
-        let scrollPosition;
+        // Background scrolling is allowed when modal is open
         
         // Touch event variables for swipe detection
         let touchStartX = 0;
@@ -112,15 +111,7 @@
                 createSidebarClone();
             }
             
-            // Store current scroll position before fixing the body
-            scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
-            
             sidebarModal.style.display = 'flex';
-            document.body.classList.add('sidebar-modal-open');
-            document.documentElement.classList.add('sidebar-modal-open');
-            
-            // Set the body top to maintain scroll position
-            document.body.style.top = `-${scrollPosition}px`;
             
             // Trigger the slide-in animation
             requestAnimationFrame(() => {
@@ -152,15 +143,6 @@
             setTimeout(() => {
                 if (!sidebarModal.classList.contains('active')) {
                     sidebarModal.style.display = 'none';
-                    document.body.classList.remove('sidebar-modal-open');
-                    document.documentElement.classList.remove('sidebar-modal-open');
-                    
-                    // Restore scroll position
-                    document.body.style.top = '';
-                    if (scrollPosition !== undefined) {
-                        window.scrollTo(0, scrollPosition);
-                        scrollPosition = undefined;
-                    }
                 }
             }, 300); // Match CSS transition duration
             

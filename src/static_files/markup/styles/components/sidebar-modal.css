@@ -72,16 +72,7 @@
     transform: translateX(0);
 }
 
-/* Prevent body scroll when sidebar modal is open */
-body.sidebar-modal-open {
-    overflow: hidden;
-    padding-right: 17px; /* Standard scrollbar width */
-}
-
-/* Prevent document scroll when modal is open */
-html.sidebar-modal-open {
-    overflow: hidden;
-}
+/* No scroll prevention - background scrolling is allowed when modal is open */
 
 /* Status-based SVG coloring for floating info button */
 .floating-info-button.in-force-yes svg {

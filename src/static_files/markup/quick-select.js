@@ -591,8 +591,6 @@ class QuickSelect {
         
         this.isOpen = true;
         this.modal.style.display = 'flex';
-        document.body.classList.add('search-modal-open'); // Reuse the class from search modal
-        document.documentElement.classList.add('search-modal-open');
         
         // Reset form
         this.collectionSelect.value = 'zh';
@@ -615,8 +613,6 @@ class QuickSelect {
         
         this.isOpen = false;
         this.modal.style.display = 'none';
-        document.body.classList.remove('search-modal-open');
-        document.documentElement.classList.remove('search-modal-open');
     }
     
     escapeHtml(text) {

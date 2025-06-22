@@ -394,6 +394,7 @@ def insert_footer(soup: BeautifulSoup, in_force_status: bool = None) -> Beautifu
         body.append(footer)
 
         # Add JavaScript files with versioning
+        
         # Custom search script (load early for search functionality)
         custom_search_src = get_versioned_asset_url("/custom-search.js")
         custom_search_script = soup.new_tag(
