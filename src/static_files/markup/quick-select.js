@@ -149,10 +149,10 @@ class QuickSelect {
             }
         });
         
-        // Open on 'G' key (when not in input)
+        // Open on 'Q' key (when not in input)
         document.addEventListener('keydown', (e) => {
             const isInputFocused = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
-            if ((e.key === 'g' || e.key === 'G') && !isInputFocused && !this.isOpen) {
+            if ((e.key === 'q' || e.key === 'Q') && !isInputFocused && !this.isOpen) {
                 e.preventDefault();
                 this.open();
             }
@@ -683,7 +683,7 @@ class QuickSelect {
             // Create new tooltip
             tooltip = document.createElement('div');
             tooltip.className = 'button-tooltip button-tooltip-below';
-            tooltip.textContent = 'Shortcut: "G"';
+            tooltip.textContent = 'Shortcut: "Q"';
             document.body.appendChild(tooltip);
             
             // Position tooltip below button (centered)
