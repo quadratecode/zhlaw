@@ -22,7 +22,7 @@ class ProvisionJump {
         }
         
         this.extractCurrentLawInfo();
-        this.addButtonToSidebar();
+        this.findExistingButton();
         this.createModal();
         this.loadAnchorMap();
         this.attachEventListeners();
@@ -56,40 +56,16 @@ class ProvisionJump {
         }
     }
     
-    addButtonToSidebar() {
-        // Find the nav-buttons container
-        const navButtons = document.querySelector('.nav-buttons');
-        if (!navButtons) {
-            console.warn('Nav buttons container not found');
+    findExistingButton() {
+        // Find the existing provision jump button that was added by the server
+        this.button = document.getElementById('provision_jump');
+        if (!this.button) {
+            console.warn('Provision jump button not found');
             return;
         }
         
-        // Create the provision jump button
-        this.button = document.createElement('button');
-        this.button.className = 'nav-button provision-jump-button';
-        this.button.setAttribute('data-tooltip', 'Zur Bestimmung springen');
-        this.button.setAttribute('id', 'provision_jump');
-        
-        // Create button content
-        const symbol = document.createElement('span');
-        symbol.className = 'nav-symbol';
-        symbol.textContent = '⚡'; // Lightning symbol
-        
-        const text = document.createElement('span');
-        text.className = 'nav-text';
-        text.textContent = 'Bestimmung';
-        
-        this.button.appendChild(symbol);
-        this.button.appendChild(text);
-        
-        // Add click handler
+        // Add click handler to existing button
         this.button.addEventListener('click', () => this.open());
-        
-        // Add to nav buttons container
-        navButtons.appendChild(this.button);
-        
-        // Add tooltip functionality
-        this.addTooltip();
     }
     
     createModal() {
@@ -308,96 +284,6 @@ class ProvisionJump {
         this.modal.style.display = 'none';
         document.body.classList.remove('search-modal-open');
         document.documentElement.classList.remove('search-modal-open');
-    }
-    
-    addTooltip() {
-        if (!this.button) return;
-        
-        let tooltip = null;
-        let tooltipTimer = null;
-        
-        const showTooltip = () => {
-            // Only show on larger screens
-            if (window.innerWidth <= 768) return;
-            
-            // Clear any existing timer
-            if (tooltipTimer) {
-                clearTimeout(tooltipTimer);
-            }
-            
-            // Remove existing tooltip
-            if (tooltip) {
-                tooltip.remove();
-                tooltip = null;
-            }
-            
-            // Create new tooltip
-            tooltip = document.createElement('div');
-            tooltip.className = 'button-tooltip button-tooltip-below';
-            tooltip.textContent = 'Shortcut: "G"';
-            document.body.appendChild(tooltip);
-            
-            // Position tooltip below button (centered)
-            const buttonRect = this.button.getBoundingClientRect();
-            
-            // Set initial position to measure tooltip width
-            tooltip.style.visibility = 'hidden';
-            tooltip.style.position = 'fixed';
-            tooltip.style.left = '0px';
-            tooltip.style.top = '0px';
-            
-            // Force reflow to ensure tooltip is rendered
-            tooltip.offsetHeight;
-            
-            // Get tooltip dimensions after rendering
-            const tooltipRect = tooltip.getBoundingClientRect();
-            
-            // Calculate centered position
-            const centerX = buttonRect.left + (buttonRect.width / 2);
-            const tooltipX = centerX - (tooltipRect.width / 2);
-            const tooltipY = buttonRect.bottom + 4;
-            
-            // Apply final position and make visible
-            tooltip.style.left = Math.round(tooltipX) + 'px';
-            tooltip.style.top = Math.round(tooltipY) + 'px';
-            tooltip.style.visibility = 'visible';
-        };
-        
-        const hideTooltip = (immediate = false) => {
-            if (tooltipTimer) {
-                clearTimeout(tooltipTimer);
-            }
-            
-            if (immediate) {
-                if (tooltip) {
-                    tooltip.remove();
-                    tooltip = null;
-                }
-            } else {
-                tooltipTimer = setTimeout(() => {
-                    if (tooltip) {
-                        tooltip.remove();
-                        tooltip = null;
-                    }
-                }, 100);
-            }
-        };
-        
-        // Add event listeners
-        this.button.addEventListener('mouseenter', showTooltip);
-        this.button.addEventListener('mouseleave', () => hideTooltip(false));
-        this.button.addEventListener('focus', showTooltip);
-        this.button.addEventListener('blur', () => hideTooltip(false));
-        
-        // Hide tooltip immediately on various navigation events
-        window.addEventListener('resize', () => hideTooltip(true));
-        window.addEventListener('scroll', () => hideTooltip(true));
-        window.addEventListener('beforeunload', () => hideTooltip(true));
-        document.addEventListener('click', (e) => {
-            if (!this.button.contains(e.target)) {
-                hideTooltip(true);
-            }
-        });
     }
 }
 

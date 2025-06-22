@@ -8,7 +8,7 @@
     /* Search highlight color */
     --search-highlight: #ffeb3b;
     --search-highlight-dark: #4a4a00;
-    
+
     /* Status colors */
     --status-in-force: var(--in-force-dark-green);
     --status-not-in-force: var(--in-force-dark-red);
@@ -117,7 +117,8 @@ html.search-modal-open {
 .custom-search-input {
     flex: 1;
     min-width: 0;
-    padding: 0.75rem 3rem 0.75rem 1rem; /* Right padding for clear button */
+    padding: 0.75rem 3rem 0.75rem 1rem;
+    /* Right padding for clear button */
     background: var(--subtle-grey);
     border: 1px solid var(--soft-black);
     font-size: 1rem;
@@ -133,7 +134,8 @@ html.search-modal-open {
 /* Clear button inside search input */
 .custom-search-clear {
     position: absolute;
-    right: calc(1rem + 0.5rem); /* Position inside the input */
+    right: calc(1rem + 0.5rem);
+    /* Position inside the input */
     top: 50%;
     transform: translateY(-50%);
     width: 2rem;
@@ -305,7 +307,7 @@ html.search-modal-open {
     width: 1.5rem;
     height: 1.5rem;
     padding: 0;
-    border: 2px solid;
+    border: 1px solid;
     font-weight: var(--font-weight-bold);
     font-size: 0.6rem;
     letter-spacing: 0.05em;
@@ -462,26 +464,28 @@ html.search-modal-open {
         padding: 0;
         justify-content: center;
     }
-    
+
     .search-button-text {
         display: none;
     }
-    
+
     .search-modal {
         padding-top: 0.5rem;
     }
-    
+
     .search-modal-content {
         margin: 0 0.5rem;
         max-width: calc(100vw - 1rem);
-        max-height: 75vh; /* Limit to 3/4 of viewport height */
+        max-height: 75vh;
+        /* Limit to 3/4 of viewport height */
     }
-    
+
     /* Search input on mobile */
     .custom-search-input {
-        font-size: 16px; /* Prevent zoom on iOS */
+        font-size: 16px;
+        /* Prevent zoom on iOS */
     }
-    
+
     /* More compact filters on mobile */
     .custom-search-filters {
         padding: 0.75rem;
@@ -489,11 +493,11 @@ html.search-modal-open {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .status-filter-group {
         width: 100%;
     }
-    
+
     .status-filter-btn {
         padding: 0.4rem 0.75rem;
         font-size: 0.875rem;
@@ -509,14 +513,16 @@ html.search-modal-open {
         font-size: 0.875rem;
         padding: 0.4rem 0.75rem;
     }
-    
+
     .custom-search-result-header {
-        flex-wrap: nowrap; /* Keep badges on the left */
+        flex-wrap: nowrap;
+        /* Keep badges on the left */
         gap: 0.5rem;
     }
-    
+
     .custom-search-result-title {
-        min-width: 0; /* Allow text to shrink */
+        min-width: 0;
+        /* Allow text to shrink */
         overflow: hidden;
         text-overflow: ellipsis;
     }
@@ -685,11 +691,11 @@ html.search-modal-open {
         border-color: var(--dark-soft-black);
         color: var(--dark-soft-black);
     }
-    
+
     html:not(.light-mode):not(.dark-mode) .search-button:hover {
         background-color: var(--dark-hover-grey);
     }
-    
+
 }
 
 /* Scrollbar styling */

@@ -82,22 +82,40 @@
         }
     }
 
-    // Create checkmark SVG
+    // Create checkmark SVG from LucideCopyCheck icon
     function createCheckmarkSVG() {
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         svg.setAttribute('width', '16');
         svg.setAttribute('height', '16');
         svg.setAttribute('viewBox', '0 0 24 24');
-        svg.setAttribute('fill', 'none');
-        svg.setAttribute('stroke', 'currentColor');
-        svg.setAttribute('stroke-width', '3');
-        svg.setAttribute('stroke-linecap', 'round');
-        svg.setAttribute('stroke-linejoin', 'round');
         
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', 'M5 12l5 5L20 7');
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('fill', 'none');
+        g.setAttribute('stroke', 'currentColor');
+        g.setAttribute('stroke-linecap', 'round');
+        g.setAttribute('stroke-linejoin', 'round');
+        g.setAttribute('stroke-width', '2');
         
-        svg.appendChild(path);
+        const checkPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        checkPath.setAttribute('d', 'm12 15l2 2l4-4');
+        
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('width', '14');
+        rect.setAttribute('height', '14');
+        rect.setAttribute('x', '8');
+        rect.setAttribute('y', '8');
+        rect.setAttribute('rx', '2');
+        rect.setAttribute('ry', '2');
+        
+        const copyPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        copyPath.setAttribute('d', 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2');
+        
+        g.appendChild(checkPath);
+        g.appendChild(rect);
+        g.appendChild(copyPath);
+        svg.appendChild(g);
+        
         return svg;
     }
 

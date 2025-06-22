@@ -38,6 +38,37 @@ def set_version_map(version_map: dict):
     global _VERSION_MAP
     _VERSION_MAP = version_map
 
+def load_svg_icon(icon_name: str) -> tuple:
+    """
+    Load SVG icon from the icons directory.
+    
+    Args:
+        icon_name: Name of the icon file (without .svg extension)
+        
+    Returns:
+        Tuple of (attributes_dict, inner_elements_list)
+    """
+    try:
+        icons_dir = Path(__file__).parent.parent.parent / "static_files" / "markup" / "icons"
+        svg_path = icons_dir / f"{icon_name}.svg"
+        
+        if svg_path.exists():
+            with open(svg_path, 'r', encoding='utf-8') as f:
+                svg_content = f.read()
+                # Parse and extract the inner elements
+                soup = BeautifulSoup(svg_content, 'xml')
+                svg_tag = soup.find('svg')
+                if svg_tag:
+                    # Get all attributes from the SVG tag
+                    attrs = svg_tag.attrs
+                    # Get inner elements (not string, but actual elements)
+                    inner_elements = [child for child in svg_tag.children if hasattr(child, 'name')]
+                    return attrs, inner_elements
+        return {}, []
+    except Exception as e:
+        logger.warning(f"Failed to load SVG icon {icon_name}: {e}")
+        return {}, []
+
 def get_versioned_asset_url(asset_url: str) -> str:
     """
     Convert asset URL to versioned URL using the global version map.
@@ -56,10 +87,10 @@ def get_versioned_asset_url(asset_url: str) -> str:
 # Module-Level Constants
 # -----------------------------------------------------------------------------
 BUTTON_CONFIGS: List[Dict[str, str]] = [
-    {"symbol": "⇽", "text": "vorherige Version", "id": "prev_ver"},
-    {"symbol": "⇾", "text": "nächste Version", "id": "next_ver"},
-    {"symbol": "⇥", "text": "neuste Version", "id": "new_ver"},
-    {"symbol": "⚡", "text": "Bestimmung", "id": "provision_jump", "special": True},
+    {"icon": "LucideChevronLeft.svg", "text": "vorherige Version", "id": "prev_ver"},
+    {"icon": "LucideChevronRight.svg", "text": "nächste Version", "id": "next_ver"},
+    {"icon": "LucideChevronLast.svg", "text": "neuste Version", "id": "new_ver"},
+    {"icon": "LucideMapPin.svg", "text": "Bestimmung", "id": "provision_jump", "special": True},
 ]
 ENUM_CLASSES: List[str] = ["enum-lit", "enum-ziff", "enum-dash"]
 EXCLUDED_MERGE_CLASSES = {"marginalia", "provision", "subprovision"}
@@ -82,9 +113,13 @@ def add_class(tag: Tag, class_name: str) -> None:
 # -----------------------------------------------------------------------------
 def create_nav_buttons(soup: BeautifulSoup) -> Tag:
     """
-    Creates navigation buttons with separated symbols and text.
+    Creates navigation buttons with SVG icons and text.
     """
     nav_div: Tag = soup.new_tag("div", **{"class": "nav-buttons"})
+    
+    # Path to icon directory
+    icons_dir = Path(__file__).parent.parent.parent / "static_files" / "markup" / "icons"
+    
     for config in BUTTON_CONFIGS:
         # Handle special buttons (like provision jump) differently
         if config.get("special"):
@@ -93,7 +128,7 @@ def create_nav_buttons(soup: BeautifulSoup) -> Tag:
                 **{
                     "class": "nav-button provision-jump-button",
                     "id": config["id"],
-                    "data-tooltip": "Zur Bestimmung springen",
+                    "data-tooltip": "Navigation (\"G\")",
                 },
             )
         else:
@@ -106,8 +141,58 @@ def create_nav_buttons(soup: BeautifulSoup) -> Tag:
                     "data-tooltip": config["text"],
                 },
             )
-        symbol: Tag = soup.new_tag("span", **{"class": "nav-symbol"})
-        symbol.string = config["symbol"]
+        
+        # Load and parse SVG icon
+        icon_path = icons_dir / config["icon"]
+        if icon_path.exists():
+            with open(icon_path, 'r', encoding='utf-8') as f:
+                svg_content = f.read()
+            
+            # Parse SVG and extract content
+            svg_soup = BeautifulSoup(svg_content, 'xml')
+            svg_element = svg_soup.find('svg')
+            
+            if svg_element:
+                # Create a new SVG element for the button
+                symbol: Tag = soup.new_tag("span", **{"class": "nav-symbol"})
+                
+                # Clone the SVG element with all its attributes and content
+                new_svg = soup.new_tag("svg")
+                
+                # Copy SVG attributes but ensure proper sizing
+                for attr, value in svg_element.attrs.items():
+                    if attr == 'width':
+                        new_svg[attr] = "24"
+                    elif attr == 'height':
+                        new_svg[attr] = "24"
+                    else:
+                        new_svg[attr] = value
+                
+                # Copy all child elements recursively
+                def copy_element(source_elem, parent_elem):
+                    for child in source_elem.children:
+                        if hasattr(child, 'name') and child.name:  # Only copy tag elements with valid names
+                            new_child = soup.new_tag(child.name)
+                            for attr, value in child.attrs.items():
+                                new_child[attr] = value
+                            if child.string and child.string.strip():
+                                new_child.string = child.string
+                            parent_elem.append(new_child)
+                            # Recursively copy nested elements
+                            copy_element(child, new_child)
+                
+                copy_element(svg_element, new_svg)
+                
+                symbol.append(new_svg)
+            else:
+                # Fallback to text if SVG parsing fails
+                symbol: Tag = soup.new_tag("span", **{"class": "nav-symbol"})
+                symbol.string = "•"
+        else:
+            # Fallback to text if icon file doesn't exist
+            symbol: Tag = soup.new_tag("span", **{"class": "nav-symbol"})
+            symbol.string = "•"
+        
         button.append(symbol)
         text: Tag = soup.new_tag("span", **{"class": "nav-text"})
         text.string = config["text"]
@@ -147,22 +232,79 @@ def insert_header(soup: BeautifulSoup, law_origin: str = None) -> BeautifulSoup:
         "button", id="dark-mode-toggle", **{"aria-label": "Dark Mode umschalten", "class": "dark-mode-button"}
     )
 
-    # Use SVG for moon icon (default)
-    moon_svg = soup.new_tag(
-        "svg",
-        xmlns="http://www.w3.org/2000/svg",
-        width="24",
-        height="24",
-        viewBox="0 0 24 24",
-        fill="none",
-        stroke="currentColor",
-        **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round", "class": "dark-mode-icon"},
-    )
-    moon_path = soup.new_tag(
-        "path", d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
-    )
-    moon_svg.append(moon_path)
-    dark_mode_toggle.append(moon_svg)
+    # Load and add LucideMoon.svg icon (default for light mode)
+    moon_icon_path = Path(__file__).parent.parent.parent / "static_files" / "markup" / "icons" / "LucideMoon.svg"
+    if moon_icon_path.exists():
+        with open(moon_icon_path, 'r', encoding='utf-8') as f:
+            svg_content = f.read()
+        
+        # Parse SVG and extract content
+        svg_soup = BeautifulSoup(svg_content, 'xml')
+        svg_element = svg_soup.find('svg')
+        
+        if svg_element:
+            # Create a new SVG element for the button
+            new_svg = soup.new_tag("svg")
+            new_svg['class'] = 'dark-mode-icon'
+            
+            # Copy SVG attributes but ensure proper sizing
+            for attr, value in svg_element.attrs.items():
+                if attr == 'width':
+                    new_svg[attr] = "24"
+                elif attr == 'height':
+                    new_svg[attr] = "24"
+                elif attr != 'class':  # Don't override our class
+                    new_svg[attr] = value
+            
+            # Copy all child elements recursively
+            def copy_element(source_elem, parent_elem):
+                for child in source_elem.children:
+                    if hasattr(child, 'name') and child.name:  # Only copy tag elements with valid names
+                        new_child = soup.new_tag(child.name)
+                        for attr, value in child.attrs.items():
+                            new_child[attr] = value
+                        if child.string and child.string.strip():
+                            new_child.string = child.string
+                        parent_elem.append(new_child)
+                        # Recursively copy nested elements
+                        copy_element(child, new_child)
+            
+            copy_element(svg_element, new_svg)
+            dark_mode_toggle.append(new_svg)
+        else:
+            # Fallback to hardcoded moon SVG if parsing fails
+            moon_svg = soup.new_tag(
+                "svg",
+                xmlns="http://www.w3.org/2000/svg",
+                width="24",
+                height="24",
+                viewBox="0 0 24 24",
+                fill="none",
+                stroke="currentColor",
+                **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round", "class": "dark-mode-icon"},
+            )
+            moon_path = soup.new_tag(
+                "path", d="M12 3a6 6 0 0 0 9 9a9 9 0 1 1-9-9"
+            )
+            moon_svg.append(moon_path)
+            dark_mode_toggle.append(moon_svg)
+    else:
+        # Fallback to hardcoded moon SVG if file doesn't exist
+        moon_svg = soup.new_tag(
+            "svg",
+            xmlns="http://www.w3.org/2000/svg",
+            width="24",
+            height="24",
+            viewBox="0 0 24 24",
+            fill="none",
+            stroke="currentColor",
+            **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round", "class": "dark-mode-icon"},
+        )
+        moon_path = soup.new_tag(
+            "path", d="M12 3a6 6 0 0 0 9 9a9 9 0 1 1-9-9"
+        )
+        moon_svg.append(moon_path)
+        dark_mode_toggle.append(moon_svg)
     
     # Add text span
     dark_mode_text: Tag = soup.new_tag("span", **{"class": "dark-mode-button-text"})
@@ -300,7 +442,52 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
                                           **{"class": "floating-info-button", 
                                              "aria-label": "Informationen anzeigen",
                                              "title": "Informationen anzeigen"})
-            floating_button.string = "i"
+            
+            # Load and add LucideInfo.svg icon
+            info_icon_path = Path(__file__).parent.parent.parent / "static_files" / "markup" / "icons" / "LucideInfo.svg"
+            if info_icon_path.exists():
+                with open(info_icon_path, 'r', encoding='utf-8') as f:
+                    svg_content = f.read()
+                
+                # Parse SVG and extract content
+                svg_soup = BeautifulSoup(svg_content, 'xml')
+                svg_element = svg_soup.find('svg')
+                
+                if svg_element:
+                    # Create a new SVG element for the button
+                    new_svg = soup.new_tag("svg")
+                    
+                    # Copy SVG attributes but ensure proper sizing
+                    for attr, value in svg_element.attrs.items():
+                        if attr == 'width':
+                            new_svg[attr] = "20"
+                        elif attr == 'height':
+                            new_svg[attr] = "20"
+                        else:
+                            new_svg[attr] = value
+                    
+                    # Copy all child elements recursively
+                    def copy_element(source_elem, parent_elem):
+                        for child in source_elem.children:
+                            if hasattr(child, 'name') and child.name:  # Only copy tag elements with valid names
+                                new_child = soup.new_tag(child.name)
+                                for attr, value in child.attrs.items():
+                                    new_child[attr] = value
+                                if child.string and child.string.strip():
+                                    new_child.string = child.string
+                                parent_elem.append(new_child)
+                                # Recursively copy nested elements
+                                copy_element(child, new_child)
+                    
+                    copy_element(svg_element, new_svg)
+                    floating_button.append(new_svg)
+                else:
+                    # Fallback to text if SVG parsing fails
+                    floating_button.string = "i"
+            else:
+                # Fallback to text if icon file doesn't exist
+                floating_button.string = "i"
+            
             body.append(floating_button)
 
             # Add sidebar modal (content will be moved by JavaScript on mobile)
@@ -1318,23 +1505,38 @@ def create_links_display(
     )
 
     # Add SVG copy icon
-    copy_svg = soup.new_tag(
-        "svg",
-        xmlns="http://www.w3.org/2000/svg",
-        width="16",
-        height="16",
-        viewBox="0 0 24 24",
-        fill="none",
-        stroke="currentColor",
-        **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round"},
-    )
-    rect1 = soup.new_tag("rect", x="9", y="9", width="13", height="13", rx="2", ry="2")
-    path1 = soup.new_tag(
-        "path", d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-    )
-    copy_svg.append(rect1)
-    copy_svg.append(path1)
-    static_copy_btn.append(copy_svg)
+    svg_attrs, svg_elements = load_svg_icon("LucideCopy")
+    if svg_elements:
+        copy_svg = soup.new_tag("svg")
+        # Set basic attributes with override for size
+        for attr, value in svg_attrs.items():
+            if attr in ['width', 'height']:
+                copy_svg[attr] = "16"  # Override size to 16x16
+            else:
+                copy_svg[attr] = value
+        # Add inner elements
+        for element in svg_elements:
+            copy_svg.append(element)
+        static_copy_btn.append(copy_svg)
+    else:
+        # Fallback to original icon if file not found
+        copy_svg = soup.new_tag(
+            "svg",
+            xmlns="http://www.w3.org/2000/svg",
+            width="16",
+            height="16",
+            viewBox="0 0 24 24",
+            fill="none",
+            stroke="currentColor",
+            **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round"},
+        )
+        rect1 = soup.new_tag("rect", x="9", y="9", width="13", height="13", rx="2", ry="2")
+        path1 = soup.new_tag(
+            "path", d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+        )
+        copy_svg.append(rect1)
+        copy_svg.append(path1)
+        static_copy_btn.append(copy_svg)
 
     static_copy_wrapper.append(static_copy_btn)
     static_url_container.append(static_copy_wrapper)
@@ -1373,23 +1575,38 @@ def create_links_display(
     )
 
     # Add SVG copy icon
-    copy_svg2 = soup.new_tag(
-        "svg",
-        xmlns="http://www.w3.org/2000/svg",
-        width="16",
-        height="16",
-        viewBox="0 0 24 24",
-        fill="none",
-        stroke="currentColor",
-        **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round"},
-    )
-    rect2 = soup.new_tag("rect", x="9", y="9", width="13", height="13", rx="2", ry="2")
-    path2 = soup.new_tag(
-        "path", d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-    )
-    copy_svg2.append(rect2)
-    copy_svg2.append(path2)
-    dynamic_copy_btn.append(copy_svg2)
+    svg_attrs2, svg_elements2 = load_svg_icon("LucideCopy")
+    if svg_elements2:
+        copy_svg2 = soup.new_tag("svg")
+        # Set basic attributes with override for size
+        for attr, value in svg_attrs2.items():
+            if attr in ['width', 'height']:
+                copy_svg2[attr] = "16"  # Override size to 16x16
+            else:
+                copy_svg2[attr] = value
+        # Add inner elements
+        for element in svg_elements2:
+            copy_svg2.append(element)
+        dynamic_copy_btn.append(copy_svg2)
+    else:
+        # Fallback to original icon if file not found
+        copy_svg2 = soup.new_tag(
+            "svg",
+            xmlns="http://www.w3.org/2000/svg",
+            width="16",
+            height="16",
+            viewBox="0 0 24 24",
+            fill="none",
+            stroke="currentColor",
+            **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round"},
+        )
+        rect2 = soup.new_tag("rect", x="9", y="9", width="13", height="13", rx="2", ry="2")
+        path2 = soup.new_tag(
+            "path", d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+        )
+        copy_svg2.append(rect2)
+        copy_svg2.append(path2)
+        dynamic_copy_btn.append(copy_svg2)
 
     dynamic_copy_wrapper.append(dynamic_copy_btn)
     dynamic_url_container.append(dynamic_copy_wrapper)
