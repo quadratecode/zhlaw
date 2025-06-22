@@ -77,6 +77,15 @@ html.sidebar-modal-open {
     overflow: hidden;
 }
 
+/* Status-based SVG coloring for floating info button */
+.floating-info-button.in-force-yes svg {
+    color: var(--in-force-dark-green);
+}
+
+.floating-info-button.in-force-no svg {
+    color: var(--in-force-dark-red);
+}
+
 /* Dark mode support */
 .dark-mode .floating-info-button {
     background: var(--dark-subtle-grey);
@@ -86,6 +95,15 @@ html.sidebar-modal-open {
 
 .dark-mode .floating-info-button:hover {
     background-color: var(--dark-hover-grey);
+}
+
+/* Dark mode status-based SVG coloring */
+.dark-mode .floating-info-button.in-force-yes svg {
+    color: var(--dark-in-force-dark-green);
+}
+
+.dark-mode .floating-info-button.in-force-no svg {
+    color: var(--dark-in-force-dark-red);
 }
 
 .dark-mode .sidebar-modal {
@@ -121,5 +139,14 @@ html.sidebar-modal-open {
     html:not(.light-mode):not(.dark-mode) .sidebar-modal-content {
         background: var(--dark-soft-white);
         border-right-color: var(--dark-soft-black);
+    }
+    
+    /* System preference dark mode status-based SVG coloring */
+    html:not(.light-mode):not(.dark-mode) .floating-info-button.in-force-yes svg {
+        color: var(--dark-in-force-dark-green);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .floating-info-button.in-force-no svg {
+        color: var(--dark-in-force-dark-red);
     }
 }

@@ -354,9 +354,13 @@ def insert_header(soup: BeautifulSoup, law_origin: str = None) -> BeautifulSoup:
     return soup
 
 
-def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
+def insert_footer(soup: BeautifulSoup, in_force_status: bool = None) -> BeautifulSoup:
     """
     Inserts a footer with links (including contact) and a disclaimer at the bottom of the HTML.
+    
+    Args:
+        soup: BeautifulSoup object to modify
+        in_force_status: Optional boolean indicating if the law is in force (for status-based styling)
     """
     footer: Tag = soup.new_tag("div", **{"id": "page-footer"})
     links_container: Tag = soup.new_tag("div", **{"class": "footer-links-container"})
@@ -436,10 +440,14 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
             sidebar_modal_script = soup.new_tag("script", src=sidebar_modal_src, defer=True)
             body.append(sidebar_modal_script)
 
-            # Add floating info button
+            # Add floating info button with status-based styling
+            button_classes = "floating-info-button"
+            if in_force_status is not None:
+                button_classes += " in-force-yes" if in_force_status else " in-force-no"
+            
             floating_button = soup.new_tag("button", 
                                           id="floating-info-button", 
-                                          **{"class": "floating-info-button", 
+                                          **{"class": button_classes, 
                                              "aria-label": "Informationen anzeigen",
                                              "title": "Informationen anzeigen"})
             
@@ -1796,7 +1804,11 @@ def main(
         soup = update_css_references_for_site_elements(soup)
 
     soup = insert_header(soup, law_origin)
-    soup = insert_footer(soup)
+    # Pass in_force_status to insert_footer if it's available (for non-site_element types)
+    if type_str != "site_element":
+        soup = insert_footer(soup, in_force_status)
+    else:
+        soup = insert_footer(soup)
     return soup
 
 
