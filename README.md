@@ -8,7 +8,7 @@ A comprehensive static site builder for legal texts from the Canton of Zurich wi
 
 **Note**: This project is in active development. Functionality and interfaces may change.
 
-<img width="675" alt="screenshot_split_zhlaw" src="https://github.com/user-attachments/assets/36eccb52-fafe-4f6d-bd7a-0a8ff1fefd0e" />
+<img width="960" alt="20250622_zhlaw" src="https://github.com/user-attachments/assets/947faa75-41c9-4508-bf01-36a8ce738050" />
 
 ## Features
 
