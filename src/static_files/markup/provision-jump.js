@@ -58,14 +58,46 @@ class ProvisionJump {
     
     findExistingButton() {
         // Find the existing provision jump button that was added by the server
-        this.button = document.getElementById('provision_jump');
+        this.button = document.getElementById('provision-jump');
         if (!this.button) {
             console.warn('Provision jump button not found');
             return;
         }
         
-        // Add click handler to existing button
-        this.button.addEventListener('click', () => this.open());
+        // Add click handler via event delegation to handle both original and cloned buttons
+        document.addEventListener('click', (e) => {
+            const provisionJumpButton = e.target.closest('#provision-jump, [id="provision-jump"]');
+            if (provisionJumpButton) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.handleButtonClick(e);
+            }
+        });
+    }
+    
+    handleButtonClick(e) {
+        // Check if we're clicking from within the sidebar modal
+        const sidebarModal = document.querySelector('.sidebar-modal');
+        const isInSidebarModal = sidebarModal && sidebarModal.contains(e.target);
+        
+        if (isInSidebarModal) {
+            // Close the sidebar modal first
+            this.closeSidebarModal();
+        }
+        
+        // Open the provision jump modal
+        this.open();
+    }
+    
+    closeSidebarModal() {
+        const sidebarModal = document.querySelector('.sidebar-modal');
+        if (sidebarModal && sidebarModal.classList.contains('active')) {
+            // Close instantly without animation
+            sidebarModal.classList.remove('active');
+            sidebarModal.style.display = 'none';
+            document.body.classList.remove('sidebar-modal-open');
+            document.documentElement.classList.remove('sidebar-modal-open');
+        }
     }
     
     createModal() {

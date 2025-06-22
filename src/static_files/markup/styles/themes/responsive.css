@@ -263,9 +263,6 @@
         font-size: 1.5rem;
     }
 
-    .nav-text {
-        display: none; /* Hide text on mobile, keep only arrow icons */
-    }
 
     .metadata-container {
         padding: 0.5rem;

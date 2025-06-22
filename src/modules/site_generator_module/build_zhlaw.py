@@ -87,10 +87,10 @@ def get_versioned_asset_url(asset_url: str) -> str:
 # Module-Level Constants
 # -----------------------------------------------------------------------------
 BUTTON_CONFIGS: List[Dict[str, str]] = [
-    {"icon": "LucideChevronLeft.svg", "text": "vorherige Version", "id": "prev_ver"},
-    {"icon": "LucideChevronRight.svg", "text": "nächste Version", "id": "next_ver"},
-    {"icon": "LucideChevronLast.svg", "text": "neuste Version", "id": "new_ver"},
-    {"icon": "LucideMapPin.svg", "text": "Bestimmung", "id": "provision_jump", "special": True},
+    {"icon": "LucideChevronLeft.svg", "text": "vorherige Version", "id": "prev-ver"},
+    {"icon": "LucideChevronRight.svg", "text": "nächste Version", "id": "next-ver"},
+    {"icon": "LucideChevronLast.svg", "text": "neuste Version", "id": "new-ver"},
+    {"icon": "LucideMapPin.svg", "text": "Bestimmung", "id": "provision-jump", "special": True},
 ]
 ENUM_CLASSES: List[str] = ["enum-lit", "enum-ziff", "enum-dash"]
 EXCLUDED_MERGE_CLASSES = {"marginalia", "provision", "subprovision"}
@@ -360,7 +360,7 @@ def insert_footer(soup: BeautifulSoup, in_force_status: bool = None) -> Beautifu
     
     Args:
         soup: BeautifulSoup object to modify
-        in_force_status: Optional boolean indicating if the law is in force (for status-based styling)
+        in_force_status: Boolean indicating if the law is in force (affects floating button styling)
     """
     footer: Tag = soup.new_tag("div", **{"id": "page-footer"})
     links_container: Tag = soup.new_tag("div", **{"class": "footer-links-container"})
@@ -1021,27 +1021,27 @@ def insert_versions_and_update_navigation(
         if all_versions[-1]["nachtragsnummer"] != current_nachtragsnummer:
             new_ver = all_versions[-1]["nachtragsnummer"]
     if prev_ver:
-        soup.find("button", id="prev_ver")["onclick"] = (
+        soup.find("button", id="prev-ver")["onclick"] = (
             f"location.href='{ordnungsnummer}-{prev_ver}.html';"
         )
     else:
-        button = soup.find("button", id="prev_ver")
+        button = soup.find("button", id="prev-ver")
         if button:
             button["disabled"] = True
     if next_ver:
-        soup.find("button", id="next_ver")["onclick"] = (
+        soup.find("button", id="next-ver")["onclick"] = (
             f"location.href='{ordnungsnummer}-{next_ver}.html';"
         )
     else:
-        button = soup.find("button", id="next_ver")
+        button = soup.find("button", id="next-ver")
         if button:
             button["disabled"] = True
     if new_ver:
-        soup.find("button", id="new_ver")["onclick"] = (
+        soup.find("button", id="new-ver")["onclick"] = (
             f"location.href='{ordnungsnummer}-{new_ver}.html';"
         )
     else:
-        button = soup.find("button", id="new_ver")
+        button = soup.find("button", id="new-ver")
         if button:
             button["disabled"] = True
     
@@ -1804,11 +1804,9 @@ def main(
         soup = update_css_references_for_site_elements(soup)
 
     soup = insert_header(soup, law_origin)
-    # Pass in_force_status to insert_footer if it's available (for non-site_element types)
-    if type_str != "site_element":
-        soup = insert_footer(soup, in_force_status)
-    else:
-        soup = insert_footer(soup)
+    # Pass in_force_status to footer if available (only for non-site_element types)
+    footer_in_force_status = in_force_status if type_str != "site_element" else None
+    soup = insert_footer(soup, footer_in_force_status)
     return soup
 
 

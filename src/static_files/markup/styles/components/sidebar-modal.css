@@ -41,10 +41,15 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0);
     z-index: 9999;
     align-items: flex-start;
     justify-content: flex-start;
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-modal.active {
+    background: rgba(0, 0, 0, 0.5);
 }
 
 .sidebar-modal-content {
@@ -60,7 +65,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     transform: translateX(-100%);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar-modal.active .sidebar-modal-content {
@@ -106,7 +111,7 @@ html.sidebar-modal-open {
     color: var(--dark-in-force-dark-red);
 }
 
-.dark-mode .sidebar-modal {
+.dark-mode .sidebar-modal.active {
     background: rgba(0, 0, 0, 0.7);
 }
 
@@ -132,7 +137,7 @@ html.sidebar-modal-open {
         background-color: var(--dark-hover-grey);
     }
     
-    html:not(.light-mode):not(.dark-mode) .sidebar-modal {
+    html:not(.light-mode):not(.dark-mode) .sidebar-modal.active {
         background: rgba(0, 0, 0, 0.7);
     }
     

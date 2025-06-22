@@ -102,7 +102,12 @@
     background: transparent;
 }
 
-/* Reduce nav-button height on larger screens and hide text (replace with tooltips) */
+/* Hide nav-text for all breakpoints */
+.nav-text {
+    display: none;
+}
+
+/* Reduce nav-button height on larger screens */
 @media (min-width: 1200px) {
     .nav-button,
     .dispatch-button {
@@ -111,9 +116,5 @@
     
     .nav-symbol {
         font-size: 1.5rem;
-    }
-    
-    .nav-text {
-        display: none;
     }
 }
