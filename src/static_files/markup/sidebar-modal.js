@@ -30,6 +30,7 @@
             if (sidebarClone) {
                 sidebarClone.remove();
             }
+            
             sidebarClone = originalSidebar.cloneNode(true);
             sidebarClone.id = 'sidebar-clone';
             sidebarModalContent.appendChild(sidebarClone);
@@ -40,6 +41,70 @@
             createSidebarClone();
         }
 
+        // Store scroll position for restoration
+        let scrollPosition;
+        
+        // Touch event variables for swipe detection
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+        let isDragging = false;
+
+        // Swipe detection functions
+        function handleTouchStart(e) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isDragging = false;
+        }
+
+        function handleTouchMove(e) {
+            touchEndX = e.touches[0].clientX;
+            touchEndY = e.touches[0].clientY;
+            
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+            
+            // Determine if this is primarily a horizontal gesture
+            if (!isDragging && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+                isDragging = true;
+            }
+            
+            // Apply visual feedback during swipe if it's a horizontal gesture
+            if (isDragging && deltaX < 0 && Math.abs(deltaX) > 10) {
+                // Right-to-left swipe - add slight transform
+                const progress = Math.min(Math.abs(deltaX) / 150, 1);
+                const translateX = -progress * 30; // Max 30px drag
+                sidebarModalContent.style.transform = `translateX(${translateX}px)`;
+                sidebarModalContent.style.transition = 'none';
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if (isDragging) {
+                const deltaX = touchEndX - touchStartX;
+                const deltaY = touchEndY - touchStartY;
+                
+                // Reset visual feedback
+                sidebarModalContent.style.transform = '';
+                sidebarModalContent.style.transition = '';
+                
+                // Check if it's a valid right-to-left swipe
+                if (Math.abs(deltaX) > Math.abs(deltaY) && // More horizontal than vertical
+                    deltaX < -50 && // At least 50px right-to-left
+                    Math.abs(deltaX) > 20) { // Minimum swipe distance
+                    closeSidebarModal();
+                }
+            }
+            
+            // Reset values
+            touchStartX = 0;
+            touchStartY = 0;
+            touchEndX = 0;
+            touchEndY = 0;
+            isDragging = false;
+        }
+
         // Open sidebar modal
         function openSidebarModal() {
             // Ensure we have fresh sidebar content
@@ -47,9 +112,15 @@
                 createSidebarClone();
             }
             
+            // Store current scroll position before fixing the body
+            scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+            
             sidebarModal.style.display = 'flex';
             document.body.classList.add('sidebar-modal-open');
             document.documentElement.classList.add('sidebar-modal-open');
+            
+            // Set the body top to maintain scroll position
+            document.body.style.top = `-${scrollPosition}px`;
             
             // Trigger the slide-in animation
             requestAnimationFrame(() => {
@@ -61,11 +132,21 @@
             if (firstFocusableElement) {
                 firstFocusableElement.focus();
             }
+            
+            // Add touch event listeners for swipe detection
+            sidebarModalContent.addEventListener('touchstart', handleTouchStart, { passive: true });
+            sidebarModalContent.addEventListener('touchmove', handleTouchMove, { passive: true });
+            sidebarModalContent.addEventListener('touchend', handleTouchEnd, { passive: true });
         }
 
         // Close sidebar modal
         function closeSidebarModal() {
             sidebarModal.classList.remove('active');
+            
+            // Remove touch event listeners
+            sidebarModalContent.removeEventListener('touchstart', handleTouchStart);
+            sidebarModalContent.removeEventListener('touchmove', handleTouchMove);
+            sidebarModalContent.removeEventListener('touchend', handleTouchEnd);
             
             // Wait for animation to complete before hiding
             setTimeout(() => {
@@ -73,6 +154,13 @@
                     sidebarModal.style.display = 'none';
                     document.body.classList.remove('sidebar-modal-open');
                     document.documentElement.classList.remove('sidebar-modal-open');
+                    
+                    // Restore scroll position
+                    document.body.style.top = '';
+                    if (scrollPosition !== undefined) {
+                        window.scrollTo(0, scrollPosition);
+                        scrollPosition = undefined;
+                    }
                 }
             }, 300); // Match CSS transition duration
             
