@@ -7,6 +7,10 @@ html,
 body {
     width: 100%;
     max-width: 100%;
+}
+
+/* Wrapper to contain horizontal overflow */
+body {
     overflow-x: hidden;
 }
 
@@ -25,7 +29,6 @@ body {
 #sidebar {
     width: 100%;
     margin-bottom: 2rem;
-    min-height: 100%;
 }
 
 .content {

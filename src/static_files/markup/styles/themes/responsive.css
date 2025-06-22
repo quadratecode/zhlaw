@@ -104,15 +104,22 @@
         max-width: 75rem;
         flex-direction: row;
         gap: 2rem;
-        align-items: stretch;
+        align-items: flex-start;
         padding: 0 2rem;
+        position: relative;
+        min-height: calc(100vh - 120px);
     }
 
     #sidebar {
         width: 300px;
         flex-shrink: 0;
         margin-bottom: 0;
-        min-height: 100%;
+        position: sticky;
+        top: 2rem;
+        align-self: flex-start;
+        max-height: calc(100vh - 4rem);
+        overflow-y: auto;
+        overflow-x: hidden;
     }
 
     .content {

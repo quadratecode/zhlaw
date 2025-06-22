@@ -2,6 +2,38 @@
    Sidebar & Navigation Elements
 ----------------------------- */
 
+/* Sidebar scrollbar styling for webkit browsers */
+@media (min-width: 1200px) {
+    #sidebar::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    #sidebar::-webkit-scrollbar-track {
+        background: var(--subtle-grey);
+        border-radius: 3px;
+    }
+    
+    #sidebar::-webkit-scrollbar-thumb {
+        background: var(--line-grey);
+        border-radius: 3px;
+    }
+    
+    #sidebar::-webkit-scrollbar-thumb:hover {
+        background: var(--soft-black);
+    }
+    
+    /* Firefox scrollbar styling */
+    #sidebar {
+        scrollbar-width: thin;
+        scrollbar-color: var(--line-grey) var(--subtle-grey);
+    }
+    
+    /* Add padding to bottom of sidebar content for better scrolling */
+    #sidebar > *:last-child {
+        padding-bottom: 2rem;
+    }
+}
+
 /* Metadata Layout */
 #status-message {
     text-align: center;
@@ -78,8 +110,6 @@
 }
 
 #version-container {
-    position: sticky;
-    top: 1rem;
     margin-top: 0.5rem;
 }
 
@@ -235,4 +265,23 @@
 
 [data-theme="dark"] .link-copy-btn.copy-success svg {
     stroke: var(--dark-in-force-dark-green);
+}
+
+/* Dark mode scrollbar styling */
+@media (min-width: 1200px) {
+    [data-theme="dark"] #sidebar::-webkit-scrollbar-track {
+        background: var(--dark-subtle-grey);
+    }
+    
+    [data-theme="dark"] #sidebar::-webkit-scrollbar-thumb {
+        background: var(--dark-line-grey);
+    }
+    
+    [data-theme="dark"] #sidebar::-webkit-scrollbar-thumb:hover {
+        background: var(--dark-soft-white);
+    }
+    
+    [data-theme="dark"] #sidebar {
+        scrollbar-color: var(--dark-line-grey) var(--dark-subtle-grey);
+    }
 }
