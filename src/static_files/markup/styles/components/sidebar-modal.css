@@ -1,0 +1,125 @@
+/* -----------------------------
+   Sidebar Modal & Floating Button
+----------------------------- */
+
+/* Floating info button - hidden by default, shown on mobile via responsive.css */
+.floating-info-button {
+    display: none;
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 3rem;
+    height: 3rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--soft-black);
+    background: var(--subtle-grey);
+    cursor: pointer;
+    font-family: var(--font-text);
+    color: var(--soft-black);
+    font-size: 1.25rem;
+    font-weight: var(--font-weight-bold);
+    z-index: 1000;
+    transition: background-color 0.2s ease;
+    border-radius: 0; /* Keep brutalist square design */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.floating-info-button:hover {
+    background-color: var(--hover-grey);
+}
+
+.floating-info-button:active {
+    transform: translateY(1px);
+}
+
+/* Sidebar modal */
+.sidebar-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+.sidebar-modal-content {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    background: var(--soft-white);
+    border: none;
+    border-right: 2px solid var(--soft-black);
+    overflow-y: auto;
+    overflow-x: hidden;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+}
+
+.sidebar-modal.active .sidebar-modal-content {
+    transform: translateX(0);
+}
+
+/* Prevent body scroll when sidebar modal is open */
+body.sidebar-modal-open {
+    overflow: hidden;
+}
+
+/* Prevent document scroll when modal is open */
+html.sidebar-modal-open {
+    overflow: hidden;
+}
+
+/* Dark mode support */
+.dark-mode .floating-info-button {
+    background: var(--dark-subtle-grey);
+    border-color: var(--dark-soft-black);
+    color: var(--dark-soft-black);
+}
+
+.dark-mode .floating-info-button:hover {
+    background-color: var(--dark-hover-grey);
+}
+
+.dark-mode .sidebar-modal {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.dark-mode .sidebar-modal-content {
+    background: var(--dark-soft-white);
+    border-right-color: var(--dark-soft-black);
+}
+
+/* Padding for sidebar clone content inside modal */
+#sidebar-clone {
+    padding: 1rem;
+}
+
+/* When system preference is dark and JS is disabled */
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode):not(.dark-mode) .floating-info-button {
+        background: var(--dark-subtle-grey);
+        border-color: var(--dark-soft-black);
+        color: var(--dark-soft-black);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .floating-info-button:hover {
+        background-color: var(--dark-hover-grey);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .sidebar-modal {
+        background: rgba(0, 0, 0, 0.7);
+    }
+    
+    html:not(.light-mode):not(.dark-mode) .sidebar-modal-content {
+        background: var(--dark-soft-white);
+        border-right-color: var(--dark-soft-black);
+    }
+}

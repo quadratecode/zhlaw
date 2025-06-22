@@ -267,6 +267,35 @@ def insert_footer(soup: BeautifulSoup) -> BeautifulSoup:
         nav_tooltips_script = soup.new_tag("script", src=nav_tooltips_src, defer=True)
         body.append(nav_tooltips_script)
 
+        # Only add floating button and sidebar modal if a sidebar exists
+        sidebar = soup.find("div", id="sidebar")
+        if sidebar:
+            # Sidebar modal script (only load when sidebar exists)
+            sidebar_modal_src = get_versioned_asset_url("/sidebar-modal.js")
+            sidebar_modal_script = soup.new_tag("script", src=sidebar_modal_src, defer=True)
+            body.append(sidebar_modal_script)
+
+            # Add floating info button
+            floating_button = soup.new_tag("button", 
+                                          id="floating-info-button", 
+                                          **{"class": "floating-info-button", 
+                                             "aria-label": "Informationen anzeigen",
+                                             "title": "Informationen anzeigen"})
+            floating_button.string = "i"
+            body.append(floating_button)
+
+            # Add sidebar modal (content will be moved by JavaScript on mobile)
+            sidebar_modal = soup.new_tag("div", 
+                                       id="sidebar-modal", 
+                                       **{"class": "sidebar-modal", 
+                                          "role": "dialog", 
+                                          "aria-labelledby": "sidebar-modal-title",
+                                          "aria-hidden": "true"})
+            
+            sidebar_modal_content = soup.new_tag("div", **{"class": "sidebar-modal-content"})
+            sidebar_modal.append(sidebar_modal_content)
+            body.append(sidebar_modal)
+
         # Add GoatCounter script
         # Comment out if not needed on clone
         goatcounter_script = soup.new_tag(

@@ -150,6 +150,36 @@
         margin: 1rem auto;
     }
 
+    /* For no-JS users: stack sidebar above content */
+    .main-container {
+        flex-direction: column;
+    }
+
+    /* Hide sidebar on mobile screens when JS is enabled */
+    .js-enabled #sidebar {
+        display: none;
+    }
+
+    /* For no-JS users: show sidebar stacked above content */
+    html:not(.js-enabled) #sidebar {
+        display: block;
+        width: 100%;
+        margin-bottom: 1.5rem;
+        position: static;
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    /* Show floating info button on mobile only when JS is enabled */
+    .js-enabled .floating-info-button {
+        display: flex;
+    }
+
+    /* Hide floating button for no-JS users */
+    html:not(.js-enabled) .floating-info-button {
+        display: none;
+    }
+
     .header-content {
         padding: 0.75rem 1.5rem 0.75rem 3rem;
         gap: 0.75rem;
