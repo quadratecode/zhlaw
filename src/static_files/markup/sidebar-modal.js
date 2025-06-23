@@ -36,8 +36,8 @@
             sidebarModalContent.appendChild(sidebarClone);
         }
 
-        // Initialize clone on first load if on mobile
-        if (window.innerWidth <= 768) {
+        // Initialize clone on first load if below desktop breakpoint
+        if (window.innerWidth < 1200) {
             createSidebarClone();
         }
 
@@ -107,7 +107,7 @@
         // Open sidebar modal
         function openSidebarModal() {
             // Ensure we have fresh sidebar content
-            if (!sidebarClone || window.innerWidth <= 768) {
+            if (!sidebarClone || window.innerWidth < 1200) {
                 createSidebarClone();
             }
             
@@ -188,7 +188,7 @@
 
         // Handle window resize
         window.addEventListener('resize', function() {
-            if (window.innerWidth > 768) {
+            if (window.innerWidth >= 1200) {
                 // Close modal if open
                 if (sidebarModal.classList.contains('active')) {
                     closeSidebarModal();
@@ -198,8 +198,8 @@
                     sidebarClone.remove();
                     sidebarClone = null;
                 }
-            } else if (window.innerWidth <= 768 && !sidebarClone) {
-                // Create clone for mobile if it doesn't exist
+            } else if (window.innerWidth < 1200 && !sidebarClone) {
+                // Create clone for screens below desktop breakpoint if it doesn't exist
                 createSidebarClone();
             }
         });

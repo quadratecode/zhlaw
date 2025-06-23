@@ -135,27 +135,14 @@
     }
 }
 
-/* Tablet and smaller */
-@media (max-width: 768px) {
-    body {
-        --pagefind-ui-scale: 0.9;
-    }
-
-    html {
-        font-size: 16px;
-    }
-
-    .main-container {
-        padding: 0 1.5rem 0 3rem;
-        margin: 1rem auto;
-    }
-
+/* Below desktop breakpoint - use toggle button instead of stacking */
+@media (max-width: 1199px) {
     /* For no-JS users: stack sidebar above content */
     .main-container {
         flex-direction: column;
     }
 
-    /* Hide sidebar on mobile screens when JS is enabled */
+    /* Hide sidebar when JS is enabled */
     .js-enabled #sidebar {
         display: none;
     }
@@ -170,7 +157,7 @@
         overflow-y: visible;
     }
 
-    /* Show floating info button on mobile only when JS is enabled */
+    /* Show floating info button when JS is enabled */
     .js-enabled .floating-info-button {
         display: flex;
     }
@@ -178,6 +165,22 @@
     /* Hide floating button for no-JS users */
     html:not(.js-enabled) .floating-info-button {
         display: none;
+    }
+}
+
+/* Tablet and smaller */
+@media (max-width: 768px) {
+    body {
+        --pagefind-ui-scale: 0.9;
+    }
+
+    html {
+        font-size: 16px;
+    }
+
+    .main-container {
+        padding: 0 1.5rem 0 3rem;
+        margin: 1rem auto;
     }
 
     .header-content {
