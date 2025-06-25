@@ -731,8 +731,8 @@ def main():
         "--folder",
         type=str,
         default="fedlex_files",
-        choices=["fedlex_files", "test_files"],
-        help="Folder to process: 'fedlex_files' (default) or 'test_files'",
+        choices=["fedlex_files", "fedlex_files_test"],
+        help="Folder to process: 'fedlex_files' (default) or 'fedlex_files_test'",
     )
     parser.add_argument(
         "--mode",
@@ -750,8 +750,8 @@ def main():
     args = parser.parse_args()
 
     # Set input directory based on folder argument
-    if args.folder == "test_files":
-        input_dir = os.path.join("data", "fedlex", "test_files_fedlex")
+    if args.folder == "fedlex_files_test":
+        input_dir = os.path.join("data", "fedlex", "fedlex_files_test")
     else:  # fedlex_files (default)
         input_dir = os.path.join("data", "fedlex", "fedlex_files")
 

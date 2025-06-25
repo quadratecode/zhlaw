@@ -31,13 +31,14 @@ class DataPaths:
     ZHLEX_BASE = DATA_DIR / "zhlex"
     ZHLEX_DATA = ZHLEX_BASE / "zhlex_data"
     ZHLEX_FILES = ZHLEX_BASE / "zhlex_files"
-    ZHLEX_TEST_FILES = ZHLEX_BASE / "test_files"
+    ZHLEX_TEST_FILES = ZHLEX_BASE / "zhlex_files_test"
     ZHLEX_PLACEHOLDERS = ZHLEX_BASE / "placeholders"
     
     # FedLex paths
     FEDLEX_BASE = DATA_DIR / "fedlex"
     FEDLEX_DATA = FEDLEX_BASE / "fedlex_data"
     FEDLEX_FILES = FEDLEX_BASE / "fedlex_files"
+    FEDLEX_TEST_FILES = FEDLEX_BASE / "fedlex_files_test"
     
     # KRZH Dispatch paths
     KRZH_BASE = DATA_DIR / "krzh_dispatch"
@@ -181,7 +182,8 @@ class Tools:
 # Build options
 class BuildOptions:
     """Site building options."""
-    FOLDER_CHOICES = ["zhlex_files", "ch_files", "all_files", "test_files"]
+    FOLDER_CHOICES = ["all_test_files", "fedlex_test_files", "zhlex_test_files", 
+                     "all_main_files", "zhlex_main_files", "fedlex_main_files"]
     DB_BUILD_CHOICES = ["yes", "no"]
     PLACEHOLDER_CHOICES = ["yes", "no"]
 
