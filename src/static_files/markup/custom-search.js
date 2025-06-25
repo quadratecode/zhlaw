@@ -17,6 +17,7 @@ class CustomSearch {
         this.resultsPerPage = 20;
         this.debounceTimer = null;
         this.availableFilters = null;
+        this.unfilteredCounts = null; // Store initial unfiltered counts
         this.selectedFilters = {};
         this.isExpanded = false;
         this.statusFilter = 'all'; // 'all', 'in_force', 'not_in_force'
@@ -215,6 +216,13 @@ class CustomSearch {
     async loadFilters() {
         try {
             this.availableFilters = await this.pagefind.filters();
+            // Store the initial unfiltered counts
+            if (this.availableFilters && this.availableFilters['Gesetzessammlung']) {
+                this.unfilteredCounts = {};
+                for (const [collection, count] of Object.entries(this.availableFilters['Gesetzessammlung'])) {
+                    this.unfilteredCounts[collection] = count;
+                }
+            }
             this.populateFilterUI();
         } catch (error) {
             console.error('Failed to load filters:', error);
@@ -235,11 +243,18 @@ class CustomSearch {
             // Hide collection filter if only one collection available
             collectionFilterWrapper.style.display = 'none';
         } else {
-            // Show collection filter and populate options
+            // Show collection filter and populate options with counts
             collectionFilterWrapper.style.display = 'block';
-            let options = `<option value="">${this.translations.collection_all}</option>`;
-            for (const [value] of Object.entries(this.availableFilters['Gesetzessammlung'])) {
-                options += `<option value="${value}">${value}</option>`;
+            
+            // Calculate total count
+            let totalCount = 0;
+            if (this.unfilteredCounts) {
+                totalCount = Object.values(this.unfilteredCounts).reduce((sum, count) => sum + count, 0);
+            }
+            
+            let options = `<option value="">${this.translations.collection_all} (${totalCount})</option>`;
+            for (const [value, count] of Object.entries(this.availableFilters['Gesetzessammlung'])) {
+                options += `<option value="${value}">${value} (${count})</option>`;
             }
             this.collectionFilter.innerHTML = options;
         }
@@ -354,19 +369,31 @@ class CustomSearch {
     updateFilterCounts(filterCounts) {
         // Update collection dropdown with result counts only if filter is visible
         const collectionFilterWrapper = this.searchModal.querySelector('.collection-filter-wrapper');
-        if (this.collectionFilter && filterCounts['Gesetzessammlung'] && 
+        if (this.collectionFilter && this.availableFilters && this.availableFilters['Gesetzessammlung'] && 
             collectionFilterWrapper.style.display !== 'none') {
             const currentValue = this.collectionFilter.value;
-            let options = `<option value="">${this.translations.collection_all}</option>`;
+            
+            // Calculate total count for "Alle Sammlungen"
+            let totalCount = 0;
+            if (this.unfilteredCounts) {
+                totalCount = Object.values(this.unfilteredCounts).reduce((sum, count) => sum + count, 0);
+            }
+            
+            let options = `<option value="">${this.translations.collection_all} (${totalCount})</option>`;
             
             // Get all available collections from the initial load
             const allCollections = this.availableFilters['Gesetzessammlung'] || {};
             
             for (const [value] of Object.entries(allCollections)) {
-                const currentCount = filterCounts['Gesetzessammlung'][value] || 0;
+                // When a collection filter is active, show unfiltered counts for all collections
+                const displayCount = currentValue ? 
+                    (this.unfilteredCounts[value] || 0) : 
+                    (filterCounts['Gesetzessammlung'][value] || 0);
+                
                 const selected = value === currentValue ? 'selected' : '';
-                const disabled = currentCount === 0 ? 'disabled' : '';
-                options += `<option value="${value}" ${selected} ${disabled}>${value} (${currentCount})</option>`;
+                // Only disable when no filter is active and count is 0
+                const disabled = (displayCount === 0 && !currentValue) ? 'disabled' : '';
+                options += `<option value="${value}" ${selected} ${disabled}>${value} (${displayCount})</option>`;
             }
             
             this.collectionFilter.innerHTML = options;
