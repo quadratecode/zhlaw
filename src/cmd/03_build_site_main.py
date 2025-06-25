@@ -208,10 +208,12 @@ def main(
 ):
     """
     Depending on `folder_choice`:
-     - "zhlex_files": process the main ZH-Lex folder (skip FedLex)
-     - "ch_files": process only FedLex (skip ZH-Lex)
-     - "all_files": process both ZH-Lex (zhlex_files) and FedLex
-     - "test_files": process only ZH 'test_files' folder (skip FedLex)
+     - "all_test_files": process test files for both fedlex and zhlex
+     - "fedlex_test_files": process test files only for fedlex
+     - "zhlex_test_files": process test files only for zhlex
+     - "all_main_files": process all files in both fedlex_files and zhlex_files
+     - "zhlex_main_files": process all files in zhlex_files
+     - "fedlex_main_files": process all files in fedlex_files
     """
     global STATIC_PATH, COLLECTION_PATH_ZH, COLLECTION_PATH_CH
 
@@ -224,7 +226,8 @@ def main(
     PLACEHOLDER_DIR_ZH = "data/zhlex/placeholders"  # Used only for ZH-Lex
 
     # Set the output directory based on folder_choice
-    if folder_choice == "test_files":
+    test_folders = ["all_test_files", "fedlex_test_files", "zhlex_test_files"]
+    if folder_choice in test_folders:
         STATIC_PATH = "public_test/"
         COLLECTION_PATH_ZH = f"{STATIC_PATH}col-zh/"
         COLLECTION_PATH_CH = f"{STATIC_PATH}col-ch/"
@@ -248,17 +251,23 @@ def main(
     process_ch = False
     zh_folder = None
 
-    if folder_choice == "zhlex_files":
+    if folder_choice == "zhlex_main_files":
         process_zh = True
         zh_folder = "zhlex_files"
-    elif folder_choice == "test_files":
+    elif folder_choice == "zhlex_test_files":
         process_zh = True
-        zh_folder = "test_files"
-    elif folder_choice == "ch_files":
+        zh_folder = "zhlex_files_test"
+    elif folder_choice == "fedlex_main_files":
         process_ch = True
-    elif folder_choice == "all_files":
+    elif folder_choice == "fedlex_test_files":
+        process_ch = True
+    elif folder_choice == "all_main_files":
         process_zh = True
         zh_folder = "zhlex_files"
+        process_ch = True
+    elif folder_choice == "all_test_files":
+        process_zh = True
+        zh_folder = "zhlex_files_test"
         process_ch = True
 
     # -------------------------------------------------------------------------
@@ -417,9 +426,11 @@ def main(
             logging.info("Finished building dataset for ZH-Lex")
 
         if process_ch:
-            logging.info("Building dataset for FedLex ...")
+            # Determine correct FedLex folder
+            fedlex_folder = "fedlex_files_test" if folder_choice in ["all_test_files", "fedlex_test_files"] else "fedlex_files"
+            logging.info(f"Building dataset for FedLex (folder: {fedlex_folder}) ...")
             build_markdown.main(
-                "data/fedlex/fedlex_files",
+                f"data/fedlex/{fedlex_folder}",
                 STATIC_PATH,
                 processing_mode=processing_mode,
                 max_workers=max_workers,
@@ -551,7 +562,8 @@ def main(
     # -------------------------------------------------------------------------
     logging.info("Generating sitemap")
     site_url = "https://zhlaw.ch"
-    if folder_choice == "test_files":
+    test_folders = ["all_test_files", "fedlex_test_files", "zhlex_test_files"]
+    if folder_choice in test_folders:
         site_url = "https://test.zhlaw.ch"  # Use a different URL for test site
     generator = SitemapGenerator(site_url, STATIC_PATH)
     generator.save_sitemap(f"{STATIC_PATH}sitemap.xml")
@@ -580,14 +592,17 @@ if __name__ == "__main__":
     parser.add_argument(
         "--folder",
         type=str,
-        default="all_files",
-        choices=["zhlex_files", "ch_files", "all_files", "test_files"],
+        default="all_main_files",
+        choices=["all_test_files", "fedlex_test_files", "zhlex_test_files", 
+                "all_main_files", "zhlex_main_files", "fedlex_main_files"],
         help=(
             "Choose which collection(s) to build:\n"
-            "'zhlex_files' (only ZH-Lex), "
-            "'ch_files' (only FedLex), "
-            "'all_files' (both), "
-            "'test_files' (ZH test set only)."
+            "'all_test_files' (test files for fedlex and zhlex), "
+            "'fedlex_test_files' (test files only for fedlex), "
+            "'zhlex_test_files' (test files only for zhlex), "
+            "'all_main_files' (all files in fedlex_files and zhlex_files), "
+            "'zhlex_main_files' (all files in zhlex_files), "
+            "'fedlex_main_files' (all files in fedlex_files)."
         ),
     )
     parser.add_argument(

@@ -201,7 +201,7 @@ def main(folder: str, concurrent_mode: bool) -> None:
     Process all PDF files in the specified folder.
 
     Args:
-        folder: The folder to process (zhlex_files or test_files)
+        folder: The folder to process (zhlex_files or zhlex_files_test)
         concurrent_mode: If True, process files in parallel; otherwise, sequentially
     """
     logging.info("Loading laws index")
@@ -228,8 +228,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--folder",
         type=str,
-        default="test_files",
-        choices=["zhlex_files", "test_files"],
+        default="zhlex_files_test",
+        choices=["zhlex_files", "zhlex_files_test"],
         help="Folder to process",
     )
     parser.add_argument(
