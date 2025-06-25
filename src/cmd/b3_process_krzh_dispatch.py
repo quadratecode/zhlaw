@@ -33,7 +33,6 @@ import glob
 import json
 from tqdm import tqdm
 from bs4 import BeautifulSoup
-import shutil
 import os
 
 # -----------------------------------------------------------------------------
@@ -47,8 +46,8 @@ DISPATCH_SITE_DIR = f"{DATA_DIR}/krzh_dispatch_site"
 
 # Data files
 DISPATCH_DATA_FILE = f"{DISPATCH_DATA_DIR}/krzh_dispatch_data.json"
-DISPATCH_HTML_FILE = f"{DISPATCH_SITE_DIR}/dispatch.html"
-PUBLIC_HTML_FILE = "public/dispatch.html"
+DISPATCH_HTML_FILE = "src/static_files/html/dispatch.html"
+RSS_FEED_FILE = "src/static_files/html/dispatch-feed.xml"
 
 # Affair type priorities (lower number = higher priority)
 AFFAIR_TYPE_PRIORITIES = {
@@ -281,16 +280,12 @@ def main():
     logging.info("Generating RSS feed")
     rss_feed = build_rss.main(krzh_dispatch_data, site_url="https://www.zhlaw.ch")
 
-    # Save RSS feed to public directory
-    rss_file_path = "public/dispatch-feed.xml"
-    with open(rss_file_path, "w", encoding="utf-8") as f:
+    # Save RSS feed to static files directory
+    with open(RSS_FEED_FILE, "w", encoding="utf-8") as f:
         f.write(rss_feed)
-    logging.info(f"RSS feed saved to {rss_file_path}")
+    logging.info(f"RSS feed saved to {RSS_FEED_FILE}")
 
-    # Copy html file to public
-    logging.info("Copying html file to public")
-    os.makedirs("public", exist_ok=True)
-    shutil.copy(html_file_path, PUBLIC_HTML_FILE)
+    logging.info("Dispatch files generated to src/static_files/html/ - will be included by site build process")
 
 
 if __name__ == "__main__":
