@@ -209,7 +209,10 @@ python -m src.main_entry_points.a2_process_zhlex --folder zhlex_files_test
 python -m src.main_entry_points.c1_scrape_fedlex
 python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files_test
 
-# 3. Build test site
+# [Optional: 3. Process parliamentary dispatches]
+python -m src.main_entry_points.b1_process_krzh_dispatch
+
+# 4. Build test site (includes placeholders and dataset)
 python -m src.main_entry_points.d1_build_site --folder all_test_files
 ```
 

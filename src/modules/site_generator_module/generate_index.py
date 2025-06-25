@@ -281,6 +281,37 @@ def save_html_file(html_content, file_path):
         file.write(html_content)
 
 
+def generate_minimal_index(output_file_path, version_map=None):
+    """
+    Generate a minimal index.html with just header and footer for FedLex-only builds.
+    This serves as a placeholder until a proper systematic overview for FedLex is implemented.
+    """
+    # Get versioned CSS URL
+    versioned_css_url = get_versioned_asset_url("styles.css", version_map)
+    
+    minimal_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <link href="{versioned_css_url}" rel="stylesheet">
+    <link href="/favicon.ico" rel="shortcut icon" type="image/x-icon">
+    <link href="/favicon.ico" rel="icon" type="image/x-icon">
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>zhlaw</title>
+</head>
+<body>
+    <div class="main-container">
+        <div class="content">
+            <!-- Placeholder for future FedLex systematic overview -->
+        </div>
+    </div>
+</body>
+</html>"""
+    
+    save_html_file(minimal_html, output_file_path)
+    print(f"Minimal index HTML file generated at: {output_file_path}")
+
+
 def main(json_file_path, output_file_path, version_map=None):
     # Load JSON data
     data = load_json_data(json_file_path)

@@ -250,6 +250,7 @@ def main(
     process_zh = False
     process_ch = False
     zh_folder = None
+    ch_folder = None
 
     if folder_choice == "zhlex_main_files":
         process_zh = True
@@ -259,16 +260,20 @@ def main(
         zh_folder = "zhlex_files_test"
     elif folder_choice == "fedlex_main_files":
         process_ch = True
+        ch_folder = "fedlex_files"
     elif folder_choice == "fedlex_test_files":
         process_ch = True
+        ch_folder = "fedlex_files_test"
     elif folder_choice == "all_main_files":
         process_zh = True
         zh_folder = "zhlex_files"
         process_ch = True
+        ch_folder = "fedlex_files"
     elif folder_choice == "all_test_files":
         process_zh = True
         zh_folder = "zhlex_files_test"
         process_ch = True
+        ch_folder = "fedlex_files_test"
 
     # -------------------------------------------------------------------------
     # 1) Process static assets with versioning (before anything else)
@@ -316,9 +321,10 @@ def main(
         logging.info("No markdown content directory found, skipping markdown processing")
 
     # -------------------------------------------------------------------------
-    # 3) Generate index (for ZH) if we are processing ZH
+    # 3) Generate index page
     # -------------------------------------------------------------------------
     if process_zh:
+        # Generate full ZH index with systematic overview
         logging.info("Generating ZH index")
         generate_index.main(
             COLLECTION_DATA_ZH,
@@ -326,6 +332,14 @@ def main(
             version_map=version_map  # Pass version map for CSS versioning
         )
         logging.info("Finished generating ZH index")
+    elif process_ch:
+        # Generate minimal index for FedLex-only builds
+        logging.info("Generating minimal index for FedLex")
+        generate_index.generate_minimal_index(
+            "src/static_files/html/index.html",
+            version_map=version_map
+        )
+        logging.info("Finished generating minimal index")
 
     # -------------------------------------------------------------------------
     # 4) Process ZH-Lex HTML files (if requested)
@@ -376,18 +390,26 @@ def main(
     # -------------------------------------------------------------------------
     # 5) Process FedLex HTML files (if requested)
     # -------------------------------------------------------------------------
-    if process_ch:
-        logging.info("Loading FedLex HTML files")
+    if process_ch and ch_folder:
+        logging.info(f"Loading FedLex HTML files from '{ch_folder}'")
 
         html_files_ch_merged = glob.glob(
-            "data/fedlex/fedlex_files/**/**/*-merged.html",
+            f"data/fedlex/{ch_folder}/**/**/*-merged.html",
             recursive=True,
         )
         html_files_ch_orig = glob.glob(
-            "data/fedlex/fedlex_files/**/**/*-original.html",
+            f"data/fedlex/{ch_folder}/**/**/*-original.html",
             recursive=True,
         )
-        html_files_ch = list(set(html_files_ch_merged + html_files_ch_orig))
+        # Include site elements if not already processed by ZH
+        if not process_zh:
+            html_site_elements = glob.glob(
+                "src/static_files/html/*.html",
+                recursive=True,
+            )
+            html_files_ch = list(set(html_files_ch_merged + html_files_ch_orig + html_site_elements))
+        else:
+            html_files_ch = list(set(html_files_ch_merged + html_files_ch_orig))
 
         if not html_files_ch:
             logging.info("No FedLex files found. Proceeding anyway...")
@@ -425,12 +447,10 @@ def main(
             )
             logging.info("Finished building dataset for ZH-Lex")
 
-        if process_ch:
-            # Determine correct FedLex folder
-            fedlex_folder = "fedlex_files_test" if folder_choice in ["all_test_files", "fedlex_test_files"] else "fedlex_files"
-            logging.info(f"Building dataset for FedLex (folder: {fedlex_folder}) ...")
+        if process_ch and ch_folder:
+            logging.info(f"Building dataset for FedLex (folder: {ch_folder}) ...")
             build_markdown.main(
-                f"data/fedlex/{fedlex_folder}",
+                f"data/fedlex/{ch_folder}",
                 STATIC_PATH,
                 processing_mode=processing_mode,
                 max_workers=max_workers,
