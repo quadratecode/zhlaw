@@ -45,7 +45,7 @@ except ImportError:
 
 # --- Provision/Subprovision Numbering Regex ---
 NUMBER_LETTER_PATTERN = re.compile(r"[^\d]*(\d+)([a-zA-Z]*)[.\s]?")
-SUBPROVISION_PATTERN = re.compile(r"^\s*(\d+|[a-zA-Z])([a-zA-Z]*)\s*[.)]?\s")
+SUBPROVISION_PATTERN = re.compile(r"^\s*(\d+|[a-zA-Z])([a-zA-Z]*)\s*[.)]?\s*$")
 
 # --- Global tracker for provision sequences ---
 provision_sequences = {}
@@ -121,20 +121,46 @@ def transform_headings(soup):
         numbering_fragments = []
 
         if len(a_tags) > 1:
-            heading_anchor = a_tags[-1]
-            heading_text = heading_anchor.get_text(strip=True)
+            # Multiple anchor tags - collect all content and determine main heading vs marginalia
+            all_anchor_content = []
+            non_anchor_content = []
+            
             for child in top_children:
-                if child == heading_anchor:
-                    break
-                if isinstance(child, Tag):
-                    if child.name in ("a", "b", "i"):
-                        numbering_fragments.append(child.get_text(strip=False))
-                    elif child.name == "sup":
-                        numbering_fragments.append(str(child))
+                if isinstance(child, Tag) and child.name == "a":
+                    # Collect anchor content
+                    anchor_text = child.get_text(strip=True)
+                    all_anchor_content.append(anchor_text)
+                elif isinstance(child, Tag):
+                    if child.name == "sup":
+                        non_anchor_content.append(str(child))
                     else:
-                        numbering_fragments.append(child.get_text(strip=False))
+                        non_anchor_content.append(child.get_text(strip=False))
                 elif isinstance(child, NavigableString):
-                    numbering_fragments.append(str(child))
+                    non_anchor_content.append(str(child))
+            
+            # Determine heading text and numbering
+            # Main heading is usually the longest anchor text (but not if it's just "*")
+            main_heading = ""
+            other_parts = []
+            
+            for content in all_anchor_content:
+                if content.strip() == "*":
+                    # Asterisk is marginalia annotation, not main heading
+                    other_parts.append(content)
+                elif len(content) > len(main_heading) and content.strip() != "*":
+                    # This is likely the main heading
+                    if main_heading:
+                        other_parts.append(main_heading)
+                    main_heading = content
+                else:
+                    # This is numbering or other content
+                    other_parts.append(content)
+            
+            heading_text = main_heading
+            # Put article number first, then other parts (including asterisk)
+            article_parts = [part for part in other_parts if "Art." in part or "art." in part]
+            non_article_parts = [part for part in other_parts if "Art." not in part and "art." not in part]
+            numbering_fragments = article_parts + non_article_parts + non_anchor_content
         else:  # Single <a> tag case
             anchor = a_tags[0]
             for child in anchor.children:
@@ -408,7 +434,23 @@ def process_html(html_content):
                 prov_id_part = f"{number}{letter}"
                 seq_num = provision_sequences.get(prov_id_part, 0)
                 provision_sequences[prov_id_part] = seq_num + 1
-                p_tag["id"] = f"seq-{seq_num}-prov-{prov_id_part}"
+                prov_id = f"seq-{seq_num}-prov-{prov_id_part}"
+                p_tag["id"] = prov_id
+                
+                # Add anchor link to provision like zhlex standard
+                # Find existing anchor or create one
+                a_tag = p_tag.find("a")
+                if a_tag:
+                    a_tag["href"] = f"#{prov_id}"
+                else:
+                    # Create new anchor wrapping the provision text
+                    a_tag = soup.new_tag("a", href=f"#{prov_id}")
+                    # Get the provision text (typically "Art. X" or "§ X")
+                    provision_text = p_tag.get_text(strip=True)
+                    a_tag.string = provision_text
+                    p_tag.clear()
+                    p_tag.append(a_tag)
+                
                 last_prov_details = {
                     "seq_num": seq_num,
                     "num": number,
@@ -417,15 +459,30 @@ def process_html(html_content):
             else:
                 last_prov_details = None  # Reset if pattern fails
         elif is_subprovision and last_prov_details:
-            subprov_match = SUBPROVISION_PATTERN.match(p_text_content)
-            if subprov_match:
-                sub_marker = subprov_match.group(1)
-                prov_suffix = last_prov_details["suffix"]
-                p_tag["id"] = (
-                    f"seq-{last_prov_details['seq_num']}"
-                    f"-prov-{last_prov_details['num']}{prov_suffix}"
-                    f"-sub-{sub_marker}{prov_suffix.lower()}"
-                )
+            # For subprovisions, look at the sup tag content instead of the entire paragraph text
+            sup_tag = p_tag.find("sup")
+            if sup_tag:
+                sup_text = sup_tag.get_text(strip=True)
+                subprov_match = SUBPROVISION_PATTERN.match(sup_text)
+                if subprov_match:
+                    sub_marker = subprov_match.group(1)
+                    prov_suffix = last_prov_details["suffix"]
+                    subprov_id = (
+                        f"seq-{last_prov_details['seq_num']}"
+                        f"-prov-{last_prov_details['num']}{prov_suffix}"
+                        f"-sub-{sub_marker}{prov_suffix.lower()}"
+                    )
+                    p_tag["id"] = subprov_id
+                    
+                    # Add anchor link to subprovision like zhlex standard
+                    # Wrap the sup tag with an anchor if not already wrapped
+                    if not sup_tag.find("a") and not sup_tag.find_parent("a"):
+                        # Create anchor with href pointing to the subprovision ID
+                        a_tag = soup.new_tag("a", href=f"#{subprov_id}")
+                        # Move sup content into the anchor
+                        sup_content = sup_tag.extract()
+                        a_tag.append(sup_content)
+                        p_tag.insert(0, a_tag)
     # --- End ID Assignment ---
 
     # 12.7 Hyperlink provisions (optional)
@@ -502,7 +559,7 @@ def process_html(html_content):
         except (ValueError, TypeError):
             continue
 
-    # 16.7 Convert DL -> p.enum
+    # 16.7 Convert DL -> p.enum with proper enumeration type detection
     def get_level_class(level):
         mapping = {
             1: "first",
@@ -513,6 +570,27 @@ def process_html(html_content):
             6: "sixth",
         }
         return f"{mapping.get(level, str(level))}-level"
+
+    def get_enum_type_and_class(text, level):
+        """
+        Determine the appropriate enumeration type based on text content
+        Returns tuple of (base_class, level_class)
+        """
+        text = text.strip()
+        level_class = get_level_class(level)
+        
+        # Check for letter enumeration (a., b., c., etc.)
+        if re.match(r"^[a-zA-Z]\.", text):
+            return "enum-lit", level_class
+        # Check for number enumeration (1., 2., 3., etc.)  
+        elif re.match(r"^\d{1,2}\.", text):
+            return "enum-ziff", level_class
+        # Check for dash enumeration
+        elif "–" in text or "-" in text:
+            return "enum-dash", level_class
+        # Default to generic enum
+        else:
+            return "enum", level_class
 
     def convert_dl_recursive(dl_element, level, soup_instance):
         processed_paragraphs = []
@@ -542,8 +620,12 @@ def process_html(html_content):
                 dt_text = dt_tag.get_text(" ", strip=True)
                 dd_text = dd_tag.get_text(" ", strip=True)
                 combined = dt_text + (" " + dd_text if dd_text else "")
+                
+                # Determine appropriate enumeration type
+                enum_type, level_class = get_enum_type_and_class(dt_text, level)
+                
                 new_p = soup_instance.new_tag(
-                    "p", attrs={"class": ["enum", get_level_class(level)]}
+                    "p", attrs={"class": [enum_type, level_class]}
                 )
                 new_p.string = combined.strip()
                 processed_paragraphs.append(new_p)
@@ -552,8 +634,9 @@ def process_html(html_content):
             else:  # dt without dd
                 dt_text = dt_tag.get_text(" ", strip=True)
                 if dt_text:
+                    enum_type, level_class = get_enum_type_and_class(dt_text, level)
                     new_p = soup_instance.new_tag(
-                        "p", attrs={"class": ["enum", get_level_class(level)]}
+                        "p", attrs={"class": [enum_type, level_class]}
                     )
                     new_p.string = dt_text.strip()
                     processed_paragraphs.append(new_p)
@@ -571,9 +654,17 @@ def process_html(html_content):
     additional_soup = wrap_annex_content(additional_soup)
     # --- END NEW ---
 
-    # 16.8 Remove table border attribute
-    for table in additional_soup.find_all("table", border=True):
-        del table["border"]
+    # 16.8 Add table styling and remove border attribute
+    for table in additional_soup.find_all("table"):
+        # Add law-data-table class for proper styling
+        table_classes = table.get("class", [])
+        if "law-data-table" not in table_classes:
+            table_classes.append("law-data-table")
+            table["class"] = table_classes
+        
+        # Remove border attribute if present
+        if table.has_attr("border"):
+            del table["border"]
 
     # 16.9 Final Class Cleanup
     allowed_classes = {
@@ -581,9 +672,13 @@ def process_html(html_content):
         "provision",
         "subprovision",
         "enum",
+        "enum-lit",
+        "enum-ziff", 
+        "enum-dash",
         "footnote",
         "footnote-ref",
         "pdf-source",
+        "law-data-table",  # Add table styling class
     }
     for i in range(1, 11):
         allowed_classes.add(get_level_class(i))  # Add enum level classes

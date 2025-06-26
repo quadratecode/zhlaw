@@ -4,6 +4,9 @@ This module processes HTML law texts and converts them to clean Markdown format,
 suitable for machine learning datasets and text analysis. It handles special
 law formatting, removes noise, and creates structured output with YAML frontmatter.
 
+The generated markdown files are stored persistently in a 'markdown_dataset' directory
+within the output directory. Files are regenerated completely on each run.
+
 Functions:
     is_ascii_art_or_noise(text): Detects ASCII art or formatting noise
     read_file_with_fallback_encoding(file_path): Reads files with encoding detection
@@ -332,7 +335,7 @@ def convert_html_to_md(html_content, metadata, ordnungsnummer, nachtragsnummer):
 # =====================================================
 def process_single_html_file(args):
     """Process a single HTML file and convert it to Markdown."""
-    file_path, root_path, html_file, temp_md_dir = args
+    file_path, root_path, html_file, markdown_dataset_dir = args
     try:
         match = re.match(r"([\d\.]+)-([\d]+)(?:-original|-merged)?\.html", html_file)
         if not match:
@@ -355,7 +358,7 @@ def process_single_html_file(args):
         md_content = convert_html_to_md(
             html_content, metadata, ordnungsnummer, nachtragsnummer
         )
-        md_file = temp_md_dir / new_filename
+        md_file = markdown_dataset_dir / new_filename
         with open(md_file, "w", encoding="utf-8") as f:
             f.write(md_content)
         return True, new_filename
@@ -365,19 +368,23 @@ def process_single_html_file(args):
 
 
 def main(source_path, output_dir, processing_mode="sequential", max_workers=None):
-    """Process HTML files to Markdown and create a zip file."""
+    """Process HTML files to Markdown and create a zip file.
+    
+    The markdown files are stored persistently in '{output_dir}/markdown_dataset/'.
+    Existing files are cleared at the start of each run to ensure a clean build.
+    """
     try:
         source_path = Path(source_path)
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Source directory: {source_path.resolve()}")
         logger.info(f"Output directory: {output_dir.resolve()}")
-        temp_md_dir = output_dir / "temp_md"
-        if temp_md_dir.exists():
+        markdown_dataset_dir = output_dir / "markdown_dataset"
+        if markdown_dataset_dir.exists():
             import shutil
 
-            shutil.rmtree(temp_md_dir)
-        temp_md_dir.mkdir(exist_ok=True)
+            shutil.rmtree(markdown_dataset_dir)
+        markdown_dataset_dir.mkdir(exist_ok=True)
 
         all_html_files_args = []
         found_count, skipped_count = 0, 0
@@ -398,7 +405,7 @@ def main(source_path, output_dir, processing_mode="sequential", max_workers=None
                         parent_metadata_file = root_path.parent / metadata_filename
                         if metadata_file.exists() or parent_metadata_file.exists():
                             all_html_files_args.append(
-                                (root_path / filename, root_path, filename, temp_md_dir)
+                                (root_path / filename, root_path, filename, markdown_dataset_dir)
                             )
                             found_count += 1
                         else:
@@ -409,8 +416,8 @@ def main(source_path, output_dir, processing_mode="sequential", max_workers=None
 
         if not all_html_files_args:
             logger.warning("No target HTML files with metadata found. Exiting.")
-            if temp_md_dir.exists():
-                temp_md_dir.rmdir()  # Try removing if empty
+            if markdown_dataset_dir.exists():
+                markdown_dataset_dir.rmdir()  # Try removing if empty
             return
         logger.info(
             f"Found {found_count} target HTML files. Skipped {skipped_count} other files."
@@ -476,7 +483,7 @@ def main(source_path, output_dir, processing_mode="sequential", max_workers=None
             successful_filenames.sort()
             with zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                 for filename in tqdm(successful_filenames, desc="Zipping files"):
-                    md_file = temp_md_dir / filename
+                    md_file = markdown_dataset_dir / filename
                     if md_file.exists():
                         zipf.write(md_file, filename)
                     else:
@@ -487,21 +494,13 @@ def main(source_path, output_dir, processing_mode="sequential", max_workers=None
             if zip_file_path.exists():
                 zip_file_path.unlink()  # Remove old/empty zip
 
-        if temp_md_dir.exists():
-            logger.info(f"Cleaning up temp dir: {temp_md_dir}")
-            import shutil
-
-            shutil.rmtree(temp_md_dir)
+        logger.info(f"Markdown files preserved in: {markdown_dataset_dir}")
         logger.info("Processing complete.")
     except Exception as e:
         logger.error(f"Critical error in main: {e}", exc_info=True)
-        if "temp_md_dir" in locals() and temp_md_dir.exists():
-            try:
-                import shutil
-
-                shutil.rmtree(temp_md_dir)
-            except Exception as cleanup_e:
-                logger.error(f"Cleanup failed: {cleanup_e}")
+        if "markdown_dataset_dir" in locals() and markdown_dataset_dir.exists():
+            # Do not remove on error - preserve for debugging
+            logger.error(f"Error occurred, markdown files preserved in: {markdown_dataset_dir}")
         raise
 
 
