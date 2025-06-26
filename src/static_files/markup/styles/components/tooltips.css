@@ -45,7 +45,7 @@
     align-items: center;
     justify-content: center;
     padding: 1rem;
-    overflow: hidden;
+    /* No scroll prevention - background scrolling is allowed when modal is open */
 }
 
 .anchor-warning-modal-content {

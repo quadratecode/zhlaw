@@ -338,21 +338,14 @@
         // Add to DOM immediately
         document.body.appendChild(modal);
         
-        // THEN scroll to top and prevent scrolling
+        // THEN scroll to top (but allow background scrolling)
         window.scrollTo(0, 0);
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
         
-        // Prevent scrolling on both html and body elements
-        document.documentElement.style.overflow = 'hidden';
-        document.body.style.overflow = 'hidden';
-        
         // Function to close modal and cleanup
         const closeModal = () => {
             modal.remove();
-            // Restore scrolling
-            document.documentElement.style.overflow = '';
-            document.body.style.overflow = '';
             // Clear the prevent scroll flag
             delete window.__preventAnchorScroll;
             document.removeEventListener('keydown', escapeHandler);
