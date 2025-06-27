@@ -4,7 +4,7 @@ This module processes HTML law texts and converts them to clean Markdown format,
 suitable for machine learning datasets and text analysis. It handles special
 law formatting, removes noise, and creates structured output with YAML frontmatter.
 
-The generated markdown files are stored persistently in a 'markdown_dataset' directory
+The generated markdown files are stored persistently in a 'md-files/zh' directory
 within the output directory. Files are regenerated completely on each run.
 
 Functions:
@@ -370,7 +370,7 @@ def process_single_html_file(args):
 def main(source_path, output_dir, processing_mode="sequential", max_workers=None):
     """Process HTML files to Markdown and create a zip file.
     
-    The markdown files are stored persistently in '{output_dir}/markdown_dataset/'.
+    The markdown files are stored persistently in '{output_dir}/md-files/zh/'.
     Existing files are cleared at the start of each run to ensure a clean build.
     """
     try:
@@ -379,12 +379,12 @@ def main(source_path, output_dir, processing_mode="sequential", max_workers=None
         output_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Source directory: {source_path.resolve()}")
         logger.info(f"Output directory: {output_dir.resolve()}")
-        markdown_dataset_dir = output_dir / "markdown_dataset"
+        markdown_dataset_dir = output_dir / "md-files" / "zh"
         if markdown_dataset_dir.exists():
             import shutil
 
             shutil.rmtree(markdown_dataset_dir)
-        markdown_dataset_dir.mkdir(exist_ok=True)
+        markdown_dataset_dir.mkdir(parents=True, exist_ok=True)
 
         all_html_files_args = []
         found_count, skipped_count = 0, 0
