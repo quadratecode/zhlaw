@@ -164,6 +164,7 @@ temp
 htmldiff
 .idea
 _notes
+logs
 
 # Deployment
 deploy.sh
