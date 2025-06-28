@@ -145,3 +145,19 @@ p[class*="enum-"] {
 .second-level .enum-content {
     display: block;
 }
+
+/* Superscript & Subscript - Consistent Line Height Fix */
+sup, sub {
+    vertical-align: baseline;
+    position: relative;
+    line-height: 0;
+    font-size: var(--sup-sub-font-size);
+}
+
+sup {
+    top: calc(-1 * var(--sup-sub-offset));
+}
+
+sub {
+    top: var(--sup-sub-offset);
+}
