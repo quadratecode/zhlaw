@@ -34,6 +34,10 @@ from src.modules.law_pdf_module import (
 from src.config import DataPaths, LogConfig, FilePatterns, ProcessingSteps, DateFormats
 from src.constants import Messages
 
+# Import logging utilities
+from src.utils.logging_decorators import configure_logging
+from src.utils.logging_utils import get_module_logger
+
 # Import external modules
 import arrow
 import logging
@@ -45,13 +49,8 @@ import sys
 import concurrent.futures
 from pathlib import Path
 
-# Set up logging
-logging.basicConfig(
-    filename=str(LogConfig.LOG_FILE),
-    level=logging.INFO,
-    format=LogConfig.LOG_FORMAT,
-    datefmt=LogConfig.LOG_DATE_FORMAT,
-)
+# Get logger for this module
+logger = get_module_logger(__name__)
 
 
 def generate_file_paths(pdf_file: str) -> dict:
@@ -168,7 +167,7 @@ def process_pdf_file(pdf_file: str) -> bool:
         return True
     except Exception as e:
         timestamp = arrow.now().format("YYYYMMDD-HHmmss")
-        logging.error(f"Error in {__file__}: {e} at {timestamp}", exc_info=True)
+        logger.error(f"Error in {__file__}: {e} at {timestamp}", exc_info=True)
         return False
 
 
@@ -196,6 +195,7 @@ def process_files_sequentially(pdf_files):
     return error_counter
 
 
+@configure_logging()
 def main(folder: str, concurrent_mode: bool) -> None:
     """
     Process all PDF files in the specified folder.
@@ -204,14 +204,14 @@ def main(folder: str, concurrent_mode: bool) -> None:
         folder: The folder to process (zhlex_files or zhlex_files_test)
         concurrent_mode: If True, process files in parallel; otherwise, sequentially
     """
-    logging.info("Loading laws index")
+    logger.info("Loading laws index")
     pdf_files = glob.glob(f"data/zhlex/{folder}/**/**/*-original.pdf", recursive=True)
     pdf_files = list(set(pdf_files))
     if not pdf_files:
-        logging.info("No PDF files found. Exiting.")
+        logger.info("No PDF files found. Exiting.")
         return
 
-    logging.info(
+    logger.info(
         f"Processing using {'concurrent' if concurrent_mode else 'sequential'} mode"
     )
 
@@ -220,7 +220,7 @@ def main(folder: str, concurrent_mode: bool) -> None:
     else:
         error_counter = process_files_sequentially(pdf_files)
 
-    logging.info(f"Finished processing HTML with {error_counter} errors")
+    logger.info(f"Finished processing HTML with {error_counter} errors")
 
 
 if __name__ == "__main__":

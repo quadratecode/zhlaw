@@ -47,13 +47,12 @@ from src.modules.site_generator_module import html_diff
 from src.modules.site_generator_module import generate_anchor_maps
 from src.modules.general_module.asset_versioning import AssetVersionManager, create_htaccess_rules
 
-# Set up logging
-logging.basicConfig(
-    filename="logs/process.log",
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%m/%d/%Y %I:%M:%S %p",
-)
+# Import logging utilities
+from src.utils.logging_decorators import configure_logging
+from src.utils.logging_utils import get_module_logger
+
+# Get logger for this module
+logger = get_module_logger(__name__)
 
 # Global variables for paths - will be set in main()
 STATIC_PATH = None
@@ -199,6 +198,7 @@ def process_html_files_concurrently(
     return error_counter
 
 
+@configure_logging()
 def main(
     folder_choice,
     dataset_trigger,

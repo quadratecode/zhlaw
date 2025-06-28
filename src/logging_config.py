@@ -11,10 +11,15 @@ License:
 import logging
 import logging.handlers
 import sys
+import os
+import json
+import contextvars
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 from datetime import datetime
+from functools import wraps
 
+from pythonjsonlogger import jsonlogger
 from src.config import LogConfig, BASE_DIR
 
 
@@ -47,6 +52,115 @@ class ColoredFormatter(logging.Formatter):
         return result
 
 
+# Context variable for request/operation tracking
+log_context: contextvars.ContextVar[Dict[str, Any]] = contextvars.ContextVar('log_context', default={})
+
+
+class StructuredFormatter(jsonlogger.JsonFormatter):
+    """JSON formatter with context injection for structured logging."""
+    
+    def add_fields(self, log_record: Dict[str, Any], record: logging.LogRecord, message_dict: Dict[str, Any]) -> None:
+        """Add custom fields to the log record."""
+        super().add_fields(log_record, record, message_dict)
+        
+        # Add context fields
+        context = log_context.get()
+        log_record.update(context)
+        
+        # Add standard fields
+        log_record['timestamp'] = self.formatTime(record)
+        log_record['logger_name'] = record.name
+        log_record['level'] = record.levelname
+        log_record['module'] = record.module
+        log_record['function'] = record.funcName
+        log_record['line'] = record.lineno
+        
+        # Add exception info if present
+        if record.exc_info:
+            log_record['exception'] = self.formatException(record.exc_info)
+        
+        # Add extra fields from record
+        if hasattr(record, 'metrics'):
+            log_record['metrics'] = record.metrics
+        
+        # Clean up message field if it's empty
+        if 'message' in log_record and not log_record['message']:
+            log_record['message'] = record.getMessage()
+
+
+class LogContext:
+    """Context manager for adding fields to all logs within a scope."""
+    
+    def __init__(self, **kwargs):
+        """Initialize with context fields."""
+        self.fields = kwargs
+        self.token = None
+    
+    def __enter__(self):
+        """Enter context and update log context."""
+        current = log_context.get()
+        updated = {**current, **self.fields}
+        self.token = log_context.set(updated)
+        return self
+    
+    def __exit__(self, *args):
+        """Exit context and reset log context."""
+        if self.token:
+            log_context.reset(self.token)
+
+
+class MetricsLogger:
+    """Logger for performance metrics and monitoring."""
+    
+    def __init__(self, logger: logging.Logger):
+        """Initialize with a logger instance."""
+        self.logger = logger
+        self.metrics: Dict[str, Any] = {}
+    
+    def record_duration(self, operation: str, duration: float, **extra_fields) -> None:
+        """Record operation duration in milliseconds."""
+        self.logger.info(
+            f"Operation completed: {operation}",
+            extra={
+                "metrics": {
+                    "operation": operation,
+                    "duration_ms": round(duration * 1000, 2),
+                    "success": True,
+                    **extra_fields
+                }
+            }
+        )
+    
+    def record_error(self, operation: str, error: Exception, **extra_fields) -> None:
+        """Record operation error with details."""
+        self.logger.error(
+            f"Operation failed: {operation}",
+            extra={
+                "metrics": {
+                    "operation": operation,
+                    "error_type": type(error).__name__,
+                    "error_message": str(error),
+                    "success": False,
+                    **extra_fields
+                }
+            },
+            exc_info=True
+        )
+    
+    def record_count(self, metric_name: str, count: int, **extra_fields) -> None:
+        """Record a count metric."""
+        self.logger.info(
+            f"Metric recorded: {metric_name}",
+            extra={
+                "metrics": {
+                    "metric_name": metric_name,
+                    "count": count,
+                    **extra_fields
+                }
+            }
+        )
+
+
 class LoggerManager:
     """Manages logger configuration and setup for the application."""
     
@@ -63,7 +177,9 @@ class LoggerManager:
         max_bytes: int = 10 * 1024 * 1024,  # 10MB
         backup_count: int = 5,
         format_string: str = None,
-        date_format: str = None
+        date_format: str = None,
+        structured: bool = None,
+        context_fields: Optional[Dict[str, Any]] = None
     ) -> None:
         """
         Set up the logging configuration for the entire application.
@@ -77,15 +193,38 @@ class LoggerManager:
             backup_count: Number of backup files to keep
             format_string: Custom format string for log messages
             date_format: Custom date format for log messages
+            structured: Whether to use structured (JSON) logging
+            context_fields: Initial context fields to add to all logs
         """
         if cls._initialized:
             return
             
+        # Get environment-specific config
+        env_config = LogConfig.get_config()
+        
         # Use defaults from config if not provided
-        log_level = log_level or LogConfig.DEFAULT_LEVEL
-        log_file = log_file or LogConfig.LOG_FILE
-        format_string = format_string or LogConfig.LOG_FORMAT
-        date_format = date_format or LogConfig.LOG_DATE_FORMAT
+        log_level = log_level or env_config['log_level']
+        log_file = log_file or env_config['log_file']
+        format_string = format_string or env_config['log_format']
+        date_format = date_format or env_config['date_format']
+        
+        # Use environment-specific settings if parameters match defaults
+        if enable_console is True:  # Default parameter value
+            enable_console = env_config.get('enable_console', True)
+        if enable_file is True:  # Default parameter value  
+            enable_file = env_config.get('enable_file', True)
+        if max_bytes == 10 * 1024 * 1024:  # Default parameter value
+            max_bytes = env_config.get('max_bytes', 10 * 1024 * 1024)
+        if backup_count == 5:  # Default parameter value
+            backup_count = env_config.get('backup_count', 5)
+        
+        # Determine if structured logging should be used
+        if structured is None:
+            structured = env_config.get('structured', False)
+        
+        # Set initial context if provided
+        if context_fields:
+            log_context.set(context_fields)
         
         # Create root logger
         root_logger = logging.getLogger()
@@ -94,11 +233,16 @@ class LoggerManager:
         # Clear any existing handlers
         root_logger.handlers.clear()
         
-        # Console handler with colored output
+        # Console handler with colored output or structured format
         if enable_console:
             console_handler = logging.StreamHandler(sys.stderr)
             console_handler.setLevel(getattr(logging, log_level.upper()))
-            console_formatter = ColoredFormatter(format_string, date_format)
+            
+            if structured:
+                console_formatter = StructuredFormatter()
+            else:
+                console_formatter = ColoredFormatter(format_string, date_format)
+            
             console_handler.setFormatter(console_formatter)
             root_logger.addHandler(console_handler)
         
@@ -114,7 +258,12 @@ class LoggerManager:
                 encoding='utf-8'
             )
             file_handler.setLevel(getattr(logging, log_level.upper()))
-            file_formatter = logging.Formatter(format_string, date_format)
+            
+            if structured:
+                file_formatter = StructuredFormatter()
+            else:
+                file_formatter = logging.Formatter(format_string, date_format)
+            
             file_handler.setFormatter(file_formatter)
             root_logger.addHandler(file_handler)
         
@@ -219,6 +368,30 @@ class LoggerManager:
             OperationLogger instance
         """
         return OperationLogger(operation_name, log_file)
+    
+    @classmethod
+    def get_metrics_logger(cls, name: str) -> MetricsLogger:
+        """
+        Get a metrics logger for performance tracking.
+        
+        Args:
+            name: Logger name
+            
+        Returns:
+            MetricsLogger instance
+        """
+        logger = cls.get_logger(name)
+        return MetricsLogger(logger)
+    
+    @classmethod
+    def get_instance(cls) -> 'LoggerManager':
+        """Get the singleton instance of LoggerManager."""
+        return cls
+    
+    @classmethod
+    def is_setup(cls) -> bool:
+        """Check if logging has been initialized."""
+        return cls._initialized
 
 
 class OperationLogger:
@@ -275,6 +448,24 @@ class OperationLogger:
         """Log progress information."""
         percentage = (current / total * 100) if total > 0 else 0
         self.logger.info(f"Progress: {current}/{total} {item} ({percentage:.1f}%)")
+    
+    def log_metric(self, name: str, value: Union[int, float], unit: str = None):
+        """Log a metric value."""
+        message = f"Metric {name}: {value}"
+        if unit:
+            message += f" {unit}"
+        
+        self.logger.info(
+            message,
+            extra={
+                "metrics": {
+                    "name": name,
+                    "value": value,
+                    "unit": unit,
+                    "operation": self.operation_name
+                }
+            }
+        )
 
 
 # Convenience function for quick setup
@@ -287,3 +478,16 @@ def setup_logging(**kwargs):
 def get_logger(name: str) -> logging.Logger:
     """Get a logger instance for the given module name."""
     return LoggerManager.get_logger(name)
+
+
+# Export all public classes and functions
+__all__ = [
+    'LoggerManager',
+    'OperationLogger',
+    'MetricsLogger',
+    'LogContext',
+    'ColoredFormatter',
+    'StructuredFormatter',
+    'setup_logging',
+    'get_logger',
+]

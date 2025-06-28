@@ -167,11 +167,59 @@ class Environment:
 
 # Logging configuration
 class LogConfig:
-    """Logging configuration."""
+    """Logging configuration with environment-specific settings."""
     LOG_FILE = LOGS_DIR / "process.log"
     LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
     DEFAULT_LEVEL = "INFO"
+    
+    @staticmethod
+    def get_config() -> Dict[str, Any]:
+        """Get logging configuration based on environment."""
+        env = os.getenv('ENVIRONMENT', 'development')
+        
+        base_config = {
+            'log_file': LogConfig.LOG_FILE,
+            'log_format': LogConfig.LOG_FORMAT,
+            'date_format': LogConfig.LOG_DATE_FORMAT,
+            'max_bytes': 10 * 1024 * 1024,  # 10MB
+            'backup_count': 5
+        }
+        
+        env_configs = {
+            'development': {
+                'log_level': 'DEBUG',
+                'enable_console': True,
+                'enable_file': True,
+                'structured': False,
+                'colorize': True
+            },
+            'testing': {
+                'log_level': 'INFO',
+                'enable_console': True,
+                'enable_file': False,  # Don't write to file during tests
+                'structured': False,
+                'colorize': False
+            },
+            'production': {
+                'log_level': 'WARNING',
+                'enable_console': False,
+                'enable_file': True,
+                'structured': True,
+                'colorize': False,
+                'additional_handlers': ['syslog']
+            }
+        }
+        
+        config = {**base_config, **env_configs.get(env, env_configs['development'])}
+        
+        # Override with environment variables
+        config['log_level'] = os.getenv('LOG_LEVEL', config['log_level'])
+        config['structured'] = os.getenv('LOG_FORMAT') == 'json' or config.get('structured', False)
+        config['enable_console'] = os.getenv('LOG_DISABLE_CONSOLE', '').lower() != 'true' and config.get('enable_console', True)
+        config['enable_file'] = os.getenv('LOG_DISABLE_FILE', '').lower() != 'true' and config.get('enable_file', True)
+        
+        return config
 
 # Command-line tools
 class Tools:

@@ -35,6 +35,10 @@ from tqdm import tqdm
 from bs4 import BeautifulSoup
 import os
 
+# Import logging utilities
+from src.utils.logging_decorators import configure_logging
+from src.utils.logging_utils import get_module_logger
+
 # -----------------------------------------------------------------------------
 # Module-Level Constants
 # -----------------------------------------------------------------------------
@@ -104,15 +108,11 @@ def sort_affairs(affairs):
     return sorted(affairs, key=get_priority)
 
 
-# Set up logging
-logging.basicConfig(
-    filename="logs/process.log",
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%m/%d/%Y %I:%M:%S %p",
-)
+# Get logger for this module
+logger = get_module_logger(__name__)
 
 
+@configure_logging()
 def main():
 
     # Initialize error counter
@@ -168,14 +168,14 @@ def main():
                 # Ignore error code 400
                 except Exception as e:
                     if "400" in str(e):
-                        logging.error(
+                        logger.error(
                             f"Error during in {__file__}: {e} at {timestamp}",
                             exc_info=True,
                         )
                         metadata["doc_info"]["ai_changes"] = "{error: too many tokens}"
                         metadata["process_steps"]["call_ai"] = timestamp
                     else:
-                        logging.error(
+                        logger.error(
                             f"Error during in {__file__}: {e} at {timestamp}",
                             exc_info=True,
                         )
@@ -216,7 +216,7 @@ def main():
                 json.dump(krzh_dispatch_data, f, indent=4, ensure_ascii=False)
 
         except Exception as e:
-            logging.error(
+            logger.error(
                 f"Error during in {__file__}: {e} at {timestamp}", exc_info=True
             )
             error_counter += 1
