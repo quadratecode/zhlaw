@@ -20,7 +20,6 @@ from bs4 import BeautifulSoup
 
 from src.modules.site_generator_module import build_zhlaw
 from src.utils.logging_utils import get_module_logger
-from src.utils.progress_utils import progress_manager
 
 # Get logger from main module
 logger = get_module_logger(__name__)
@@ -37,73 +36,56 @@ def main(laws, html_files, placeholder_dir):
     existing_files = set(os.path.basename(file) for file in html_files)
     # Ensure the placeholder folder exists
     os.makedirs(placeholder_dir, exist_ok=True)
-    
-    # Count total versions to process for progress tracking
-    total_versions = sum(len(law.get("versions", [])) for law in laws)
-    placeholders_created = 0
-    
-    logger.info(f"Checking {total_versions} law versions for missing HTML files")
-    
     # Process each law and its versions
-    with progress_manager() as pm:
-        counter = pm.create_counter(
-            total=total_versions,
-            desc=f"Checking {total_versions} versions for placeholders",
-            unit="versions"
-        )
-        
-        for law in laws:
-            ordnungsnummer = law["ordnungsnummer"]
-            erlasstitel = law["erlasstitel"]
-            versions = law["versions"]
-            for version in versions:
-                nachtragsnummer = version["nachtragsnummer"]
-                law_page_url = version.get("law_page_url", "")
-                filename = f"{ordnungsnummer}-{nachtragsnummer}.html"
-                in_force = version.get("in_force", False)
-                # Add erlasstitel and ordnungsnummer to version
-                version["erlasstitel"] = erlasstitel
-                version["ordnungsnummer"] = ordnungsnummer
-                # Check if HTML file exists in the provided list
-                if filename not in existing_files:
-                    placeholder_path = os.path.join(placeholder_dir, filename)
-                    # File does not exist, create placeholder
-                    with open(placeholder_path, "w") as f:
-                        f.write(
-                            f"<html><body><div id='law'><div id='source-text'><h1>Kein Erlasstext vorhanden.</h1><p>Möglicherweise enthält diese Nachtragsnummer keinen Text oder es liegt ein Fehler in der automatisierten Verarbeitung vor. Bitte überprüfe die <a href='{law_page_url}'>Quelle</a> für mehr Informationen.</p></div></div></body></html>"
-                        )
-                    logger.debug(f"Created placeholder HTML file: {placeholder_path}")
-                    # Add to existing_files to prevent re-creation
-                    existing_files.add(filename)
-
-                    # Process the HTML with BeautifulSoup
-                    with open(placeholder_path, "r") as file:
-                        soup = BeautifulSoup(file, "html.parser")
-
-                    # Create document info dictionary
-                    doc_info = {
-                        "erlasstitel": erlasstitel,
-                        "ordnungsnummer": ordnungsnummer,
-                        "nachtragsnummer": nachtragsnummer,
-                        "in_force": in_force,
-                        "versions": versions,
-                    }
-                    doc_info.update(version)  # Add all other version info
-
-                    # Process the HTML using build_zhlaw's main function
-                    soup = build_zhlaw.main(
-                        soup, placeholder_path, doc_info, "new_html", law_origin="zh"
+    for law in laws:
+        ordnungsnummer = law["ordnungsnummer"]
+        erlasstitel = law["erlasstitel"]
+        versions = law["versions"]
+        for version in versions:
+            nachtragsnummer = version["nachtragsnummer"]
+            law_page_url = version.get("law_page_url", "")
+            filename = f"{ordnungsnummer}-{nachtragsnummer}.html"
+            in_force = version.get("in_force", False)
+            # Add erlasstitel and ordnungsnummer to version
+            version["erlasstitel"] = erlasstitel
+            version["ordnungsnummer"] = ordnungsnummer
+            # Check if HTML file exists in the provided list
+            if filename not in existing_files:
+                placeholder_path = os.path.join(placeholder_dir, filename)
+                # File does not exist, create placeholder
+                with open(placeholder_path, "w") as f:
+                    f.write(
+                        f"<html><body><div id='law'><div id='source-text'><h1>Kein Erlasstext vorhanden.</h1><p>Möglicherweise enthält diese Nachtragsnummer keinen Text oder es liegt ein Fehler in der automatisierten Verarbeitung vor. Bitte überprüfe die <a href='{law_page_url}'>Quelle</a> für mehr Informationen.</p></div></div></body></html>"
                     )
+                logger.info(f"Created placeholder HTML file: {placeholder_path}")
+                # Add to existing_files to prevent re-creation
+                existing_files.add(filename)
 
-                    # Write the modified HTML back to the file
-                    with open(placeholder_path, "w") as f:
-                        f.write("<!DOCTYPE html>\n")
-                        f.write(str(soup))
-                    placeholders_created += 1
-                
-                counter.update()
-    
-    logger.info(f"Created {placeholders_created} placeholder files out of {total_versions} checked versions")
+                # Process the HTML with BeautifulSoup
+                with open(placeholder_path, "r") as file:
+                    soup = BeautifulSoup(file, "html.parser")
+
+                # Create document info dictionary
+                doc_info = {
+                    "erlasstitel": erlasstitel,
+                    "ordnungsnummer": ordnungsnummer,
+                    "nachtragsnummer": nachtragsnummer,
+                    "in_force": in_force,
+                    "versions": versions,
+                }
+                doc_info.update(version)  # Add all other version info
+
+                # Process the HTML using build_zhlaw's main function
+                soup = build_zhlaw.main(
+                    soup, placeholder_path, doc_info, "new_html", law_origin="zh"
+                )
+
+                # Write the modified HTML back to the file
+                with open(placeholder_path, "w") as f:
+                    f.write("<!DOCTYPE html>\n")
+                    f.write(str(soup))
+            else:
+                logger.info(f"HTML file exists: {filename}")
 
 
 if __name__ == "__main__":

@@ -18,8 +18,7 @@ License:
 
 import sys
 import arrow
-# from tqdm import tqdm  # Replaced with progress_utils
-from src.utils.progress_utils import track_progress
+from tqdm import tqdm
 import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional
@@ -337,7 +336,7 @@ def process_laws(folder: str) -> None:
     raw_laws_path = Path(folder) / "zhlex_data_raw.json"
     new_laws = read_json(raw_laws_path)
 
-    for law in track_progress(new_laws, desc="Processing laws", unit="laws"):
+    for law in tqdm(new_laws, desc="Processing laws"):
         ordnungsnummer = law["ordnungsnummer"]
         nachtragsnummer = extract_nachtragsnummer(law["link"])
 
