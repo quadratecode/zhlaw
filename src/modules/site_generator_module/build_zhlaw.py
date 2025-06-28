@@ -33,41 +33,48 @@ logger = get_module_logger(__name__)
 # Global version map variable - will be set by the build process
 _VERSION_MAP = {}
 
+
 def set_version_map(version_map: dict):
     """Set the global version map for asset URL resolution."""
     global _VERSION_MAP
     _VERSION_MAP = version_map
 
+
 def load_svg_icon(icon_name: str) -> tuple:
     """
     Load SVG icon from the icons directory.
-    
+
     Args:
         icon_name: Name of the icon file (without .svg extension)
-        
+
     Returns:
         Tuple of (attributes_dict, inner_elements_list)
     """
     try:
-        icons_dir = Path(__file__).parent.parent.parent / "static_files" / "markup" / "icons"
+        icons_dir = (
+            Path(__file__).parent.parent.parent / "static_files" / "markup" / "icons"
+        )
         svg_path = icons_dir / f"{icon_name}.svg"
-        
+
         if svg_path.exists():
-            with open(svg_path, 'r', encoding='utf-8') as f:
+            with open(svg_path, "r", encoding="utf-8") as f:
                 svg_content = f.read()
                 # Parse and extract the inner elements
-                soup = BeautifulSoup(svg_content, 'xml')
-                svg_tag = soup.find('svg')
+                soup = BeautifulSoup(svg_content, "xml")
+                svg_tag = soup.find("svg")
                 if svg_tag:
                     # Get all attributes from the SVG tag
                     attrs = svg_tag.attrs
                     # Get inner elements (not string, but actual elements)
-                    inner_elements = [child for child in svg_tag.children if hasattr(child, 'name')]
+                    inner_elements = [
+                        child for child in svg_tag.children if hasattr(child, "name")
+                    ]
                     return attrs, inner_elements
         return {}, []
     except Exception as e:
         logger.warning(f"Failed to load SVG icon {icon_name}: {e}")
         return {}, []
+
 
 def get_versioned_asset_url(asset_url: str) -> str:
     """
@@ -75,13 +82,14 @@ def get_versioned_asset_url(asset_url: str) -> str:
     Falls back to original URL if versioning is not available.
     """
     # Remove leading slash for lookup
-    clean_url = asset_url.lstrip('/')
-    
+    clean_url = asset_url.lstrip("/")
+
     # Check if we have a versioned version in the global map
     if clean_url in _VERSION_MAP:
-        return '/' + _VERSION_MAP[clean_url]
-    
+        return "/" + _VERSION_MAP[clean_url]
+
     return asset_url  # Return original if no versioned version
+
 
 # -----------------------------------------------------------------------------
 # Module-Level Constants
@@ -90,7 +98,12 @@ BUTTON_CONFIGS: List[Dict[str, str]] = [
     {"icon": "LucideChevronLeft.svg", "text": "vorherige Version", "id": "prev-ver"},
     {"icon": "LucideChevronRight.svg", "text": "nächste Version", "id": "next-ver"},
     {"icon": "LucideChevronLast.svg", "text": "neuste Version", "id": "new-ver"},
-    {"icon": "LucideMapPin.svg", "text": "Bestimmung", "id": "provision-jump", "special": True},
+    {
+        "icon": "LucideMapPin.svg",
+        "text": "Bestimmung",
+        "id": "provision-jump",
+        "special": True,
+    },
 ]
 ENUM_CLASSES: List[str] = ["enum-lit", "enum-ziff", "enum-dash"]
 EXCLUDED_MERGE_CLASSES = {"marginalia", "provision", "subprovision"}
@@ -116,10 +129,12 @@ def create_nav_buttons(soup: BeautifulSoup) -> Tag:
     Creates navigation buttons with SVG icons and text.
     """
     nav_div: Tag = soup.new_tag("div", **{"class": "nav-buttons"})
-    
+
     # Path to icon directory
-    icons_dir = Path(__file__).parent.parent.parent / "static_files" / "markup" / "icons"
-    
+    icons_dir = (
+        Path(__file__).parent.parent.parent / "static_files" / "markup" / "icons"
+    )
+
     for config in BUTTON_CONFIGS:
         # Handle special buttons (like provision jump) differently
         if config.get("special"):
@@ -128,7 +143,7 @@ def create_nav_buttons(soup: BeautifulSoup) -> Tag:
                 **{
                     "class": "nav-button provision-jump-button",
                     "id": config["id"],
-                    "data-tooltip": "Navigation (\"G\")",
+                    "data-tooltip": 'Navigation ("G")',
                 },
             )
         else:
@@ -141,37 +156,39 @@ def create_nav_buttons(soup: BeautifulSoup) -> Tag:
                     "data-tooltip": config["text"],
                 },
             )
-        
+
         # Load and parse SVG icon
         icon_path = icons_dir / config["icon"]
         if icon_path.exists():
-            with open(icon_path, 'r', encoding='utf-8') as f:
+            with open(icon_path, "r", encoding="utf-8") as f:
                 svg_content = f.read()
-            
+
             # Parse SVG and extract content
-            svg_soup = BeautifulSoup(svg_content, 'xml')
-            svg_element = svg_soup.find('svg')
-            
+            svg_soup = BeautifulSoup(svg_content, "xml")
+            svg_element = svg_soup.find("svg")
+
             if svg_element:
                 # Create a new SVG element for the button
                 symbol: Tag = soup.new_tag("span", **{"class": "nav-symbol"})
-                
+
                 # Clone the SVG element with all its attributes and content
                 new_svg = soup.new_tag("svg")
-                
+
                 # Copy SVG attributes but ensure proper sizing
                 for attr, value in svg_element.attrs.items():
-                    if attr == 'width':
+                    if attr == "width":
                         new_svg[attr] = "24"
-                    elif attr == 'height':
+                    elif attr == "height":
                         new_svg[attr] = "24"
                     else:
                         new_svg[attr] = value
-                
+
                 # Copy all child elements recursively
                 def copy_element(source_elem, parent_elem):
                     for child in source_elem.children:
-                        if hasattr(child, 'name') and child.name:  # Only copy tag elements with valid names
+                        if (
+                            hasattr(child, "name") and child.name
+                        ):  # Only copy tag elements with valid names
                             new_child = soup.new_tag(child.name)
                             for attr, value in child.attrs.items():
                                 new_child[attr] = value
@@ -180,9 +197,9 @@ def create_nav_buttons(soup: BeautifulSoup) -> Tag:
                             parent_elem.append(new_child)
                             # Recursively copy nested elements
                             copy_element(child, new_child)
-                
+
                 copy_element(svg_element, new_svg)
-                
+
                 symbol.append(new_svg)
             else:
                 # Fallback to text if SVG parsing fails
@@ -192,7 +209,7 @@ def create_nav_buttons(soup: BeautifulSoup) -> Tag:
             # Fallback to text if icon file doesn't exist
             symbol: Tag = soup.new_tag("span", **{"class": "nav-symbol"})
             symbol.string = "•"
-        
+
         button.append(symbol)
         text: Tag = soup.new_tag("span", **{"class": "nav-text"})
         text.string = config["text"]
@@ -205,7 +222,7 @@ def insert_header(soup: BeautifulSoup, law_origin: str = None) -> BeautifulSoup:
     """
     Inserts a header with logo on the left, dark mode toggle after logo, and search on the right.
     Also adds Pagefind UI assets to the <head> and dark mode toggle button.
-    
+
     Args:
         soup: BeautifulSoup object to modify
         law_origin: Source of the law ("zh" for Zurich laws, "ch" for Federal laws)
@@ -225,41 +242,53 @@ def insert_header(soup: BeautifulSoup, law_origin: str = None) -> BeautifulSoup:
     header_content.append(logo_container)
 
     # Create a right-side container for all buttons
-    buttons_container: Tag = soup.new_tag("div", **{"class": "header-buttons-container"})
-    
+    buttons_container: Tag = soup.new_tag(
+        "div", **{"class": "header-buttons-container"}
+    )
+
     # Dark mode toggle
     dark_mode_toggle: Tag = soup.new_tag(
-        "button", id="dark-mode-toggle", **{"aria-label": "Dark Mode umschalten", "class": "dark-mode-button"}
+        "button",
+        id="dark-mode-toggle",
+        **{"aria-label": "Dark Mode umschalten", "class": "dark-mode-button"},
     )
 
     # Load and add LucideMoon.svg icon (default for light mode)
-    moon_icon_path = Path(__file__).parent.parent.parent / "static_files" / "markup" / "icons" / "LucideMoon.svg"
+    moon_icon_path = (
+        Path(__file__).parent.parent.parent
+        / "static_files"
+        / "markup"
+        / "icons"
+        / "LucideMoon.svg"
+    )
     if moon_icon_path.exists():
-        with open(moon_icon_path, 'r', encoding='utf-8') as f:
+        with open(moon_icon_path, "r", encoding="utf-8") as f:
             svg_content = f.read()
-        
+
         # Parse SVG and extract content
-        svg_soup = BeautifulSoup(svg_content, 'xml')
-        svg_element = svg_soup.find('svg')
-        
+        svg_soup = BeautifulSoup(svg_content, "xml")
+        svg_element = svg_soup.find("svg")
+
         if svg_element:
             # Create a new SVG element for the button
             new_svg = soup.new_tag("svg")
-            new_svg['class'] = 'dark-mode-icon'
-            
+            new_svg["class"] = "dark-mode-icon"
+
             # Copy SVG attributes but ensure proper sizing
             for attr, value in svg_element.attrs.items():
-                if attr == 'width':
+                if attr == "width":
                     new_svg[attr] = "24"
-                elif attr == 'height':
+                elif attr == "height":
                     new_svg[attr] = "24"
-                elif attr != 'class':  # Don't override our class
+                elif attr != "class":  # Don't override our class
                     new_svg[attr] = value
-            
+
             # Copy all child elements recursively
             def copy_element(source_elem, parent_elem):
                 for child in source_elem.children:
-                    if hasattr(child, 'name') and child.name:  # Only copy tag elements with valid names
+                    if (
+                        hasattr(child, "name") and child.name
+                    ):  # Only copy tag elements with valid names
                         new_child = soup.new_tag(child.name)
                         for attr, value in child.attrs.items():
                             new_child[attr] = value
@@ -268,7 +297,7 @@ def insert_header(soup: BeautifulSoup, law_origin: str = None) -> BeautifulSoup:
                         parent_elem.append(new_child)
                         # Recursively copy nested elements
                         copy_element(child, new_child)
-            
+
             copy_element(svg_element, new_svg)
             dark_mode_toggle.append(new_svg)
         else:
@@ -281,11 +310,14 @@ def insert_header(soup: BeautifulSoup, law_origin: str = None) -> BeautifulSoup:
                 viewBox="0 0 24 24",
                 fill="none",
                 stroke="currentColor",
-                **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round", "class": "dark-mode-icon"},
+                **{
+                    "stroke-width": "2",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round",
+                    "class": "dark-mode-icon",
+                },
             )
-            moon_path = soup.new_tag(
-                "path", d="M12 3a6 6 0 0 0 9 9a9 9 0 1 1-9-9"
-            )
+            moon_path = soup.new_tag("path", d="M12 3a6 6 0 0 0 9 9a9 9 0 1 1-9-9")
             moon_svg.append(moon_path)
             dark_mode_toggle.append(moon_svg)
     else:
@@ -298,29 +330,32 @@ def insert_header(soup: BeautifulSoup, law_origin: str = None) -> BeautifulSoup:
             viewBox="0 0 24 24",
             fill="none",
             stroke="currentColor",
-            **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round", "class": "dark-mode-icon"},
+            **{
+                "stroke-width": "2",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round",
+                "class": "dark-mode-icon",
+            },
         )
-        moon_path = soup.new_tag(
-            "path", d="M12 3a6 6 0 0 0 9 9a9 9 0 1 1-9-9"
-        )
+        moon_path = soup.new_tag("path", d="M12 3a6 6 0 0 0 9 9a9 9 0 1 1-9-9")
         moon_svg.append(moon_path)
         dark_mode_toggle.append(moon_svg)
-    
+
     # Add text span
     dark_mode_text: Tag = soup.new_tag("span", **{"class": "dark-mode-button-text"})
     dark_mode_text.string = "Dark Mode"
     dark_mode_toggle.append(dark_mode_text)
-    
+
     buttons_container.append(dark_mode_toggle)
-    
+
     # Quick selection button container
     quick_select_div: Tag = soup.new_tag("div", id="quick-select")
     buttons_container.append(quick_select_div)
-    
+
     # Regular search button container
     search_div: Tag = soup.new_tag("div", id="search")
     buttons_container.append(search_div)
-    
+
     header_content.append(buttons_container)
 
     # Insert scripts into <head>
@@ -357,7 +392,7 @@ def insert_header(soup: BeautifulSoup, law_origin: str = None) -> BeautifulSoup:
 def insert_footer(soup: BeautifulSoup, in_force_status: bool = None) -> BeautifulSoup:
     """
     Inserts a footer with links (including contact) and a disclaimer at the bottom of the HTML.
-    
+
     Args:
         soup: BeautifulSoup object to modify
         in_force_status: Boolean indicating if the law is in force (affects floating button styling)
@@ -394,28 +429,24 @@ def insert_footer(soup: BeautifulSoup, in_force_status: bool = None) -> Beautifu
         body.append(footer)
 
         # Add JavaScript files with versioning
-        
+
         # Custom search script (load early for search functionality)
         custom_search_src = get_versioned_asset_url("/custom-search.js")
-        custom_search_script = soup.new_tag(
-            "script", src=custom_search_src, defer=True
-        )
+        custom_search_script = soup.new_tag("script", src=custom_search_src, defer=True)
         body.append(custom_search_script)
-        
+
         # Quick select script
         quick_select_src = get_versioned_asset_url("/quick-select.js")
-        quick_select_script = soup.new_tag(
-            "script", src=quick_select_src, defer=True
-        )
+        quick_select_script = soup.new_tag("script", src=quick_select_src, defer=True)
         body.append(quick_select_script)
-        
+
         # Provision jump script
         provision_jump_src = get_versioned_asset_url("/provision-jump.js")
         provision_jump_script = soup.new_tag(
             "script", src=provision_jump_src, defer=True
         )
         body.append(provision_jump_script)
-        
+
         # Anchor tooltip script
         anchor_tooltip_src = get_versioned_asset_url("/anchor-tooltip.js")
         anchor_tooltip_script = soup.new_tag(
@@ -438,47 +469,61 @@ def insert_footer(soup: BeautifulSoup, in_force_status: bool = None) -> Beautifu
         if sidebar:
             # Sidebar modal script (only load when sidebar exists)
             sidebar_modal_src = get_versioned_asset_url("/sidebar-modal.js")
-            sidebar_modal_script = soup.new_tag("script", src=sidebar_modal_src, defer=True)
+            sidebar_modal_script = soup.new_tag(
+                "script", src=sidebar_modal_src, defer=True
+            )
             body.append(sidebar_modal_script)
 
             # Add floating info button with status-based styling
             button_classes = "floating-info-button"
             if in_force_status is not None:
                 button_classes += " in-force-yes" if in_force_status else " in-force-no"
-            
-            floating_button = soup.new_tag("button", 
-                                          id="floating-info-button", 
-                                          **{"class": button_classes, 
-                                             "aria-label": "Informationen anzeigen",
-                                             "title": "Informationen anzeigen"})
-            
+
+            floating_button = soup.new_tag(
+                "button",
+                id="floating-info-button",
+                **{
+                    "class": button_classes,
+                    "aria-label": "Informationen anzeigen",
+                    "title": "Informationen anzeigen",
+                },
+            )
+
             # Load and add LucideInfo.svg icon
-            info_icon_path = Path(__file__).parent.parent.parent / "static_files" / "markup" / "icons" / "LucideInfo.svg"
+            info_icon_path = (
+                Path(__file__).parent.parent.parent
+                / "static_files"
+                / "markup"
+                / "icons"
+                / "LucideInfo.svg"
+            )
             if info_icon_path.exists():
-                with open(info_icon_path, 'r', encoding='utf-8') as f:
+                with open(info_icon_path, "r", encoding="utf-8") as f:
                     svg_content = f.read()
-                
+
                 # Parse SVG and extract content
-                svg_soup = BeautifulSoup(svg_content, 'xml')
-                svg_element = svg_soup.find('svg')
-                
+                svg_soup = BeautifulSoup(svg_content, "xml")
+                svg_element = svg_soup.find("svg")
+
                 if svg_element:
                     # Create a new SVG element for the button
                     new_svg = soup.new_tag("svg")
-                    
+
                     # Copy SVG attributes but ensure proper sizing
                     for attr, value in svg_element.attrs.items():
-                        if attr == 'width':
+                        if attr == "width":
                             new_svg[attr] = "20"
-                        elif attr == 'height':
+                        elif attr == "height":
                             new_svg[attr] = "20"
                         else:
                             new_svg[attr] = value
-                    
+
                     # Copy all child elements recursively
                     def copy_element(source_elem, parent_elem):
                         for child in source_elem.children:
-                            if hasattr(child, 'name') and child.name:  # Only copy tag elements with valid names
+                            if (
+                                hasattr(child, "name") and child.name
+                            ):  # Only copy tag elements with valid names
                                 new_child = soup.new_tag(child.name)
                                 for attr, value in child.attrs.items():
                                     new_child[attr] = value
@@ -487,7 +532,7 @@ def insert_footer(soup: BeautifulSoup, in_force_status: bool = None) -> Beautifu
                                 parent_elem.append(new_child)
                                 # Recursively copy nested elements
                                 copy_element(child, new_child)
-                    
+
                     copy_element(svg_element, new_svg)
                     floating_button.append(new_svg)
                 else:
@@ -496,18 +541,24 @@ def insert_footer(soup: BeautifulSoup, in_force_status: bool = None) -> Beautifu
             else:
                 # Fallback to text if icon file doesn't exist
                 floating_button.string = "i"
-            
+
             body.append(floating_button)
 
             # Add sidebar modal (content will be moved by JavaScript on mobile)
-            sidebar_modal = soup.new_tag("div", 
-                                       id="sidebar-modal", 
-                                       **{"class": "sidebar-modal", 
-                                          "role": "dialog", 
-                                          "aria-labelledby": "sidebar-modal-title",
-                                          "aria-hidden": "true"})
-            
-            sidebar_modal_content = soup.new_tag("div", **{"class": "sidebar-modal-content"})
+            sidebar_modal = soup.new_tag(
+                "div",
+                id="sidebar-modal",
+                **{
+                    "class": "sidebar-modal",
+                    "role": "dialog",
+                    "aria-labelledby": "sidebar-modal-title",
+                    "aria-hidden": "true",
+                },
+            )
+
+            sidebar_modal_content = soup.new_tag(
+                "div", **{"class": "sidebar-modal-content"}
+            )
             sidebar_modal.append(sidebar_modal_content)
             body.append(sidebar_modal)
 
@@ -529,12 +580,12 @@ def insert_footer(soup: BeautifulSoup, in_force_status: bool = None) -> Beautifu
 # HTML Structure Modification Functions
 # -----------------------------------------------------------------------------
 def modify_html(
-    soup: BeautifulSoup, 
-    erlasstitel: str, 
-    ordnungsnummer: str = "", 
-    nachtragsnummer: str = "", 
+    soup: BeautifulSoup,
+    erlasstitel: str,
+    ordnungsnummer: str = "",
+    nachtragsnummer: str = "",
     in_force: bool = False,
-    canonical_url: str = ""
+    canonical_url: str = "",
 ) -> BeautifulSoup:
     """
     Modifies the HTML by adding stylesheet, favicon, meta tags, and reorganizing the body structure.
@@ -588,20 +639,24 @@ def modify_html(
     head.append(viewport_meta)
     encoding_meta: Tag = soup.new_tag("meta", charset="utf-8")
     head.append(encoding_meta)
-    
+
     # Add language meta tag
-    language_meta: Tag = soup.new_tag("meta", attrs={"name": "language", "content": "de-CH"})
+    language_meta: Tag = soup.new_tag(
+        "meta", attrs={"name": "language", "content": "de-CH"}
+    )
     head.append(language_meta)
-    
+
     # Add description meta tag
     if ordnungsnummer and nachtragsnummer:
         description = f"{ordnungsnummer}-{nachtragsnummer} ∗ {erlasstitel}"
     else:
         description = erlasstitel
-    
-    description_meta: Tag = soup.new_tag("meta", attrs={"name": "description", "content": description})
+
+    description_meta: Tag = soup.new_tag(
+        "meta", attrs={"name": "description", "content": description}
+    )
     head.append(description_meta)
-    
+
     # Add canonical URL if provided and different from current page
     if canonical_url:
         canonical_link: Tag = soup.new_tag("link", rel="canonical", href=canonical_url)
@@ -610,8 +665,10 @@ def modify_html(
     # Add inline script to prevent FOUC (Flash of Unstyled Content) for dark mode
     # Only add if not already present
     existing_fouc_scripts = head.find_all("script")
-    has_fouc_script = any("Prevent FOUC" in script.get_text() for script in existing_fouc_scripts)
-    
+    has_fouc_script = any(
+        "Prevent FOUC" in script.get_text() for script in existing_fouc_scripts
+    )
+
     if not has_fouc_script:
         fouc_prevention_script: Tag = soup.new_tag("script")
         fouc_prevention_script.string = """
@@ -645,7 +702,7 @@ def modify_html(
     dark_mode_src = get_versioned_asset_url("/dark-mode.js")
     dark_mode_script: Tag = soup.new_tag("script", src=dark_mode_src, defer=True)
     head.append(dark_mode_script)
-    
+
     # Add inline script to prevent scrolling to missing anchors
     anchor_check_script: Tag = soup.new_tag("script")
     anchor_check_script.string = """
@@ -857,7 +914,9 @@ def insert_combined_table(
     metadata_content: Tag = soup.new_tag("div", **{"class": "metadata-content"})
 
     # Create Erlasstitel as full-width item (top-bottom layout)
-    erlasstitel_item: Tag = soup.new_tag("div", **{"class": "metadata-item metadata-item-full"})
+    erlasstitel_item: Tag = soup.new_tag(
+        "div", **{"class": "metadata-item metadata-item-full"}
+    )
     erlasstitel_label: Tag = soup.new_tag("div", **{"class": "metadata-label"})
     erlasstitel_label.string = "Erlasstitel:"
     erlasstitel_value: Tag = soup.new_tag("div", **{"class": "metadata-value"})
@@ -883,7 +942,9 @@ def insert_combined_table(
     ]
 
     for key, label in row_fields:
-        item_div: Tag = soup.new_tag("div", **{"class": "metadata-item metadata-item-row"})
+        item_div: Tag = soup.new_tag(
+            "div", **{"class": "metadata-item metadata-item-row"}
+        )
         label_div: Tag = soup.new_tag("div", **{"class": "metadata-label"})
         label_div.string = f"{label}:"
         value_div: Tag = soup.new_tag("div", **{"class": "metadata-value"})
@@ -916,7 +977,9 @@ def insert_combined_table(
         metadata_content.append(item_div)
 
     # Add Gesetzessammlung as row item
-    law_origin_div: Tag = soup.new_tag("div", **{"class": "metadata-item metadata-item-row"})
+    law_origin_div: Tag = soup.new_tag(
+        "div", **{"class": "metadata-item metadata-item-row"}
+    )
     law_origin_label: Tag = soup.new_tag("div", **{"class": "metadata-label"})
     law_origin_label.string = "Gesetzessammlung:"
     law_origin_value: Tag = soup.new_tag("div", **{"class": "metadata-value"})
@@ -963,38 +1026,38 @@ def add_navigation_prefetch_links(
 ) -> BeautifulSoup:
     """
     Adds prefetch links to the HTML head for enabled navigation buttons.
-    
+
     Args:
         soup: BeautifulSoup object to modify
         ordnungsnummer: The law's ordnungsnummer
         prev_ver: Previous version nachtragsnummer (if exists)
         next_ver: Next version nachtragsnummer (if exists)
         new_ver: Newest version nachtragsnummer (if different from current)
-    
+
     Returns:
         Modified BeautifulSoup object
     """
     head = soup.find("head")
     if not head:
         return soup
-    
+
     # Generate prefetch links for enabled navigation buttons
     prefetch_urls = []
-    
+
     if prev_ver:
         prefetch_urls.append(f"{ordnungsnummer}-{prev_ver}.html")
-    
+
     if next_ver:
         prefetch_urls.append(f"{ordnungsnummer}-{next_ver}.html")
-    
+
     if new_ver:
         prefetch_urls.append(f"{ordnungsnummer}-{new_ver}.html")
-    
+
     # Add prefetch link tags to head
     for url in prefetch_urls:
         prefetch_link = soup.new_tag("link", rel="prefetch", href=url)
         head.append(prefetch_link)
-    
+
     return soup
 
 
@@ -1076,10 +1139,12 @@ def insert_versions_and_update_navigation(
         button = soup.find("button", id="new-ver")
         if button:
             button["disabled"] = True
-    
+
     # Add prefetch links for enabled navigation buttons
-    soup = add_navigation_prefetch_links(soup, ordnungsnummer, prev_ver, next_ver, new_ver)
-    
+    soup = add_navigation_prefetch_links(
+        soup, ordnungsnummer, prev_ver, next_ver, new_ver
+    )
+
     return soup, all_versions
 
 
@@ -1363,11 +1428,11 @@ def exclude_footnotes_from_search(soup: BeautifulSoup) -> BeautifulSoup:
     """
     # Find all footnote reference elements
     footnote_refs = soup.find_all("sup", class_="footnote-ref")
-    
+
     for ref in footnote_refs:
         # Add the data-pagefind-ignore attribute
         ref["data-pagefind-ignore"] = "all"
-    
+
     return soup
 
 
@@ -1550,7 +1615,7 @@ def create_links_display(
         copy_svg = soup.new_tag("svg")
         # Set basic attributes with override for size
         for attr, value in svg_attrs.items():
-            if attr in ['width', 'height']:
+            if attr in ["width", "height"]:
                 copy_svg[attr] = "16"  # Override size to 16x16
             else:
                 copy_svg[attr] = value
@@ -1568,9 +1633,15 @@ def create_links_display(
             viewBox="0 0 24 24",
             fill="none",
             stroke="currentColor",
-            **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round"},
+            **{
+                "stroke-width": "2",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round",
+            },
         )
-        rect1 = soup.new_tag("rect", x="9", y="9", width="13", height="13", rx="2", ry="2")
+        rect1 = soup.new_tag(
+            "rect", x="9", y="9", width="13", height="13", rx="2", ry="2"
+        )
         path1 = soup.new_tag(
             "path", d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
         )
@@ -1620,7 +1691,7 @@ def create_links_display(
         copy_svg2 = soup.new_tag("svg")
         # Set basic attributes with override for size
         for attr, value in svg_attrs2.items():
-            if attr in ['width', 'height']:
+            if attr in ["width", "height"]:
                 copy_svg2[attr] = "16"  # Override size to 16x16
             else:
                 copy_svg2[attr] = value
@@ -1638,9 +1709,15 @@ def create_links_display(
             viewBox="0 0 24 24",
             fill="none",
             stroke="currentColor",
-            **{"stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round"},
+            **{
+                "stroke-width": "2",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round",
+            },
         )
-        rect2 = soup.new_tag("rect", x="9", y="9", width="13", height="13", rx="2", ry="2")
+        rect2 = soup.new_tag(
+            "rect", x="9", y="9", width="13", height="13", rx="2", ry="2"
+        )
         path2 = soup.new_tag(
             "path", d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
         )
@@ -1684,20 +1761,23 @@ def update_css_references_for_site_elements(soup: BeautifulSoup) -> BeautifulSou
         for link in existing_css_links:
             # Remove links to any version of styles.css (versioned or unversioned)
             href = link.get("href", "")
-            if (href in ["styles.css", "/styles.css"] or 
-                (href.startswith("/styles.") and href.endswith(".css"))):
+            if href in ["styles.css", "/styles.css"] or (
+                href.startswith("/styles.") and href.endswith(".css")
+            ):
                 link.decompose()
-        
+
         # Add CSS stylesheet with versioning
         css_href = get_versioned_asset_url("/styles.css")
         css_link: Tag = soup.new_tag("link", rel="stylesheet", href=css_href)
         # Insert at the beginning of head to ensure it loads early
         head.insert(0, css_link)
-        
+
         # Add the FOUC prevention script for consistency (only if not already present)
         existing_fouc_scripts = head.find_all("script")
-        has_fouc_script = any("Prevent FOUC" in script.get_text() for script in existing_fouc_scripts)
-        
+        has_fouc_script = any(
+            "Prevent FOUC" in script.get_text() for script in existing_fouc_scripts
+        )
+
         if not has_fouc_script:
             fouc_prevention_script: Tag = soup.new_tag("script")
             fouc_prevention_script.string = """
@@ -1727,12 +1807,12 @@ def update_css_references_for_site_elements(soup: BeautifulSoup) -> BeautifulSou
 """
             # Insert after the CSS link
             head.insert(1, fouc_prevention_script)
-        
+
         # Also ensure the HTML tag has the proper classes
         html_tag = soup.html
         if html_tag:
             html_tag["class"] = html_tag.get("class", []) + ["no-js", "light-mode"]
-    
+
     return soup
 
 
@@ -1775,8 +1855,7 @@ def main(
             elif law_origin == "ch":
                 canonical_url = f"https://zhlaw.ch/col-ch/{ordnungsnummer}-{current_nachtragsnummer}.html"
         elif versions:
-            # Find the newest version (in_force=true) for canonical URL of older versions
-            newer_versions = versions.get("newer_versions", [])
+            newer_versions = versions if isinstance(versions, list) else []
             for version in newer_versions:
                 if version.get("in_force", False):
                     canonical_nachtragsnummer = version.get("nachtragsnummer", "")
@@ -1786,14 +1865,14 @@ def main(
                         elif law_origin == "ch":
                             canonical_url = f"https://zhlaw.ch/col-ch/{ordnungsnummer}-{canonical_nachtragsnummer}.html"
                     break
-        
+
         soup = modify_html(
-            soup, 
-            erlasstitel, 
-            ordnungsnummer, 
-            current_nachtragsnummer, 
+            soup,
+            erlasstitel,
+            ordnungsnummer,
+            current_nachtragsnummer,
             in_force_status,
-            canonical_url
+            canonical_url,
         )
         soup = insert_combined_table(
             soup,
@@ -1872,10 +1951,10 @@ def main(
     # This prevents duplication for files like index.html and dispatch.html that already have them
     existing_header = soup.find("div", id="page-header")
     existing_footer = soup.find("div", id="page-footer") or soup.find("footer")
-    
+
     if not existing_header:
         soup = insert_header(soup, law_origin)
-    
+
     if not existing_footer:
         # Pass in_force_status to footer if available (only for non-site_element types)
         footer_in_force_status = in_force_status if type_str != "site_element" else None
