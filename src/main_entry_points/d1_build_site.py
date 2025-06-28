@@ -147,7 +147,13 @@ def process_html_file(args):
 
         # Write final HTML
         with open(new_file_path, "w", encoding="utf-8") as file:
-            file.write("<!DOCTYPE html>\n")
+            # Check if the soup already has a DOCTYPE declaration
+            from bs4 import Doctype
+            has_doctype = any(isinstance(element, Doctype) for element in soup.contents)
+            
+            # Only add DOCTYPE if it's not already present
+            if not has_doctype:
+                file.write("<!DOCTYPE html>\n")
             file.write(str(soup))
 
         return True

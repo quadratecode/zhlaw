@@ -48,6 +48,8 @@ html_template = """
         <link href="/favicon.ico" rel="icon" type="image/x-icon">
         <meta charset="UTF-8">
         <meta content="width=device-width, initial-scale=1.0" name="viewport">
+        <meta name="language" content="de-CH">
+        <meta name="description" content="zhlaw.ch ist eine digitale, durchsuch- und verlinkbare Erlasssammlung (Kanton ZH). Massgebend sind die offiziellen Publikationen.">
         <title>zhlaw</title>
     </head>
     <body>

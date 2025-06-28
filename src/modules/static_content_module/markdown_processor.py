@@ -109,7 +109,10 @@ class MarkdownProcessor:
         # Get title from metadata or use filename
         title = metadata.get('title', filename.replace('_', ' ').title())
         
-        # Generate HTML template
+        # Get description from metadata
+        description = metadata.get('description', title)
+        
+        # Generate HTML template with enhanced meta tags
         html_template = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -118,6 +121,8 @@ class MarkdownProcessor:
     <link href="/favicon.ico" rel="icon" type="image/x-icon">
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta name="language" content="de-CH">
+    <meta name="description" content="{description}">
     <title>{title}</title>
 </head>
 <body>

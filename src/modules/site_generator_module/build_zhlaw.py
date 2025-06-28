@@ -528,10 +528,18 @@ def insert_footer(soup: BeautifulSoup, in_force_status: bool = None) -> Beautifu
 # -----------------------------------------------------------------------------
 # HTML Structure Modification Functions
 # -----------------------------------------------------------------------------
-def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
+def modify_html(
+    soup: BeautifulSoup, 
+    erlasstitel: str, 
+    ordnungsnummer: str = "", 
+    nachtragsnummer: str = "", 
+    in_force: bool = False,
+    canonical_url: str = ""
+) -> BeautifulSoup:
     """
     Modifies the HTML by adding stylesheet, favicon, meta tags, and reorganizing the body structure.
     Also adds dark mode support by including the dark mode script.
+    Adds language, description, and canonical meta tags for SEO.
     Note: No data-pagefind-body attribute is added here - it will be added selectively later.
     """
     # Add no-js class to html element for JavaScript detection
@@ -580,10 +588,33 @@ def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
     head.append(viewport_meta)
     encoding_meta: Tag = soup.new_tag("meta", charset="utf-8")
     head.append(encoding_meta)
+    
+    # Add language meta tag
+    language_meta: Tag = soup.new_tag("meta", attrs={"name": "language", "content": "de-CH"})
+    head.append(language_meta)
+    
+    # Add description meta tag
+    if ordnungsnummer and nachtragsnummer:
+        description = f"{ordnungsnummer}-{nachtragsnummer} ∗ {erlasstitel}"
+    else:
+        description = erlasstitel
+    
+    description_meta: Tag = soup.new_tag("meta", attrs={"name": "description", "content": description})
+    head.append(description_meta)
+    
+    # Add canonical URL if provided and different from current page
+    if canonical_url:
+        canonical_link: Tag = soup.new_tag("link", rel="canonical", href=canonical_url)
+        head.append(canonical_link)
 
     # Add inline script to prevent FOUC (Flash of Unstyled Content) for dark mode
-    fouc_prevention_script: Tag = soup.new_tag("script")
-    fouc_prevention_script.string = """
+    # Only add if not already present
+    existing_fouc_scripts = head.find_all("script")
+    has_fouc_script = any("Prevent FOUC" in script.get_text() for script in existing_fouc_scripts)
+    
+    if not has_fouc_script:
+        fouc_prevention_script: Tag = soup.new_tag("script")
+        fouc_prevention_script.string = """
 // Prevent FOUC by immediately applying theme before CSS loads
 (function() {
     'use strict';
@@ -608,7 +639,7 @@ def modify_html(soup: BeautifulSoup, erlasstitel: str) -> BeautifulSoup:
     }
 })();
 """
-    head.append(fouc_prevention_script)
+        head.append(fouc_prevention_script)
 
     # Add dark mode script with versioning
     dark_mode_src = get_versioned_asset_url("/dark-mode.js")
@@ -1651,9 +1682,10 @@ def update_css_references_for_site_elements(soup: BeautifulSoup) -> BeautifulSou
         # Remove existing CSS links that might conflict with versioned assets
         existing_css_links = head.find_all("link", rel="stylesheet")
         for link in existing_css_links:
-            # Remove links to styles.css (with or without leading slash)
+            # Remove links to any version of styles.css (versioned or unversioned)
             href = link.get("href", "")
-            if href in ["styles.css", "/styles.css"]:
+            if (href in ["styles.css", "/styles.css"] or 
+                (href.startswith("/styles.") and href.endswith(".css"))):
                 link.decompose()
         
         # Add CSS stylesheet with versioning
@@ -1662,9 +1694,13 @@ def update_css_references_for_site_elements(soup: BeautifulSoup) -> BeautifulSou
         # Insert at the beginning of head to ensure it loads early
         head.insert(0, css_link)
         
-        # Add the FOUC prevention script for consistency
-        fouc_prevention_script: Tag = soup.new_tag("script")
-        fouc_prevention_script.string = """
+        # Add the FOUC prevention script for consistency (only if not already present)
+        existing_fouc_scripts = head.find_all("script")
+        has_fouc_script = any("Prevent FOUC" in script.get_text() for script in existing_fouc_scripts)
+        
+        if not has_fouc_script:
+            fouc_prevention_script: Tag = soup.new_tag("script")
+            fouc_prevention_script.string = """
 // Prevent FOUC by immediately applying theme before CSS loads
 (function() {
     'use strict';
@@ -1689,8 +1725,8 @@ def update_css_references_for_site_elements(soup: BeautifulSoup) -> BeautifulSou
     }
 })();
 """
-        # Insert after the CSS link
-        head.insert(1, fouc_prevention_script)
+            # Insert after the CSS link
+            head.insert(1, fouc_prevention_script)
         
         # Also ensure the HTML tag has the proper classes
         html_tag = soup.html
@@ -1730,7 +1766,35 @@ def main(
         soup = merge_paragraphs_with_footnote_refs(soup)
         soup = wrap_provisions(soup)
         soup = exclude_footnotes_from_search(soup)
-        soup = modify_html(soup, erlasstitel)
+        # Determine canonical URL for all versions
+        canonical_url = ""
+        if in_force_status:
+            # Self-referencing canonical for newest version
+            if law_origin == "zh":
+                canonical_url = f"https://zhlaw.ch/col-zh/{ordnungsnummer}-{current_nachtragsnummer}.html"
+            elif law_origin == "ch":
+                canonical_url = f"https://zhlaw.ch/col-ch/{ordnungsnummer}-{current_nachtragsnummer}.html"
+        elif versions:
+            # Find the newest version (in_force=true) for canonical URL of older versions
+            newer_versions = versions.get("newer_versions", [])
+            for version in newer_versions:
+                if version.get("in_force", False):
+                    canonical_nachtragsnummer = version.get("nachtragsnummer", "")
+                    if canonical_nachtragsnummer:
+                        if law_origin == "zh":
+                            canonical_url = f"https://zhlaw.ch/col-zh/{ordnungsnummer}-{canonical_nachtragsnummer}.html"
+                        elif law_origin == "ch":
+                            canonical_url = f"https://zhlaw.ch/col-ch/{ordnungsnummer}-{canonical_nachtragsnummer}.html"
+                    break
+        
+        soup = modify_html(
+            soup, 
+            erlasstitel, 
+            ordnungsnummer, 
+            current_nachtragsnummer, 
+            in_force_status,
+            canonical_url
+        )
         soup = insert_combined_table(
             soup,
             doc_info,
@@ -1804,10 +1868,18 @@ def main(
         # For site_element type files, update CSS references to use versioned URLs
         soup = update_css_references_for_site_elements(soup)
 
-    soup = insert_header(soup, law_origin)
-    # Pass in_force_status to footer if available (only for non-site_element types)
-    footer_in_force_status = in_force_status if type_str != "site_element" else None
-    soup = insert_footer(soup, footer_in_force_status)
+    # Check if header/footer already exist before inserting them
+    # This prevents duplication for files like index.html and dispatch.html that already have them
+    existing_header = soup.find("div", id="page-header")
+    existing_footer = soup.find("div", id="page-footer") or soup.find("footer")
+    
+    if not existing_header:
+        soup = insert_header(soup, law_origin)
+    
+    if not existing_footer:
+        # Pass in_force_status to footer if available (only for non-site_element types)
+        footer_in_force_status = in_force_status if type_str != "site_element" else None
+        soup = insert_footer(soup, footer_in_force_status)
     return soup
 
 
