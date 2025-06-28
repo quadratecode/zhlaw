@@ -21,7 +21,8 @@ import requests
 import json
 import arrow
 import time
-from tqdm import tqdm
+# from tqdm import tqdm  # Replaced with progress_utils
+from src.utils.progress_utils import progress_manager
 from src.utils.logging_utils import get_module_logger
 
 # Configure logging
@@ -58,73 +59,82 @@ def main(folder):
     ) as file:
         laws = json.load(file)
 
-    for law in tqdm(laws, desc="downloading laws"):
-        for version in law.get("versions", []):
+    with progress_manager() as pm:
+        counter = pm.create_counter(
+            total=len(laws),
+            desc=f"Downloading {len(laws)} laws",
+            unit="laws"
+        )
+        
+        for law in laws:
+            for version in law.get("versions", []):
 
-            erlasstitel = law.get("erlasstitel")
-            kurztitel = law.get("kurztitel")
-            abkuerzung = law.get("abkuerzung")
-            ordnungsnummer = law["ordnungsnummer"]
-            nachtragsnummer = version["nachtragsnummer"]
-            law_dir = os.path.join(folder, ordnungsnummer, str(nachtragsnummer))
+                erlasstitel = law.get("erlasstitel")
+                kurztitel = law.get("kurztitel")
+                abkuerzung = law.get("abkuerzung")
+                ordnungsnummer = law["ordnungsnummer"]
+                nachtragsnummer = version["nachtragsnummer"]
+                law_dir = os.path.join(folder, ordnungsnummer, str(nachtragsnummer))
 
-            os.makedirs(law_dir, exist_ok=True)
+                os.makedirs(law_dir, exist_ok=True)
 
-            if version.get("law_text_redirect") != None:
-                law_text_url = version.get("law_text_redirect")
-            elif version.get("law_text_url") != None:
-                law_text_url = version.get("law_text_url")
-            else:
-                continue
+                if version.get("law_text_redirect") != None:
+                    law_text_url = version.get("law_text_redirect")
+                elif version.get("law_text_url") != None:
+                    law_text_url = version.get("law_text_url")
+                else:
+                    continue
 
-            # Build file name
-            if "pdf" in law_text_url:
-                file_name = (
-                    str(ordnungsnummer)
-                    + "-"
-                    + str(nachtragsnummer)
-                    + "-original"
-                    + ".pdf"
-                )
-            else:
-                file_name = (
-                    str(ordnungsnummer)
-                    + "-"
-                    + str(nachtragsnummer)
-                    + "-original"
-                    + ".html"
-                )
-            file_path = os.path.join(law_dir, file_name)
+                # Build file name
+                if "pdf" in law_text_url:
+                    file_name = (
+                        str(ordnungsnummer)
+                        + "-"
+                        + str(nachtragsnummer)
+                        + "-original"
+                        + ".pdf"
+                    )
+                else:
+                    file_name = (
+                        str(ordnungsnummer)
+                        + "-"
+                        + str(nachtragsnummer)
+                        + "-original"
+                        + ".html"
+                    )
+                file_path = os.path.join(law_dir, file_name)
 
-            if not os.path.exists(file_path):
-                # Logging
-                logger.info(f"Downloading {law_text_url} to {file_path}")
-                success = download_law_text(law_text_url, file_path, file_name)
-                time.sleep(1)
+                if not os.path.exists(file_path):
+                    # Logging
+                    logger.info(f"Downloading {law_text_url} to {file_path}")
+                    success = download_law_text(law_text_url, file_path, file_name)
+                    time.sleep(1)
 
-                metadata = {
-                    "doc_info": {
-                        "erlasstitel": erlasstitel,
-                        "kurztitel": kurztitel,
-                        "abkuerzung": abkuerzung,
-                        "ordnungsnummer": ordnungsnummer,
-                        **law.get("doc_info", {}),
-                    },
-                    "process_steps": {
-                        "scrape_law": timestamp,
-                        "crop_pdf": "",
-                        "call_api_law": "",
-                        "call_api_marginalia": "",
-                        "generate_html": "",
-                    },
-                }
+                    metadata = {
+                        "doc_info": {
+                            "erlasstitel": erlasstitel,
+                            "kurztitel": kurztitel,
+                            "abkuerzung": abkuerzung,
+                            "ordnungsnummer": ordnungsnummer,
+                            **law.get("doc_info", {}),
+                        },
+                        "process_steps": {
+                            "scrape_law": timestamp,
+                            "crop_pdf": "",
+                            "call_api_law": "",
+                            "call_api_marginalia": "",
+                            "generate_html": "",
+                        },
+                    }
 
-                # Replace file ending (.html or .pdf) with -metadata.json
-                metadata_file_path = file_path.replace(
-                    "-original.html", "-metadata.json"
-                ).replace("-original.pdf", "-metadata.json")
+                    # Replace file ending (.html or .pdf) with -metadata.json
+                    metadata_file_path = file_path.replace(
+                        "-original.html", "-metadata.json"
+                    ).replace("-original.pdf", "-metadata.json")
 
-                create_metadata_file(metadata, metadata_file_path)
+                    create_metadata_file(metadata, metadata_file_path)
+            
+            counter.update()
 
 
 if __name__ == "__main__":

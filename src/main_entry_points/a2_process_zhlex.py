@@ -43,7 +43,8 @@ import arrow
 import logging
 import glob
 import json
-from tqdm import tqdm
+# from tqdm import tqdm  # Replaced with progress_utils
+from src.utils.progress_utils import progress_manager, track_concurrent_futures
 import argparse
 import sys
 import concurrent.futures
@@ -175,10 +176,17 @@ def process_files_concurrently(pdf_files):
     """Process files in parallel using ProcessPoolExecutor"""
     error_counter = 0
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        # Map the process_pdf_file function to all pdf_files and wrap with tqdm for progress bar
-        results = list(
-            tqdm(executor.map(process_pdf_file, pdf_files), total=len(pdf_files))
-        )
+        # Submit all tasks
+        futures = [executor.submit(process_pdf_file, pdf_file) for pdf_file in pdf_files]
+        
+        # Track progress with enlighten-compatible progress bar
+        results = []
+        for future in track_concurrent_futures(
+            futures, 
+            desc=f"Processing {len(pdf_files)} PDF files concurrently",
+            unit="files"
+        ):
+            results.append(future.result())
 
     error_counter = results.count(False)
     return error_counter
@@ -187,10 +195,19 @@ def process_files_concurrently(pdf_files):
 def process_files_sequentially(pdf_files):
     """Process files sequentially for easier debugging"""
     error_counter = 0
-    for pdf_file in tqdm(pdf_files):
-        success = process_pdf_file(pdf_file)
-        if not success:
-            error_counter += 1
+    
+    with progress_manager() as pm:
+        counter = pm.create_counter(
+            total=len(pdf_files),
+            desc=f"Processing {len(pdf_files)} PDF files sequentially",
+            unit="files"
+        )
+        
+        for pdf_file in pdf_files:
+            success = process_pdf_file(pdf_file)
+            if not success:
+                error_counter += 1
+            counter.update()
 
     return error_counter
 

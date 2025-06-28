@@ -31,7 +31,8 @@ import arrow
 import logging
 import glob
 import json
-from tqdm import tqdm
+# from tqdm import tqdm  # Replaced with progress_utils
+from src.utils.progress_utils import progress_manager
 from bs4 import BeautifulSoup
 import os
 
@@ -141,90 +142,98 @@ def main():
         logger.info("No PDF files found. Exiting.")
         return
 
-    for pdf_file in tqdm(pdf_files):
-        original_pdf_path = pdf_file
-        metadata_file = pdf_file.replace("-original.pdf", "-metadata.json")
+    with progress_manager() as pm:
+        counter = pm.create_counter(
+            total=len(pdf_files),
+            desc=f"Processing {len(pdf_files)} dispatch PDFs",
+            unit="files"
+        )
+        
+        for pdf_file in pdf_files:
+            try:
+                original_pdf_path = pdf_file
+                metadata_file = pdf_file.replace("-original.pdf", "-metadata.json")
 
-        try:
-            with open(metadata_file, "r") as f:
-                metadata = json.load(f)
+                with open(metadata_file, "r") as f:
+                    metadata = json.load(f)
 
-            # Check if the affair type is one of the targeted types
-            affair_type_lower = metadata["doc_info"]["affair_type"].lower()
-            is_target_type = (
-                "vorlage" in affair_type_lower
-                or "einzelinitiative" in affair_type_lower
-                or "behördeninitiative" in affair_type_lower
-                or "parlamentarische initiative" in affair_type_lower
-            )
+                # Check if the affair type is one of the targeted types
+                affair_type_lower = metadata["doc_info"]["affair_type"].lower()
+                is_target_type = (
+                    "vorlage" in affair_type_lower
+                    or "einzelinitiative" in affair_type_lower
+                    or "behördeninitiative" in affair_type_lower
+                    or "parlamentarische initiative" in affair_type_lower
+                )
 
-            # Process only target types with OpenAI
-            if is_target_type:
-                try:
-                    if (
-                        metadata["process_steps"]["call_ai"] == ""
-                        and metadata["doc_info"]["ai_changes"] != ""
-                    ):
-                        logger.info(f"Calling GPT Assistant: {pdf_file}")
-                        call_openai_api.main(original_pdf_path, metadata)
-                        logger.info(f"Finished calling GPT Assistant: {pdf_file}")
-                        metadata["process_steps"]["call_ai"] = timestamp
-                # Ignore error code 400
-                except Exception as e:
-                    if "400" in str(e):
-                        logger.error(
-                            f"Error during in {__file__}: {e} at {timestamp}",
-                            exc_info=True,
-                        )
-                        metadata["doc_info"]["ai_changes"] = "{error: too many tokens}"
-                        metadata["process_steps"]["call_ai"] = timestamp
-                    else:
-                        logger.error(
-                            f"Error during in {__file__}: {e} at {timestamp}",
-                            exc_info=True,
-                        )
-                        error_counter += 1
-                        continue
-
-            # Save the updated metadata
-            with open(metadata_file, "w") as f:
-                json.dump(metadata, f, indent=4, ensure_ascii=False)
-
-            # Add certain metadata back to krzh_dispatch_data.json under the correct entry
-            krzh_dispatch_data_path = DISPATCH_DATA_FILE
-            with open(krzh_dispatch_data_path, "r") as f:
-                krzh_dispatch_data = json.load(f)
-
-            for krzh_dispatch in krzh_dispatch_data:
-                if (
-                    krzh_dispatch["krzh_dispatch_date"]
-                    == metadata["doc_info"]["krzh_dispatch_date"]
-                ):
-                    for affair in krzh_dispatch["affairs"]:
+                # Process only target types with OpenAI
+                if is_target_type:
+                    try:
                         if (
-                            affair["vorlagen_nr"] == metadata["doc_info"]["affair_nr"]
-                            or affair["kr_nr"].replace("/", ".")
-                            == metadata["doc_info"]["affair_nr"]
+                            metadata["process_steps"]["call_ai"] == ""
+                            and metadata["doc_info"]["ai_changes"] != ""
                         ):
-                            affair["affair_nr"] = metadata["doc_info"]["affair_nr"]
-                            # Add changes if key exists
-                            if "changes" in metadata["doc_info"]:
-                                affair["changes"] = metadata["doc_info"]["changes"]
-                            if "ai_changes" in metadata["doc_info"]:
-                                affair["ai_changes"] = metadata["doc_info"][
-                                    "ai_changes"
-                                ]
-                            break
+                            logger.info(f"Calling GPT Assistant: {pdf_file}")
+                            call_openai_api.main(original_pdf_path, metadata)
+                            logger.info(f"Finished calling GPT Assistant: {pdf_file}")
+                            metadata["process_steps"]["call_ai"] = timestamp
+                    # Ignore error code 400
+                    except Exception as e:
+                        if "400" in str(e):
+                            logger.error(
+                                f"Error during in {__file__}: {e} at {timestamp}",
+                                exc_info=True,
+                            )
+                            metadata["doc_info"]["ai_changes"] = "{error: too many tokens}"
+                            metadata["process_steps"]["call_ai"] = timestamp
+                        else:
+                            logger.error(
+                                f"Error during in {__file__}: {e} at {timestamp}",
+                                exc_info=True,
+                            )
+                            error_counter += 1
+                            continue
 
-            with open(krzh_dispatch_data_path, "w") as f:
-                json.dump(krzh_dispatch_data, f, indent=4, ensure_ascii=False)
+                # Save the updated metadata
+                with open(metadata_file, "w") as f:
+                    json.dump(metadata, f, indent=4, ensure_ascii=False)
 
-        except Exception as e:
-            logger.error(
-                f"Error during in {__file__}: {e} at {timestamp}", exc_info=True
-            )
-            error_counter += 1
-            continue
+                # Add certain metadata back to krzh_dispatch_data.json under the correct entry
+                krzh_dispatch_data_path = DISPATCH_DATA_FILE
+                with open(krzh_dispatch_data_path, "r") as f:
+                    krzh_dispatch_data = json.load(f)
+
+                for krzh_dispatch in krzh_dispatch_data:
+                    if (
+                        krzh_dispatch["krzh_dispatch_date"]
+                        == metadata["doc_info"]["krzh_dispatch_date"]
+                    ):
+                        for affair in krzh_dispatch["affairs"]:
+                            if (
+                                affair["vorlagen_nr"] == metadata["doc_info"]["affair_nr"]
+                                or affair["kr_nr"].replace("/", ".")
+                                == metadata["doc_info"]["affair_nr"]
+                            ):
+                                affair["affair_nr"] = metadata["doc_info"]["affair_nr"]
+                                # Add changes if key exists
+                                if "changes" in metadata["doc_info"]:
+                                    affair["changes"] = metadata["doc_info"]["changes"]
+                                if "ai_changes" in metadata["doc_info"]:
+                                    affair["ai_changes"] = metadata["doc_info"][
+                                        "ai_changes"
+                                    ]
+                                break
+
+                with open(krzh_dispatch_data_path, "w") as f:
+                    json.dump(krzh_dispatch_data, f, indent=4, ensure_ascii=False)
+
+            except Exception as e:
+                logger.error(
+                    f"Error during in {__file__}: {e} at {timestamp}", exc_info=True
+                )
+                error_counter += 1
+            finally:
+                counter.update()
 
     logger.info(f"Finished scraping krzh dispatch with {str(error_counter)} errors")
 
