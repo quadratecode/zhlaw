@@ -16,21 +16,21 @@ License:
 """
 
 import time
-import logging
 from pathlib import Path
 
 # Import fedlex module functions
 from src.modules.fedlex_module.scrape_collection_fedlex_sparql import main as scrape_main
 from src.modules.fedlex_module.update_metadata import main as update_metadata_main
 
-# Import logging configuration
-from src.logging_config import setup_logging, get_logger, OperationLogger
+# Import logging utilities
+from src.utils.logging_decorators import configure_logging
+from src.utils.logging_utils import get_module_logger, OperationLogger
 
-# Set up logging
-setup_logging()
-logger = get_logger(__name__)
+# Get logger for this module
+logger = get_module_logger(__name__)
 
 
+@configure_logging()
 def main() -> None:
     """
     Main entry point for the Fedlex scraping pipeline.

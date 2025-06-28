@@ -20,12 +20,12 @@ import os
 import requests
 import json
 import arrow
-import logging
 import time
 from tqdm import tqdm
+from src.utils.logging_utils import get_module_logger
 
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = get_module_logger(__name__)
 
 timestamp = arrow.now().format("YYYYMMDD-HHmmss")
 
@@ -41,7 +41,7 @@ def download_law_text(url, law_dir, file_name):
 
         return timestamp, file_name
     except Exception as e:
-        logging.info(f"Error downloading {url}: {e}")
+        logger.info(f"Error downloading {url}: {e}")
         return False, None
 
 

@@ -15,14 +15,14 @@ License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
-import logging
 import re
 import sys
 from bs4 import BeautifulSoup, NavigableString, Tag
 from typing import Any
+from src.utils.logging_utils import get_module_logger
 
 # Get logger from main module
-logger = logging.getLogger(__name__)
+logger = get_module_logger(__name__)
 
 
 def remove_javascript(soup: BeautifulSoup) -> None:

@@ -11,11 +11,11 @@ import re
 from pathlib import Path
 from bs4 import BeautifulSoup
 from typing import Dict, List, Set, Tuple, Optional
-import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
+from src.utils.logging_utils import get_module_logger
 
-logger = logging.getLogger(__name__)
+logger = get_module_logger(__name__)
 
 
 class AnchorMapGenerator:

@@ -27,15 +27,14 @@ from markdownify import markdownify as md
 import zipfile
 from pathlib import Path
 import yaml
-import logging
 import concurrent.futures
 from tqdm import tqdm
 from urllib.parse import urljoin
 import sys
+from src.utils.logging_utils import get_module_logger
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_module_logger(__name__)
 
 
 def is_ascii_art_or_noise(line):
@@ -511,10 +510,10 @@ if __name__ == "__main__":
     output_dir_rel = "public"
     processing_mode = "concurrent"
     max_workers = None
-    log_level = logging.INFO
+    log_level = "INFO"
     # --- END USER CONFIGURATION ---
 
-    logging.getLogger().setLevel(log_level)
+    # Log level is handled by the logging configuration
     source_path_abs = (current_dir / source_path_rel).resolve()
     output_dir_abs = (current_dir / output_dir_rel).resolve()
     print(f"Source Path: {source_path_abs}")
@@ -522,7 +521,7 @@ if __name__ == "__main__":
     print(f"Processing Mode: {processing_mode}")
     if processing_mode == "concurrent":
         print(f"Max Workers: {max_workers or os.cpu_count()}")
-    print(f"Log Level: {logging.getLevelName(log_level)}")
+    print(f"Log Level: {log_level}")
 
     if not source_path_abs.is_dir():
         print(f"\nERROR: Source directory not found: {source_path_abs}")

@@ -10,9 +10,9 @@ import re
 import shutil
 from pathlib import Path
 from typing import Dict, List, Tuple
-import logging
 
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 class AssetVersionManager:
     """Manages versioned assets for optimal caching."""

@@ -14,12 +14,13 @@ License:
 """
 
 import json
-import logging
 import re
 from bs4 import BeautifulSoup, NavigableString
 
-# Get logger from main module
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+
+# Get logger for this module
+logger = get_module_logger(__name__)
 
 # Module-level constants for default values
 DEFAULT_FONT_WEIGHT = 400

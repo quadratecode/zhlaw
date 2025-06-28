@@ -7,7 +7,6 @@ License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
-import logging
 import re
 from typing import Optional, Tuple, Dict, Any
 from pathlib import Path
@@ -16,7 +15,8 @@ from . import fedlex_config as config
 from .fedlex_models import CategoryInfo, Category
 from .fedlex_utils import load_json_file, is_international_law
 
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 class CategoryAssigner:

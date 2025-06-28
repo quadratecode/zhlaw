@@ -7,16 +7,16 @@ License:
 """
 
 import os
-import logging
 import json
 from bs4 import BeautifulSoup
 import htmldiff.lib as diff_lib
 import shutil
 import concurrent.futures
 from tqdm import tqdm
+from src.utils.logging_utils import get_module_logger
 
 # Set up logging
-logger = logging.getLogger(__name__)
+logger = get_module_logger(__name__)
 
 
 def find_consecutive_versions(collection_data_path):

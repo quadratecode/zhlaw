@@ -16,12 +16,12 @@ License:
 
 import re
 import yaml
-import logging
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
 from .date_utils import parse_date_safe, convert_boolean_safe, safe_float_conversion, safe_int_conversion
 
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 class MarkdownParseError(Exception):

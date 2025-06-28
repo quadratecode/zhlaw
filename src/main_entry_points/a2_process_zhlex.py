@@ -104,61 +104,61 @@ def process_pdf_file(pdf_file: str) -> bool:
     try:
         metadata = read_metadata(paths["metadata_file"])
 
-        logging.info(f"Extracting color for law: {pdf_file}")
+        logger.info(f"Extracting color for law: {pdf_file}")
         extend_metadata.main(
             paths["original_pdf_path"],
             paths["modified_pdf_path"],
             paths["json_file_law"],
             paths["json_file_law_updated"],
         )
-        logging.info(f"Finished extracting color for law: {pdf_file}")
+        logger.info(f"Finished extracting color for law: {pdf_file}")
 
-        logging.info(f"Extracting color for marginalia: {pdf_file}")
+        logger.info(f"Extracting color for marginalia: {pdf_file}")
         extend_metadata.main(
             paths["original_pdf_path"],
             paths["modified_pdf_path_marginalia"],
             paths["json_file_marginalia"],
             paths["json_file_marginalia_updated"],
         )
-        logging.info(f"Finished extracting color for marginalia: {pdf_file}")
+        logger.info(f"Finished extracting color for marginalia: {pdf_file}")
 
-        logging.info(f"Converting law JSON to HTML: {pdf_file}")
+        logger.info(f"Converting law JSON to HTML: {pdf_file}")
         json_to_html.main(
             paths["json_file_law_updated"],
             metadata,
             paths["html_file_law"],
             marginalia=False,
         )
-        logging.info(f"Finished converting law JSON to HTML: {pdf_file}")
+        logger.info(f"Finished converting law JSON to HTML: {pdf_file}")
 
-        logging.info(f"Converting marginalia JSON to HTML: {pdf_file}")
+        logger.info(f"Converting marginalia JSON to HTML: {pdf_file}")
         json_to_html.main(
             paths["json_file_marginalia_updated"],
             metadata,
             paths["html_file_marginalia"],
             marginalia=True,
         )
-        logging.info(f"Finished converting marginalia JSON to HTML: {pdf_file}")
+        logger.info(f"Finished converting marginalia JSON to HTML: {pdf_file}")
 
-        logging.info(f"Merging marginalia: {pdf_file}")
+        logger.info(f"Merging marginalia: {pdf_file}")
         merge_marginalia.main(paths["html_file_marginalia"])
-        logging.info(f"Finished merging marginalia: {pdf_file}")
+        logger.info(f"Finished merging marginalia: {pdf_file}")
 
-        logging.info(f"Matching marginalia: {pdf_file}")
+        logger.info(f"Matching marginalia: {pdf_file}")
         match_marginalia.main(
             paths["html_file_law"],
             paths["html_file_marginalia"],
             paths["merged_html_law"],
         )
-        logging.info(f"Finished matching marginalia: {pdf_file}")
+        logger.info(f"Finished matching marginalia: {pdf_file}")
 
-        logging.info(f"Creating hyperlinks: {pdf_file}")
+        logger.info(f"Creating hyperlinks: {pdf_file}")
         create_hyperlinks.main(paths["merged_html_law"], paths["json_file_law_updated"])
-        logging.info(f"Finished creating hyperlinks: {pdf_file}")
+        logger.info(f"Finished creating hyperlinks: {pdf_file}")
 
-        logging.info(f"Cleaning HTML: {pdf_file}")
+        logger.info(f"Cleaning HTML: {pdf_file}")
         clean_html.main(paths["merged_html_law"])
-        logging.info(f"Finished cleaning HTML: {pdf_file}")
+        logger.info(f"Finished cleaning HTML: {pdf_file}")
 
         # Add processing timestamp to metadata
         timestamp = arrow.now().format("YYYYMMDD-HHmmss")

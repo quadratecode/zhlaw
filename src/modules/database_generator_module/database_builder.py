@@ -15,7 +15,6 @@ License:
 """
 
 import sqlite3
-import logging
 import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -30,7 +29,9 @@ from .markdown_parser import (
     MarkdownParseError
 )
 
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+
+logger = get_module_logger(__name__)
 
 
 class DatabaseBuildError(Exception):

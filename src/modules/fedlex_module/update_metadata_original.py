@@ -19,15 +19,12 @@ import json
 import re
 import time
 import requests
-import logging
 import arrow  # Using arrow for robust date parsing/formatting
 from pathlib import Path
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 # --- Constants and Configuration ---
 

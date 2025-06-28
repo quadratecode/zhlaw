@@ -39,6 +39,9 @@ import os
 from src.utils.logging_decorators import configure_logging
 from src.utils.logging_utils import get_module_logger
 
+# Get logger for this module
+logger = get_module_logger(__name__)
+
 # -----------------------------------------------------------------------------
 # Module-Level Constants
 # -----------------------------------------------------------------------------
@@ -113,6 +116,7 @@ logger = get_module_logger(__name__)
 
 
 @configure_logging()
+@configure_logging()
 def main():
 
     # Initialize error counter
@@ -121,20 +125,20 @@ def main():
     # Timestamp
     timestamp = arrow.now().format("YYYYMMDD-HHmmss")
 
-    logging.info("Starting scraping krzh dispatch")
+    logger.info("Starting scraping krzh dispatch")
     scrape_dispatch.main(DISPATCH_DATA_DIR)
-    logging.info("Finished scraping krzh dispatch")
+    logger.info("Finished scraping krzh dispatch")
 
-    logging.info("Starting downloading krzh dispatch")
+    logger.info("Starting downloading krzh dispatch")
     download_entries.main(DISPATCH_DATA_DIR)
-    logging.info("Finished downloading krzh dispatch")
+    logger.info("Finished downloading krzh dispatch")
 
-    logging.info("Loading krzh dispatch index")
+    logger.info("Loading krzh dispatch index")
     pdf_files = glob.glob(f"{DISPATCH_FILES_DIR}/**/**/*-original.pdf", recursive=True)
     # Remove duplicates found from different junctions
     pdf_files = list(set(pdf_files))
     if not pdf_files:
-        logging.info("No PDF files found. Exiting.")
+        logger.info("No PDF files found. Exiting.")
         return
 
     for pdf_file in tqdm(pdf_files):
@@ -161,9 +165,9 @@ def main():
                         metadata["process_steps"]["call_ai"] == ""
                         and metadata["doc_info"]["ai_changes"] != ""
                     ):
-                        logging.info(f"Calling GPT Assistant: {pdf_file}")
+                        logger.info(f"Calling GPT Assistant: {pdf_file}")
                         call_openai_api.main(original_pdf_path, metadata)
-                        logging.info(f"Finished calling GPT Assistant: {pdf_file}")
+                        logger.info(f"Finished calling GPT Assistant: {pdf_file}")
                         metadata["process_steps"]["call_ai"] = timestamp
                 # Ignore error code 400
                 except Exception as e:
@@ -222,15 +226,15 @@ def main():
             error_counter += 1
             continue
 
-    logging.info(f"Finished scraping krzh dispatch with {str(error_counter)} errors")
+    logger.info(f"Finished scraping krzh dispatch with {str(error_counter)} errors")
 
     # Build page from kzrh_dispatch_data.json
-    logging.info("Building page")
+    logger.info("Building page")
     html_file_path = DISPATCH_HTML_FILE
     os.makedirs(os.path.dirname(html_file_path), exist_ok=True)
     
     # Load asset version map if available
-    logging.info("Loading asset version map")
+    logger.info("Loading asset version map")
     asset_manager = AssetVersionManager(
         source_dir="src/static_files/markup/",
         output_dir="public"
@@ -238,16 +242,16 @@ def main():
     version_map = asset_manager.load_version_map()
     if version_map:
         build_zhlaw.set_version_map(version_map)
-        logging.info(f"Loaded version map with {len(version_map)} entries")
+        logger.info(f"Loaded version map with {len(version_map)} entries")
     else:
-        logging.warning("No asset version map found - CSS versioning will not be applied")
+        logger.warning("No asset version map found - CSS versioning will not be applied")
 
-    logging.info(f"Starting page build")
+    logger.info(f"Starting page build")
     with open(DISPATCH_DATA_FILE, "r") as f:
         krzh_dispatch_data = json.load(f)
 
     # Sort dispatches by date and affairs by type before building the page
-    logging.info("Sorting dispatch data for display")
+    logger.info("Sorting dispatch data for display")
     # Sort dispatches by date (newest first)
     krzh_dispatch_data = sort_dispatches(krzh_dispatch_data)
     # Sort affairs within each dispatch by affair_type
@@ -256,7 +260,7 @@ def main():
     # Save the sorted data back to the file
     with open(DISPATCH_DATA_FILE, "w") as f:
         json.dump(krzh_dispatch_data, f, indent=4, ensure_ascii=False)
-    logging.info("Saved sorted dispatch data")
+    logger.info("Saved sorted dispatch data")
 
     # Build core of dispatch page
     with open(html_file_path, "w") as f:
@@ -274,18 +278,18 @@ def main():
     # Write the modified HTML back to the file
     with open(html_file_path, "w") as f:
         f.write(str(soup))
-    logging.info("Finished page build")
+    logger.info("Finished page build")
 
     # Generate RSS feed
-    logging.info("Generating RSS feed")
+    logger.info("Generating RSS feed")
     rss_feed = build_rss.main(krzh_dispatch_data, site_url="https://www.zhlaw.ch")
 
     # Save RSS feed to static files directory
     with open(RSS_FEED_FILE, "w", encoding="utf-8") as f:
         f.write(rss_feed)
-    logging.info(f"RSS feed saved to {RSS_FEED_FILE}")
+    logger.info(f"RSS feed saved to {RSS_FEED_FILE}")
 
-    logging.info("Dispatch files generated to src/static_files/html/ - will be included by site build process")
+    logger.info("Dispatch files generated to src/static_files/html/ - will be included by site build process")
 
 
 if __name__ == "__main__":

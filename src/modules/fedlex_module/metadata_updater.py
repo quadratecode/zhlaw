@@ -7,7 +7,6 @@ License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
-import logging
 import json
 from pathlib import Path
 from typing import List, Dict, Set, Optional
@@ -20,7 +19,8 @@ from .fedlex_utils import (
 )
 from .category_assigner import CategoryAssigner
 
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 class MetadataUpdater:

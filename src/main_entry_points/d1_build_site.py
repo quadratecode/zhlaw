@@ -25,7 +25,6 @@ License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
-import logging
 import glob
 import json
 from tqdm import tqdm
@@ -48,6 +47,11 @@ from src.modules.site_generator_module import generate_anchor_maps
 from src.modules.general_module.asset_versioning import AssetVersionManager, create_htaccess_rules
 
 # Import logging utilities
+from src.utils.logging_decorators import configure_logging
+from src.utils.logging_utils import get_module_logger
+
+# Get logger for this module
+logger = get_module_logger(__name__)
 from src.utils.logging_decorators import configure_logging
 from src.utils.logging_utils import get_module_logger
 
@@ -143,7 +147,7 @@ def process_html_file(args):
 
         return True
     except Exception as e:
-        logging.error(
+        logger.error(
             f"Error processing {html_file}: {e}",
             exc_info=True,
         )
@@ -199,6 +203,7 @@ def process_html_files_concurrently(
 
 
 @configure_logging()
+@configure_logging()
 def main(
     folder_choice,
     dataset_trigger,
@@ -218,7 +223,7 @@ def main(
     global STATIC_PATH, COLLECTION_PATH_ZH, COLLECTION_PATH_CH
 
     # Show the selected processing mode
-    logging.info(f"Using processing mode: {processing_mode}")
+    logger.info(f"Using processing mode: {processing_mode}")
 
     # Define the collection data paths
     COLLECTION_DATA_ZH = "data/zhlex/zhlex_data/zhlex_data_processed.json"
@@ -231,12 +236,12 @@ def main(
         STATIC_PATH = "public_test/"
         COLLECTION_PATH_ZH = f"{STATIC_PATH}col-zh/"
         COLLECTION_PATH_CH = f"{STATIC_PATH}col-ch/"
-        logging.info(f"Using test output directory: {STATIC_PATH}")
+        logger.info(f"Using test output directory: {STATIC_PATH}")
     else:
         STATIC_PATH = "public/"
         COLLECTION_PATH_ZH = f"{STATIC_PATH}col-zh/"
         COLLECTION_PATH_CH = f"{STATIC_PATH}col-ch/"
-        logging.info(f"Using standard output directory: {STATIC_PATH}")
+        logger.info(f"Using standard output directory: {STATIC_PATH}")
 
     # Remove existing public folder to ensure a clean build
     if os.path.exists(STATIC_PATH):
@@ -278,7 +283,7 @@ def main(
     # -------------------------------------------------------------------------
     # 1) Process static assets with versioning (before anything else)
     # -------------------------------------------------------------------------
-    logging.info("Processing static assets with versioning")
+    logger.info("Processing static assets with versioning")
     
     # Initialize asset version manager
     asset_manager = AssetVersionManager(
@@ -301,12 +306,12 @@ def main(
     # Create .htaccess with caching rules
     create_htaccess_rules(STATIC_PATH, version_map, non_versionable)
     
-    logging.info(f"Processed {len(version_map)} versioned assets and {len(non_versionable)} non-versioned assets")
+    logger.info(f"Processed {len(version_map)} versioned assets and {len(non_versionable)} non-versioned assets")
 
     # -------------------------------------------------------------------------
     # 2) Process markdown content to HTML
     # -------------------------------------------------------------------------
-    logging.info("Processing markdown content files")
+    logger.info("Processing markdown content files")
     from src.modules.static_content_module.markdown_processor import MarkdownProcessor
     
     markdown_processor = MarkdownProcessor()
@@ -316,36 +321,36 @@ def main(
     # Only process if markdown content directory exists
     if os.path.exists(markdown_content_dir):
         markdown_processor.process_content_directory(markdown_content_dir, markdown_output_dir)
-        logging.info("Finished processing markdown content files")
+        logger.info("Finished processing markdown content files")
     else:
-        logging.info("No markdown content directory found, skipping markdown processing")
+        logger.info("No markdown content directory found, skipping markdown processing")
 
     # -------------------------------------------------------------------------
     # 3) Generate index page
     # -------------------------------------------------------------------------
     if process_zh:
         # Generate full ZH index with systematic overview
-        logging.info("Generating ZH index")
+        logger.info("Generating ZH index")
         generate_index.main(
             COLLECTION_DATA_ZH,
             "src/static_files/html/index.html",  # Template
             version_map=version_map  # Pass version map for CSS versioning
         )
-        logging.info("Finished generating ZH index")
+        logger.info("Finished generating ZH index")
     elif process_ch:
         # Generate minimal index for FedLex-only builds
-        logging.info("Generating minimal index for FedLex")
+        logger.info("Generating minimal index for FedLex")
         generate_index.generate_minimal_index(
             "src/static_files/html/index.html",
             version_map=version_map
         )
-        logging.info("Finished generating minimal index")
+        logger.info("Finished generating minimal index")
 
     # -------------------------------------------------------------------------
     # 4) Process ZH-Lex HTML files (if requested)
     # -------------------------------------------------------------------------
     if process_zh and zh_folder:
-        logging.info(f"Loading ZH-Lex HTML files from '{zh_folder}'")
+        logger.info(f"Loading ZH-Lex HTML files from '{zh_folder}'")
 
         html_files_zh_merged = glob.glob(
             f"data/zhlex/{zh_folder}/**/**/*-merged.html",
@@ -366,7 +371,7 @@ def main(
         )
 
         if not html_files_zh:
-            logging.info("No ZH-Lex files found. Proceeding anyway...")
+            logger.info("No ZH-Lex files found. Proceeding anyway...")
         else:
             # Process files in chosen mode
             if processing_mode == "concurrent":
@@ -385,13 +390,13 @@ def main(
                     law_origin="zh",
                 )
 
-            logging.info(f"ZH-Lex: encountered {error_counter_zh} errors.")
+            logger.info(f"ZH-Lex: encountered {error_counter_zh} errors.")
 
     # -------------------------------------------------------------------------
     # 5) Process FedLex HTML files (if requested)
     # -------------------------------------------------------------------------
     if process_ch and ch_folder:
-        logging.info(f"Loading FedLex HTML files from '{ch_folder}'")
+        logger.info(f"Loading FedLex HTML files from '{ch_folder}'")
 
         html_files_ch_merged = glob.glob(
             f"data/fedlex/{ch_folder}/**/**/*-merged.html",
@@ -412,7 +417,7 @@ def main(
             html_files_ch = list(set(html_files_ch_merged + html_files_ch_orig))
 
         if not html_files_ch:
-            logging.info("No FedLex files found. Proceeding anyway...")
+            logger.info("No FedLex files found. Proceeding anyway...")
         else:
             # Process files in chosen mode
             if processing_mode == "concurrent":
@@ -431,31 +436,31 @@ def main(
                     law_origin="ch",
                 )
 
-            logging.info(f"FedLex: encountered {error_counter_ch} errors.")
+            logger.info(f"FedLex: encountered {error_counter_ch} errors.")
 
     # -------------------------------------------------------------------------
     # 6) Build MD datasets if requested (for whichever we processed)
     # -------------------------------------------------------------------------
     if dataset_trigger.lower() == "yes":
         if process_zh and zh_folder:
-            logging.info(f"Building dataset for ZH-Lex (folder: {zh_folder})")
+            logger.info(f"Building dataset for ZH-Lex (folder: {zh_folder})")
             build_markdown.main(
                 f"data/zhlex/{zh_folder}",
                 STATIC_PATH,
                 processing_mode=processing_mode,
                 max_workers=max_workers,
             )
-            logging.info("Finished building dataset for ZH-Lex")
+            logger.info("Finished building dataset for ZH-Lex")
 
         if process_ch and ch_folder:
-            logging.info(f"Building dataset for FedLex (folder: {ch_folder}) ...")
+            logger.info(f"Building dataset for FedLex (folder: {ch_folder}) ...")
             build_markdown.main(
                 f"data/fedlex/{ch_folder}",
                 STATIC_PATH,
                 processing_mode=processing_mode,
                 max_workers=max_workers,
             )
-            logging.info("Finished building dataset for FedLex")
+            logger.info("Finished building dataset for FedLex")
 
     # -------------------------------------------------------------------------
     # 7) Create placeholders for ZH-Lex only if requested
@@ -471,11 +476,11 @@ def main(
             recursive=True,
         )
 
-        logging.info("Creating placeholders for ZH-Lex")
+        logger.info("Creating placeholders for ZH-Lex")
         create_placeholders.main(
             zhlex_data_processed, public_html_files_zh, PLACEHOLDER_DIR_ZH
         )
-        logging.info("Finished creating placeholders for ZH-Lex")
+        logger.info("Finished creating placeholders for ZH-Lex")
 
         # Copy placeholder files into the ZH collection
         if os.path.exists(PLACEHOLDER_DIR_ZH):
@@ -491,7 +496,7 @@ def main(
     # Dont forget to include version_comparison.js in build_zhlaw.py
     # -------------------------------------------------------------------------
     # if process_zh:
-    #     logging.info("Generating diffs for ZH-Lex")
+    #     logger.info("Generating diffs for ZH-Lex")
     #     zh_diff_path = os.path.join(STATIC_PATH, "col-zh/diff")
     #     zh_diff_count = html_diff.main(
     #         COLLECTION_DATA_ZH,
@@ -501,10 +506,10 @@ def main(
     #         processing_mode=processing_mode,
     #         max_workers=max_workers,
     #     )
-    #     logging.info(f"Generated {zh_diff_count} diffs for ZH-Lex")
+    #     logger.info(f"Generated {zh_diff_count} diffs for ZH-Lex")
 
     # if process_ch:
-    #     logging.info("Generating diffs for FedLex")
+    #     logger.info("Generating diffs for FedLex")
     #     ch_diff_path = os.path.join(STATIC_PATH, "col-ch/diff")
     #     ch_diff_count = html_diff.main(
     #         COLLECTION_DATA_CH,
@@ -514,7 +519,7 @@ def main(
     #         processing_mode=processing_mode,
     #         max_workers=max_workers,
     #     )
-    #     logging.info(f"Generated {ch_diff_count} diffs for FedLex")
+    #     logger.info(f"Generated {ch_diff_count} diffs for FedLex")
 
     # -------------------------------------------------------------------------
     # 8) Copy server scripts for local development
@@ -551,7 +556,7 @@ def main(
     # 9) Generate anchor maps for processed collections
     # -------------------------------------------------------------------------
     if process_zh:
-        logging.info("Generating anchor maps for ZH collection")
+        logger.info("Generating anchor maps for ZH collection")
         # Load ZH collection data for anchor map generation
         with open(COLLECTION_DATA_ZH, "r", encoding="utf-8") as file:
             zh_collection_data = json.load(file)
@@ -559,10 +564,10 @@ def main(
             STATIC_PATH, "col-zh", zh_collection_data, 
             concurrent=(processing_mode == "concurrent"), max_workers=max_workers
         )
-        logging.info("Finished generating anchor maps for ZH collection")
+        logger.info("Finished generating anchor maps for ZH collection")
     
     if process_ch:
-        logging.info("Generating anchor maps for CH collection")
+        logger.info("Generating anchor maps for CH collection")
         # Load CH collection data for anchor map generation
         with open(COLLECTION_DATA_CH, "r", encoding="utf-8") as file:
             ch_collection_data = json.load(file)
@@ -570,37 +575,37 @@ def main(
             STATIC_PATH, "col-ch", ch_collection_data,
             concurrent=(processing_mode == "concurrent"), max_workers=max_workers
         )
-        logging.info("Finished generating anchor maps for CH collection")
+        logger.info("Finished generating anchor maps for CH collection")
     
     # Generate anchor maps index for quick select
-    logging.info("Generating anchor maps index")
+    logger.info("Generating anchor maps index")
     generate_anchor_maps.generate_anchor_maps_index(STATIC_PATH)
-    logging.info("Finished generating anchor maps index")
+    logger.info("Finished generating anchor maps index")
 
     # -------------------------------------------------------------------------
     # 10) Generate a sitemap (covering everything under public/)
     # -------------------------------------------------------------------------
-    logging.info("Generating sitemap")
+    logger.info("Generating sitemap")
     site_url = "https://zhlaw.ch"
     test_folders = ["all_test_files", "fedlex_test_files", "zhlex_test_files"]
     if folder_choice in test_folders:
         site_url = "https://test.zhlaw.ch"  # Use a different URL for test site
     generator = SitemapGenerator(site_url, STATIC_PATH)
     generator.save_sitemap(f"{STATIC_PATH}sitemap.xml")
-    logging.info("Finished generating sitemap")
+    logger.info("Finished generating sitemap")
 
     # -------------------------------------------------------------------------
     # 11) Build Pagefind search index (covering everything in public/)
     # -------------------------------------------------------------------------
-    logging.info("Building search index")
+    logger.info("Building search index")
     subprocess.run(["npx", "pagefind", "--site", STATIC_PATH])
-    logging.info("Finished building search index")
+    logger.info("Finished building search index")
     
     # -------------------------------------------------------------------------
     # 12) Start PHP development server
     # -------------------------------------------------------------------------
-    logging.info("Starting PHP development server at http://localhost:8000")
-    logging.info("Press Ctrl+C to stop the server")
+    logger.info("Starting PHP development server at http://localhost:8000")
+    logger.info("Press Ctrl+C to stop the server")
     os.chdir(STATIC_PATH)
     subprocess.run(["php", "-S", "localhost:8000", "router.php"])
 
@@ -654,5 +659,5 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    logging.info(f"Script arguments: {args}")
+    logger.info(f"Script arguments: {args}")
     main(args.folder, args.db_build, args.placeholders, args.mode, args.workers)

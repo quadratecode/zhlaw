@@ -14,9 +14,9 @@ License:
 """
 
 import sqlite3
-import logging
 
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 def get_create_tables_sql():

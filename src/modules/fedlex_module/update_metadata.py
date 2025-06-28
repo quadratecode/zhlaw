@@ -12,7 +12,6 @@ License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
-import logging
 import time
 from pathlib import Path
 from typing import Dict, List
@@ -26,11 +25,8 @@ from .metadata_updater import MetadataUpdater
 from .fedlex_utils import find_metadata_files, group_by_sr_number
 
 # Configure logging
-logging.basicConfig(
-    level=getattr(logging, config.LOG_LEVEL),
-    format=config.LOG_FORMAT
-)
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 def process_batch_versions(sparql_client: SPARQLClient, 

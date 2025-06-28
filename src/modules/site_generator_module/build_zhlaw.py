@@ -18,7 +18,6 @@ License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
-import logging
 import re
 import json
 import os
@@ -26,9 +25,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 from bs4 import BeautifulSoup, Tag
 import arrow
+from src.utils.logging_utils import get_module_logger
 
 # Get logger from main module
-logger = logging.getLogger(__name__)
+logger = get_module_logger(__name__)
 
 # Global version map variable - will be set by the build process
 _VERSION_MAP = {}

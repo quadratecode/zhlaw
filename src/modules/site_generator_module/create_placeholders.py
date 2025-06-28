@@ -15,14 +15,14 @@ License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
-import logging
 import os
 from bs4 import BeautifulSoup
 
 from src.modules.site_generator_module import build_zhlaw
+from src.utils.logging_utils import get_module_logger
 
 # Get logger from main module
-logger = logging.getLogger(__name__)
+logger = get_module_logger(__name__)
 
 
 def main(laws, html_files, placeholder_dir):

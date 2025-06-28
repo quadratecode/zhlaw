@@ -10,7 +10,6 @@ License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
-import logging
 import json
 from pathlib import Path
 
@@ -19,7 +18,8 @@ from .sparql_client import SPARQLClient
 from .file_downloader import FileDownloader
 from .fedlex_utils import save_json_file
 
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 def main():

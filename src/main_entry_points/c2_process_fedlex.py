@@ -23,21 +23,21 @@ License:
 """
 
 import argparse
-import logging
 import time
 from pathlib import Path
 
 # Import fedlex processing module
 from src.modules.fedlex_module.process_fedlex_files import main as process_files_main
 
-# Import logging configuration  
-from src.logging_config import setup_logging, get_logger, OperationLogger
+# Import logging utilities
+from src.utils.logging_decorators import configure_logging
+from src.utils.logging_utils import get_module_logger, OperationLogger
 
-# Set up logging
-setup_logging()
-logger = get_logger(__name__)
+# Get logger for this module
+logger = get_module_logger(__name__)
 
 
+@configure_logging()
 def main(folder: str, mode: str, workers: int = None) -> None:
     """
     Process all Fedlex HTML files in the specified folder.

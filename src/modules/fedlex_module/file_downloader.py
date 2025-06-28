@@ -7,7 +7,6 @@ License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
-import logging
 import time
 from pathlib import Path
 from typing import Optional, List, Dict
@@ -18,7 +17,8 @@ from . import fedlex_config as config
 from .fedlex_models import LawVersion, LawMetadata, DownloadResult
 from .fedlex_utils import retry_on_failure, save_json_file
 
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 class FileDownloader:

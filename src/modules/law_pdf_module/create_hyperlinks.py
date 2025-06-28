@@ -19,10 +19,10 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 from bs4 import BeautifulSoup, NavigableString, Tag
-import logging
 
 # Get logger from main module
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 # -----------------------------------------------------------------------------
 # Module-Level Precompiled Regex Patterns and Constants

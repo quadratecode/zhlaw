@@ -16,7 +16,6 @@ License:
 from openai import OpenAI
 import os
 import json
-import logging
 import traceback
 import re
 import time
@@ -26,7 +25,8 @@ from src.config import Environment, APIConfig
 from src.constants import Messages
 
 # Setup logging
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 # Initialize OpenAI client
 client = OpenAI(api_key=Environment.get_openai_key())

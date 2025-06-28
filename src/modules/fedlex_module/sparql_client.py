@@ -7,7 +7,6 @@ License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
-import logging
 import time
 from typing import Dict, List, Optional, Any
 import requests
@@ -16,7 +15,8 @@ from . import fedlex_config as config
 from .fedlex_models import SPARQLResults, LawVersion
 from .fedlex_utils import retry_on_failure, format_date
 
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 class SPARQLClient:

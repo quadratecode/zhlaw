@@ -14,7 +14,6 @@ License:
 import os
 import zipfile
 import json
-import logging
 import shutil
 from pathlib import Path
 from adobe.pdfservices.operation.auth.credentials import Credentials
@@ -44,7 +43,8 @@ from src.exceptions import (
 )
 
 # Get logger for this module
-logger = get_logger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 def setup_adobe_credentials(credentials_file):

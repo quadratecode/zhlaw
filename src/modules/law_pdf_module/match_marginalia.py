@@ -17,10 +17,10 @@ License:
 
 from bs4 import BeautifulSoup, NavigableString
 import re
-import logging
 
 # Get logger from main module
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 def calculate_overlap(mod_pos, marg_pos):
@@ -188,7 +188,7 @@ def main(html_file_law, html_file_marginalia, merged_html_law):
 
     with open(merged_html_law, "w", encoding="utf-8") as file:
         file.write(str(soup))
-    logging.info(f"Saved merged HTML to {merged_html_law}")
+    logger.info(f"Saved merged HTML to {merged_html_law}")
 
 
 if __name__ == "__main__":

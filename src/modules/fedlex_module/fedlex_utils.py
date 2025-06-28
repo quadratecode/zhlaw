@@ -9,7 +9,6 @@ License:
 """
 
 import json
-import logging
 import re
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -19,7 +18,8 @@ import time
 
 from . import fedlex_config as config
 
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 def format_date(date_str: Optional[str]) -> str:

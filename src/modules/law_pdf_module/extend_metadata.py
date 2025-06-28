@@ -19,11 +19,11 @@ License:
 import fitz
 import re
 import json
-import logging
 import random
 
 # Get logger from main module
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 # Module-level constants for default values and magic numbers
 MM_TO_POINTS = 2.83465  # 1 mm ≈ 2.83465 points

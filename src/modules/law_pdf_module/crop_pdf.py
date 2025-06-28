@@ -11,11 +11,11 @@ License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
 """
 
-import logging
 import fitz
 
 # Get logger from main module
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 def main(original_pdf_path, modified_pdf_path, marginalia_pdf_path):

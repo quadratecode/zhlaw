@@ -29,7 +29,6 @@ License:
 """
 
 import argparse
-import logging
 import os
 import sys
 from pathlib import Path
@@ -38,7 +37,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.modules.database_generator_module.database_builder import build_database
-from src.logging_config import setup_logging
+from src.utils.logging_decorators import configure_logging
+from src.utils.logging_utils import get_module_logger
+
+# Get logger for this module
+logger = get_module_logger(__name__)
 
 
 def parse_arguments():
@@ -149,15 +152,12 @@ def validate_arguments(args):
     }
 
 
+@configure_logging()
 def main():
     """Main entry point."""
     try:
         # Parse arguments
         args = parse_arguments()
-        
-        # Setup logging
-        setup_logging(log_level=args.log_level)
-        logger = logging.getLogger(__name__)
         
         logger.info("Starting database build process")
         logger.info(f"Script arguments: {args}")
@@ -197,10 +197,6 @@ def main():
         logger.info("Build process interrupted by user")
         sys.exit(1)
     except Exception as e:
-        # Setup basic logging for error handling if logger not available
-        if 'logger' not in locals():
-            logging.basicConfig(level=logging.ERROR)
-            logger = logging.getLogger(__name__)
         logger.error(f"Unexpected error: {e}", exc_info=True)
         sys.exit(1)
 

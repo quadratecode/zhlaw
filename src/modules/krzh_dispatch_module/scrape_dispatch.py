@@ -17,7 +17,6 @@ License:
 import requests
 from bs4 import BeautifulSoup
 import json
-import logging
 import arrow
 from time import sleep
 import traceback
@@ -28,7 +27,8 @@ from src.config import URLs, APIConfig
 from src.constants import Language
 
 # Setup logging
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 
 def get_ablaufschritte(kr_nr, vorlagen_nr):
@@ -83,7 +83,7 @@ def get_ablaufschritte(kr_nr, vorlagen_nr):
                     continue
             except arrow.parser.ParserError:
                 # Log the error and skip this step
-                logging.warning(
+                logger.warning(
                     f"Error parsing date '{text.text}' for step type '{ablaufschritttyp.text}'"
                 )
                 continue
@@ -162,7 +162,7 @@ def main(folder):
                     versions = last_document.find_all("Version")
                     last_version = versions[-1]["Nr"]
                 except Exception as e:
-                    logging.error(f"Error getting edoc_id or last_version: {e}")
+                    logger.error(f"Error getting edoc_id or last_version: {e}")
                     continue
 
                 # Construct the pdf url
@@ -212,12 +212,12 @@ def main(folder):
         response = requests.get(URLs.KRZH_VERSAND_API, params=params_dispatch)
         sleep(APIConfig.WEB_REQUEST_DELAY)
         if response.status_code == 200:
-            logging.info(f"API call successful. Parsing and downloading PDFs.")
+            logger.info(f"API call successful. Parsing and downloading PDFs.")
             parse_and_download(response.content)
         else:
-            logging.error(f"API call failed with status code {response.status_code}")
+            logger.error(f"API call failed with status code {response.status_code}")
     except Exception as e:
-        logging.error(f"Error during API call: {e}\n{traceback.format_exc()}")
+        logger.error(f"Error during API call: {e}\n{traceback.format_exc()}")
 
 
 if __name__ == "__main__":

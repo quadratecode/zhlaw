@@ -20,11 +20,11 @@ License:
 
 import os
 import json
-import logging
 import arrow
+from src.utils.logging_utils import get_module_logger
 
 # Get logger from main module
-logger = logging.getLogger(__name__)
+logger = get_module_logger(__name__)
 
 timestamp = arrow.now().format("YYYYMMDD-HHmmss")
 

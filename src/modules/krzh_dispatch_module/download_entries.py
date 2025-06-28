@@ -17,11 +17,11 @@ import os
 import requests
 import json
 import arrow
-import logging
 import time
 
 # Configure logging
-logger = logging.getLogger(__name__)
+from src.utils.logging_utils import get_module_logger
+logger = get_module_logger(__name__)
 
 timestamp = arrow.now().format("YYYYMMDD-HHmmss")
 
