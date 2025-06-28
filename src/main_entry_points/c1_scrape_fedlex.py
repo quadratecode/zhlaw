@@ -9,7 +9,7 @@ This module orchestrates the complete Fedlex law scraping and processing pipelin
 4. Maintains comprehensive version tracking across all federal laws
 
 Usage:
-    python -m src.cmd.b1_scrape_fedlex
+    python -m src.cmd.c1_scrape_fedlex
 
 License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md

@@ -11,7 +11,7 @@ This module processes ZH-Lex law PDF files that have been scraped and downloaded
 6. Cleans and finalizes HTML output
 
 Usage:
-    python -m src.cmd.02_process_zhlex_main [options]
+    python -m src.cmd.a2_process_zhlex_main [options]
 
 Options:
     --folder: Choose folder to process (zhlex_files or test_files)

@@ -12,7 +12,7 @@ This module generates the static website from processed law data:
 7. Copies static assets and deploys search functionality
 
 Usage:
-    python -m src.cmd.03_build_site_main [options]
+    python -m src.cmd.d1_build_site_main [options]
 
 Options:
     --folder: Choose collections to build (zhlex_files, ch_files, all_files, test_files)
@@ -27,6 +27,7 @@ License:
 
 import glob
 import json
+
 # from tqdm import tqdm  # Replaced with progress_utils
 from src.utils.progress_utils import progress_manager, track_concurrent_futures
 import shutil
@@ -45,7 +46,10 @@ from src.modules.site_generator_module.create_sitemap import SitemapGenerator
 from src.modules.dataset_generator_module import build_markdown
 from src.modules.site_generator_module import html_diff
 from src.modules.site_generator_module import generate_anchor_maps
-from src.modules.general_module.asset_versioning import AssetVersionManager, create_htaccess_rules
+from src.modules.general_module.asset_versioning import (
+    AssetVersionManager,
+    create_htaccess_rules,
+)
 
 # Import logging utilities
 from src.utils.logging_decorators import configure_logging
@@ -162,14 +166,14 @@ def process_html_files_sequentially(
     Process HTML files sequentially for easier debugging.
     """
     error_counter = 0
-    
+
     with progress_manager() as pm:
         counter = pm.create_counter(
             total=len(html_files),
             desc=f"Processing {len(html_files)} {law_origin} files sequentially",
-            unit="files"
+            unit="files",
         )
-        
+
         for html_file in html_files:
             success = process_html_file(
                 (html_file, collection_data_path, collection_path, law_origin)
@@ -197,13 +201,13 @@ def process_html_files_concurrently(
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks
         futures = [executor.submit(process_html_file, args) for args in process_args]
-        
+
         # Track progress with enlighten-compatible progress bar
         results = []
         for future in track_concurrent_futures(
             futures,
             desc=f"Processing {len(process_args)} {law_origin} files concurrently",
-            unit="files"
+            unit="files",
         ):
             results.append(future.result())
 
@@ -295,43 +299,46 @@ def main(
     # 1) Process static assets with versioning (before anything else)
     # -------------------------------------------------------------------------
     logger.info("Processing static assets with versioning")
-    
+
     # Initialize asset version manager
     asset_manager = AssetVersionManager(
-        source_dir="src/static_files/markup/",
-        output_dir=STATIC_PATH
+        source_dir="src/static_files/markup/", output_dir=STATIC_PATH
     )
-    
+
     # Process versionable assets (CSS, JS)
     version_map = asset_manager.process_versionable_assets()
-    
+
     # Process non-versionable assets (images, fonts, etc.)
     non_versionable = asset_manager.process_non_versionable_assets()
-    
+
     # Save version map for template processing
     asset_manager.save_version_map()
-    
+
     # Set version map in build_zhlaw module for HTML processing
     build_zhlaw.set_version_map(version_map)
-    
+
     # Create .htaccess with caching rules
     create_htaccess_rules(STATIC_PATH, version_map, non_versionable)
-    
-    logger.info(f"Processed {len(version_map)} versioned assets and {len(non_versionable)} non-versioned assets")
+
+    logger.info(
+        f"Processed {len(version_map)} versioned assets and {len(non_versionable)} non-versioned assets"
+    )
 
     # -------------------------------------------------------------------------
     # 2) Process markdown content to HTML
     # -------------------------------------------------------------------------
     logger.info("Processing markdown content files")
     from src.modules.static_content_module.markdown_processor import MarkdownProcessor
-    
+
     markdown_processor = MarkdownProcessor()
     markdown_content_dir = "src/static_files/content"
     markdown_output_dir = "src/static_files/html"
-    
+
     # Only process if markdown content directory exists
     if os.path.exists(markdown_content_dir):
-        markdown_processor.process_content_directory(markdown_content_dir, markdown_output_dir)
+        markdown_processor.process_content_directory(
+            markdown_content_dir, markdown_output_dir
+        )
         logger.info("Finished processing markdown content files")
     else:
         logger.info("No markdown content directory found, skipping markdown processing")
@@ -345,15 +352,14 @@ def main(
         generate_index.main(
             COLLECTION_DATA_ZH,
             "src/static_files/html/index.html",  # Template
-            version_map=version_map  # Pass version map for CSS versioning
+            version_map=version_map,  # Pass version map for CSS versioning
         )
         logger.info("Finished generating ZH index")
     elif process_ch:
         # Generate minimal index for FedLex-only builds
         logger.info("Generating minimal index for FedLex")
         generate_index.generate_minimal_index(
-            "src/static_files/html/index.html",
-            version_map=version_map
+            "src/static_files/html/index.html", version_map=version_map
         )
         logger.info("Finished generating minimal index")
 
@@ -423,7 +429,9 @@ def main(
                 "src/static_files/html/*.html",
                 recursive=True,
             )
-            html_files_ch = list(set(html_files_ch_merged + html_files_ch_orig + html_site_elements))
+            html_files_ch = list(
+                set(html_files_ch_merged + html_files_ch_orig + html_site_elements)
+            )
         else:
             html_files_ch = list(set(html_files_ch_merged + html_files_ch_orig))
 
@@ -572,22 +580,28 @@ def main(
         with open(COLLECTION_DATA_ZH, "r", encoding="utf-8") as file:
             zh_collection_data = json.load(file)
         generate_anchor_maps.generate_anchor_maps_for_collection(
-            STATIC_PATH, "col-zh", zh_collection_data, 
-            concurrent=(processing_mode == "concurrent"), max_workers=max_workers
+            STATIC_PATH,
+            "col-zh",
+            zh_collection_data,
+            concurrent=(processing_mode == "concurrent"),
+            max_workers=max_workers,
         )
         logger.info("Finished generating anchor maps for ZH collection")
-    
+
     if process_ch:
         logger.info("Generating anchor maps for CH collection")
         # Load CH collection data for anchor map generation
         with open(COLLECTION_DATA_CH, "r", encoding="utf-8") as file:
             ch_collection_data = json.load(file)
         generate_anchor_maps.generate_anchor_maps_for_collection(
-            STATIC_PATH, "col-ch", ch_collection_data,
-            concurrent=(processing_mode == "concurrent"), max_workers=max_workers
+            STATIC_PATH,
+            "col-ch",
+            ch_collection_data,
+            concurrent=(processing_mode == "concurrent"),
+            max_workers=max_workers,
         )
         logger.info("Finished generating anchor maps for CH collection")
-    
+
     # Generate anchor maps index for quick select
     logger.info("Generating anchor maps index")
     generate_anchor_maps.generate_anchor_maps_index(STATIC_PATH)
@@ -611,7 +625,7 @@ def main(
     logger.info("Building search index")
     subprocess.run(["npx", "pagefind", "--site", STATIC_PATH])
     logger.info("Finished building search index")
-    
+
     # -------------------------------------------------------------------------
     # 12) Start PHP development server
     # -------------------------------------------------------------------------
@@ -629,8 +643,14 @@ if __name__ == "__main__":
         "--folder",
         type=str,
         default="all_main_files",
-        choices=["all_test_files", "fedlex_test_files", "zhlex_test_files", 
-                "all_main_files", "zhlex_main_files", "fedlex_main_files"],
+        choices=[
+            "all_test_files",
+            "fedlex_test_files",
+            "zhlex_test_files",
+            "all_main_files",
+            "zhlex_main_files",
+            "fedlex_main_files",
+        ],
         help=(
             "Choose which collection(s) to build:\n"
             "'all_test_files' (test files for fedlex and zhlex), "

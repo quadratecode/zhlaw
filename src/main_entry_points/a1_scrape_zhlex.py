@@ -10,7 +10,7 @@ This module orchestrates the complete ZH-Lex law scraping and processing pipelin
 5. Exports data to CSV format
 
 Usage:
-    python -m src.cmd.01_scrape_zhlex_main
+    python -m src.cmd.a1_scrape_zhlex_main
 
 License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md

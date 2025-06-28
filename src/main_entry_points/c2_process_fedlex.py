@@ -11,7 +11,7 @@ This module processes Fedlex federal law HTML files that have been scraped and d
 6. Wraps annex content and handles footnotes appropriately
 
 Usage:
-    python -m src.cmd.b2_process_fedlex [options]
+    python -m src.cmd.c2_process_fedlex [options]
 
 Options:
     --folder: Choose folder to process (fedlex_files or fedlex_files_test)

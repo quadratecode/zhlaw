@@ -11,7 +11,7 @@ This module processes parliamentary dispatches from the Kantonsrat Zürich:
 6. Integrates processed dispatches into the static website
 
 Usage:
-    python -m src.cmd.04_process_krzh_dispatch_main
+    python -m src.cmd.b1_process_krzh_dispatch_main
 
 License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
@@ -31,6 +31,7 @@ import arrow
 import logging
 import glob
 import json
+
 # from tqdm import tqdm  # Replaced with progress_utils
 from src.utils.progress_utils import progress_manager
 from bs4 import BeautifulSoup
@@ -146,9 +147,9 @@ def main():
         counter = pm.create_counter(
             total=len(pdf_files),
             desc=f"Processing {len(pdf_files)} dispatch PDFs",
-            unit="files"
+            unit="files",
         )
-        
+
         for pdf_file in pdf_files:
             try:
                 original_pdf_path = pdf_file
@@ -184,7 +185,9 @@ def main():
                                 f"Error during in {__file__}: {e} at {timestamp}",
                                 exc_info=True,
                             )
-                            metadata["doc_info"]["ai_changes"] = "{error: too many tokens}"
+                            metadata["doc_info"][
+                                "ai_changes"
+                            ] = "{error: too many tokens}"
                             metadata["process_steps"]["call_ai"] = timestamp
                         else:
                             logger.error(
@@ -210,7 +213,8 @@ def main():
                     ):
                         for affair in krzh_dispatch["affairs"]:
                             if (
-                                affair["vorlagen_nr"] == metadata["doc_info"]["affair_nr"]
+                                affair["vorlagen_nr"]
+                                == metadata["doc_info"]["affair_nr"]
                                 or affair["kr_nr"].replace("/", ".")
                                 == metadata["doc_info"]["affair_nr"]
                             ):
@@ -241,19 +245,20 @@ def main():
     logger.info("Building page")
     html_file_path = DISPATCH_HTML_FILE
     os.makedirs(os.path.dirname(html_file_path), exist_ok=True)
-    
+
     # Load asset version map if available
     logger.info("Loading asset version map")
     asset_manager = AssetVersionManager(
-        source_dir="src/static_files/markup/",
-        output_dir="public"
+        source_dir="src/static_files/markup/", output_dir="public"
     )
     version_map = asset_manager.load_version_map()
     if version_map:
         build_zhlaw.set_version_map(version_map)
         logger.info(f"Loaded version map with {len(version_map)} entries")
     else:
-        logger.warning("No asset version map found - CSS versioning will not be applied")
+        logger.warning(
+            "No asset version map found - CSS versioning will not be applied"
+        )
 
     logger.info(f"Starting page build")
     with open(DISPATCH_DATA_FILE, "r") as f:
@@ -298,7 +303,9 @@ def main():
         f.write(rss_feed)
     logger.info(f"RSS feed saved to {RSS_FEED_FILE}")
 
-    logger.info("Dispatch files generated to src/static_files/html/ - will be included by site build process")
+    logger.info(
+        "Dispatch files generated to src/static_files/html/ - will be included by site build process"
+    )
 
 
 if __name__ == "__main__":
