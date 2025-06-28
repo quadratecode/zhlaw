@@ -19,7 +19,8 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import concurrent.futures
-from tqdm import tqdm
+# from tqdm import tqdm  # Replaced with progress_utils
+from src.utils.progress_utils import progress_manager, track_concurrent_futures
 
 from .database_schema import create_database_schema, drop_all_tables, get_table_info
 from .markdown_parser import (
@@ -185,13 +186,21 @@ def _process_files_sequential(
     """
     successful_count = 0
     
-    for md_file in tqdm(md_files, desc=f"Processing {collection_name} files"):
-        try:
-            if _process_single_file(md_file, collection_name, conn):
-                successful_count += 1
-        except Exception as e:
-            logger.error(f"Error processing file {md_file}: {e}")
-            continue
+    with progress_manager() as pm:
+        counter = pm.create_counter(
+            total=len(md_files),
+            desc=f"Processing {len(md_files)} {collection_name} files",
+            unit="files"
+        )
+        
+        for md_file in md_files:
+            try:
+                if _process_single_file(md_file, collection_name, conn):
+                    successful_count += 1
+            except Exception as e:
+                logger.error(f"Error processing file {md_file}: {e}")
+            finally:
+                counter.update()
     
     logger.info(f"Sequential processing complete: {successful_count}/{len(md_files)} files")
     return successful_count
@@ -228,11 +237,14 @@ def _process_files_concurrent(
             for md_file in md_files
         }
         
+        # Convert to list of futures for tracking
+        futures = list(future_to_file.keys())
+        
         # Collect results
-        for future in tqdm(
-            concurrent.futures.as_completed(future_to_file),
-            total=len(md_files),
-            desc=f"Parsing {collection_name} files"
+        for future in track_concurrent_futures(
+            futures,
+            desc=f"Parsing {len(md_files)} {collection_name} files",
+            unit="files"
         ):
             md_file = future_to_file[future]
             try:
@@ -245,13 +257,21 @@ def _process_files_concurrent(
     
     # Insert parsed data into database sequentially (SQLite doesn't handle concurrent writes well)
     logger.info(f"Inserting {len(parsed_data_list)} parsed files into database")
-    for parsed_data in tqdm(parsed_data_list, desc=f"Inserting {collection_name} data"):
-        try:
-            if _insert_parsed_data(parsed_data, conn):
-                successful_count += 1
-        except Exception as e:
-            logger.error(f"Error inserting data: {e}")
-            continue
+    with progress_manager() as pm:
+        counter = pm.create_counter(
+            total=len(parsed_data_list),
+            desc=f"Inserting {len(parsed_data_list)} {collection_name} records",
+            unit="records"
+        )
+        
+        for parsed_data in parsed_data_list:
+            try:
+                if _insert_parsed_data(parsed_data, conn):
+                    successful_count += 1
+            except Exception as e:
+                logger.error(f"Error inserting data: {e}")
+            finally:
+                counter.update()
     
     logger.info(f"Concurrent processing complete: {successful_count}/{len(md_files)} files")
     return successful_count

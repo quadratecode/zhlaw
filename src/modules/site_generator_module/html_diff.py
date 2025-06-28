@@ -12,7 +12,8 @@ from bs4 import BeautifulSoup
 import htmldiff.lib as diff_lib
 import shutil
 import concurrent.futures
-from tqdm import tqdm
+# from tqdm import tqdm  # Replaced with progress_utils
+from src.utils.progress_utils import progress_manager, track_concurrent_futures
 from src.utils.logging_utils import get_module_logger
 
 # Set up logging
@@ -384,14 +385,17 @@ def process_all_diffs_concurrently(
         with concurrent.futures.ProcessPoolExecutor(
             max_workers=max_workers
         ) as executor:
-            # Map the generate_law_diffs function to complex laws and wrap with tqdm for progress bar
-            results = list(
-                tqdm(
-                    executor.map(generate_law_diffs, process_args),
-                    total=len(process_args),
-                    desc=f"Processing {large_law_diffs} diffs for {len(large_laws)} complex laws ({law_origin})",
-                )
-            )
+            # Submit all tasks
+            futures = [executor.submit(generate_law_diffs, args) for args in process_args]
+            
+            # Track progress with enlighten-compatible progress bar
+            results = []
+            for future in track_concurrent_futures(
+                futures,
+                desc=f"Processing {large_law_diffs} diffs for {len(large_laws)} complex laws ({law_origin})",
+                unit="laws"
+            ):
+                results.append(future.result())
             large_law_results = results
     else:
         large_law_results = []
@@ -440,16 +444,22 @@ def process_all_diffs_sequentially(
     # Process each diff with a progress bar
     total_success = 0
 
-    for i, (ordnungsnummer, pair) in enumerate(
-        tqdm(all_pairs, desc=f"Processing {law_origin} diffs")
-    ):
-        version_pairs = [
-            pair
-        ]  # Just process one pair at a time for better progress reporting
-        success_count = generate_law_diffs(
-            (ordnungsnummer, version_pairs, collection_path, diff_path, law_origin)
+    with progress_manager() as pm:
+        counter = pm.create_counter(
+            total=len(all_pairs),
+            desc=f"Processing {len(all_pairs)} {law_origin} diffs",
+            unit="diffs"
         )
-        total_success += success_count
+        
+        for i, (ordnungsnummer, pair) in enumerate(all_pairs):
+            version_pairs = [
+                pair
+            ]  # Just process one pair at a time for better progress reporting
+            success_count = generate_law_diffs(
+                (ordnungsnummer, version_pairs, collection_path, diff_path, law_origin)
+            )
+            total_success += success_count
+            counter.update()
 
     logger.info(
         f"Successfully generated {total_success} of {total_diffs} diffs for {law_origin}"

@@ -28,7 +28,8 @@ import zipfile
 from pathlib import Path
 import yaml
 import concurrent.futures
-from tqdm import tqdm
+# from tqdm import tqdm  # Replaced with progress_utils
+from src.utils.progress_utils import progress_manager, track_concurrent_futures
 from urllib.parse import urljoin
 import sys
 from src.utils.logging_utils import get_module_logger
@@ -438,11 +439,14 @@ def main(source_path, output_dir, processing_mode="sequential", max_workers=None
                     executor.submit(process_single_html_file, args): args
                     for args in all_html_files_args
                 }
+                # Convert to list of futures for tracking
+                futures_list = list(futures.keys())
+                
                 results = {}
-                for future in tqdm(
-                    concurrent.futures.as_completed(futures),
-                    total=len(all_html_files_args),
-                    desc="Converting HTML",
+                for future in track_concurrent_futures(
+                    futures_list,
+                    desc=f"Converting {len(all_html_files_args)} HTML files",
+                    unit="files"
                 ):
                     args = futures[future]
                     html_filename = args[2]
@@ -461,14 +465,22 @@ def main(source_path, output_dir, processing_mode="sequential", max_workers=None
                         failed_files.append(html_filename)
         else:
             logger.info(f"Processing {len(all_html_files_args)} files sequentially...")
-            for args in tqdm(all_html_files_args, desc="Converting HTML"):
-                html_filename = args[2]
-                success, md_filename = process_single_html_file(args)
-                if success and md_filename:
-                    processed_files_count += 1
-                    successful_filenames.append(md_filename)
-                else:
-                    failed_files.append(html_filename)
+            with progress_manager() as pm:
+                counter = pm.create_counter(
+                    total=len(all_html_files_args),
+                    desc=f"Converting {len(all_html_files_args)} HTML files",
+                    unit="files"
+                )
+                
+                for args in all_html_files_args:
+                    html_filename = args[2]
+                    success, md_filename = process_single_html_file(args)
+                    if success and md_filename:
+                        processed_files_count += 1
+                        successful_filenames.append(md_filename)
+                    else:
+                        failed_files.append(html_filename)
+                    counter.update()
 
         logger.info(
             f"Finished. Success: {processed_files_count}, Failed: {len(failed_files)}"
@@ -481,12 +493,20 @@ def main(source_path, output_dir, processing_mode="sequential", max_workers=None
             logger.info(f"Creating zip file: {zip_file_path}")
             successful_filenames.sort()
             with zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                for filename in tqdm(successful_filenames, desc="Zipping files"):
-                    md_file = markdown_dataset_dir / filename
-                    if md_file.exists():
-                        zipf.write(md_file, filename)
-                    else:
-                        logger.warning(f"MD file {filename} not found for zipping.")
+                with progress_manager() as pm:
+                    counter = pm.create_counter(
+                        total=len(successful_filenames),
+                        desc=f"Zipping {len(successful_filenames)} files",
+                        unit="files"
+                    )
+                    
+                    for filename in successful_filenames:
+                        md_file = markdown_dataset_dir / filename
+                        if md_file.exists():
+                            zipf.write(md_file, filename)
+                        else:
+                            logger.warning(f"MD file {filename} not found for zipping.")
+                        counter.update()
             logger.info(f"Zip file created with {len(successful_filenames)} files.")
         else:
             logger.warning("No successful files, zip not created.")

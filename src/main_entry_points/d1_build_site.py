@@ -27,7 +27,9 @@ License:
 
 import glob
 import json
-from tqdm import tqdm
+
+# from tqdm import tqdm  # Replaced with progress_utils
+from src.utils.progress_utils import progress_manager, track_concurrent_futures
 import shutil
 import os
 from bs4 import BeautifulSoup
@@ -170,14 +172,21 @@ def process_html_files_sequentially(
     Process HTML files sequentially for easier debugging.
     """
     error_counter = 0
-    for html_file in tqdm(
-        html_files, desc=f"Processing {law_origin} files sequentially"
-    ):
-        success = process_html_file(
-            (html_file, collection_data_path, collection_path, law_origin)
+
+    with progress_manager() as pm:
+        counter = pm.create_counter(
+            total=len(html_files),
+            desc=f"Processing {len(html_files)} {law_origin} files sequentially",
+            unit="files",
         )
-        if not success:
-            error_counter += 1
+
+        for html_file in html_files:
+            success = process_html_file(
+                (html_file, collection_data_path, collection_path, law_origin)
+            )
+            if not success:
+                error_counter += 1
+            counter.update()
 
     return error_counter
 
@@ -196,14 +205,17 @@ def process_html_files_concurrently(
     ]
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Map the process function to all files and wrap with tqdm for progress bar
-        results = list(
-            tqdm(
-                executor.map(process_html_file, process_args),
-                total=len(process_args),
-                desc=f"Processing {law_origin} files concurrently",
-            )
-        )
+        # Submit all tasks
+        futures = [executor.submit(process_html_file, args) for args in process_args]
+
+        # Track progress with enlighten-compatible progress bar
+        results = []
+        for future in track_concurrent_futures(
+            futures,
+            desc=f"Processing {len(process_args)} {law_origin} files concurrently",
+            unit="files",
+        ):
+            results.append(future.result())
 
         # Count the number of failures
         error_counter = results.count(False)

@@ -14,6 +14,7 @@ from typing import Dict, List, Set, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 from src.utils.logging_utils import get_module_logger
+from src.utils.progress_utils import progress_manager, track_concurrent_futures
 
 logger = get_module_logger(__name__)
 
@@ -74,23 +75,35 @@ class AnchorMapGenerator:
         
         if concurrent:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {
-                    executor.submit(self._generate_map_for_law, ordnungsnummer, files): ordnungsnummer
+                futures = [
+                    executor.submit(self._generate_map_for_law, ordnungsnummer, files)
                     for ordnungsnummer, files in laws_by_ordnungsnummer.items()
-                }
+                ]
                 
-                for future in as_completed(futures):
-                    ordnungsnummer = futures[future]
+                for future in track_concurrent_futures(
+                    futures,
+                    desc=f"Generating {len(laws_by_ordnungsnummer)} anchor maps for {self.collection}",
+                    unit="laws"
+                ):
                     try:
                         future.result()
                     except Exception as e:
-                        logger.error(f"Error generating map for {ordnungsnummer}: {e}")
+                        logger.error(f"Error generating anchor map: {e}")
         else:
-            for ordnungsnummer, files in laws_by_ordnungsnummer.items():
-                try:
-                    self._generate_map_for_law(ordnungsnummer, files)
-                except Exception as e:
-                    logger.error(f"Error generating map for {ordnungsnummer}: {e}")
+            with progress_manager() as pm:
+                counter = pm.create_counter(
+                    total=len(laws_by_ordnungsnummer),
+                    desc=f"Generating {len(laws_by_ordnungsnummer)} anchor maps for {self.collection}",
+                    unit="laws"
+                )
+                
+                for ordnungsnummer, files in laws_by_ordnungsnummer.items():
+                    try:
+                        self._generate_map_for_law(ordnungsnummer, files)
+                    except Exception as e:
+                        logger.error(f"Error generating map for {ordnungsnummer}: {e}")
+                    finally:
+                        counter.update()
     
     def _group_laws_by_ordnungsnummer(self) -> Dict[str, List[Tuple[str, float, str]]]:
         """

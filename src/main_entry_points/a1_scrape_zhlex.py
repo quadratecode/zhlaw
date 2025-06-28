@@ -20,7 +20,8 @@ from typing import List, Dict, Any, Optional
 import arrow
 import glob
 import json
-from tqdm import tqdm
+# from tqdm import tqdm  # Replaced with progress_utils
+from src.utils.progress_utils import progress_manager
 from pathlib import Path
 
 # Import custom modules
@@ -279,20 +280,29 @@ def main() -> None:
         op_logger.log_info(f"Found {len(pdf_files)} PDF files to process")
 
         # Process each PDF file
-        for pdf_file in tqdm(pdf_files, desc="Processing PDFs"):
-            try:
-                result = process_single_pdf(pdf_file, timestamp, op_logger)
-                if result['success']:
-                    steps = result.get('data', {}).get('steps_completed', [])
-                    if steps:
-                        logger.debug(f"Completed steps for {Path(pdf_file).name}: {steps}")
-                else:
-                    error_counter += 1
-                    
-            except QuotaExceededException as e:
-                op_logger.log_error(f"API quota exceeded: {e}")
-                logger.error("Stopping processing due to quota limit")
-                break
+        with progress_manager() as pm:
+            counter = pm.create_counter(
+                total=len(pdf_files),
+                desc=f"Processing {len(pdf_files)} PDFs",
+                unit="files"
+            )
+            
+            for pdf_file in pdf_files:
+                try:
+                    result = process_single_pdf(pdf_file, timestamp, op_logger)
+                    if result['success']:
+                        steps = result.get('data', {}).get('steps_completed', [])
+                        if steps:
+                            logger.debug(f"Completed steps for {Path(pdf_file).name}: {steps}")
+                    else:
+                        error_counter += 1
+                        
+                except QuotaExceededException as e:
+                    op_logger.log_error(f"API quota exceeded: {e}")
+                    logger.error("Stopping processing due to quota limit")
+                    break
+                finally:
+                    counter.update()
 
         # Update source metadata for all laws
         processed_data = str(DataPaths.ZHLEX_DATA / "zhlex_data_processed.json")

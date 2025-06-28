@@ -33,7 +33,8 @@ import glob
 import json  # For potential metadata handling
 import argparse
 import concurrent.futures
-from tqdm import tqdm
+# from tqdm import tqdm  # Replaced with progress_utils
+from src.utils.progress_utils import progress_manager, track_concurrent_futures
 
 # Third-party imports
 try:
@@ -745,10 +746,13 @@ def process_files_concurrently(raw_files, max_workers=None):
             executor.submit(process_single_file, file): file for file in raw_files
         }
 
-        for future in tqdm(
-            concurrent.futures.as_completed(future_to_file),
-            total=len(raw_files),
-            desc="Processing",
+        # Convert to list of futures for tracking
+        futures = list(future_to_file.keys())
+        
+        for future in track_concurrent_futures(
+            futures,
+            desc=f"Processing {len(raw_files)} files concurrently",
+            unit="files"
         ):
             file = future_to_file[future]
             try:
@@ -774,15 +778,24 @@ def process_files_sequentially(raw_files):
     print(f"Processing {len(raw_files)} files sequentially...")
     processed_count, error_count = 0, 0
 
-    for file_path in tqdm(raw_files, desc="Processing"):
-        try:
-            if process_single_file(file_path):
-                processed_count += 1
-            else:
+    with progress_manager() as pm:
+        counter = pm.create_counter(
+            total=len(raw_files),
+            desc=f"Processing {len(raw_files)} files sequentially",
+            unit="files"
+        )
+        
+        for file_path in raw_files:
+            try:
+                if process_single_file(file_path):
+                    processed_count += 1
+                else:
+                    error_count += 1
+            except Exception as e:
+                print(f"Exception processing {file_path}: {e}")
                 error_count += 1
-        except Exception as e:
-            print(f"Exception processing {file_path}: {e}")
-            error_count += 1
+            finally:
+                counter.update()
 
     return processed_count, error_count
 
