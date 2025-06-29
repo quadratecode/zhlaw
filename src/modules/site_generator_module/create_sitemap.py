@@ -315,6 +315,79 @@ class SitemapGenerator:
     def get_canonical_url(self, url: str) -> Optional[str]:
         """Get canonical URL for a page. Returns the canonical URL even if it's self-referencing."""
         return self.canonical_urls.get(url)
+    
+    def _sort_urls_by_law(self, urls: List[Dict]) -> List[Dict]:
+        """
+        Sort URLs to group same laws together with canonical version last.
+        
+        Args:
+            urls: List of URL dictionaries
+            
+        Returns:
+            Sorted list of URL dictionaries
+        """
+        # Separate law URLs from other URLs
+        law_urls = []
+        other_urls = []
+        
+        for url_data in urls:
+            url = url_data["loc"]
+            if "/col-zh/" in url or "/col-ch/" in url:
+                law_urls.append(url_data)
+            else:
+                other_urls.append(url_data)
+        
+        # Group law URLs by ordnungsnummer
+        law_groups = {}
+        for url_data in law_urls:
+            url = url_data["loc"]
+            
+            # Extract ordnungsnummer from URL
+            filename = url.split("/")[-1].replace(".html", "")
+            match = re.match(r"(.+)-(\d+)$", filename)
+            
+            if match:
+                ordnungsnummer = match.group(1)
+                nachtragsnummer = int(match.group(2))
+                
+                # Determine collection
+                collection = "zh" if "/col-zh/" in url else "ch"
+                group_key = f"{collection}:{ordnungsnummer}"
+                
+                if group_key not in law_groups:
+                    law_groups[group_key] = []
+                
+                # Add metadata for sorting
+                url_data["_ordnungsnummer"] = ordnungsnummer
+                url_data["_nachtragsnummer"] = nachtragsnummer
+                url_data["_collection"] = collection
+                
+                # Check if this is the canonical version
+                law_metadata = self._get_law_metadata_from_url(url)
+                url_data["_is_canonical"] = law_metadata.get("in_force", False) if law_metadata else False
+                
+                law_groups[group_key].append(url_data)
+        
+        # Sort within each group and collect results
+        sorted_law_urls = []
+        for group_key in sorted(law_groups.keys()):
+            group = law_groups[group_key]
+            
+            # Sort by nachtragsnummer, with canonical version last
+            group.sort(key=lambda x: (
+                x["_is_canonical"],  # False comes before True
+                x["_nachtragsnummer"]
+            ))
+            
+            # Clean up temporary sorting metadata
+            for url_data in group:
+                for key in ["_ordnungsnummer", "_nachtragsnummer", "_collection", "_is_canonical"]:
+                    url_data.pop(key, None)
+            
+            sorted_law_urls.extend(group)
+        
+        # Combine other URLs first, then sorted law URLs
+        return other_urls + sorted_law_urls
 
     def generate_sitemap(self):
         urls = []
@@ -343,7 +416,10 @@ class SitemapGenerator:
                 
                 urls.append(url_data)
 
-        return self.create_sitemap_xml(urls)
+        # Sort URLs to group same laws together with canonical version last
+        sorted_urls = self._sort_urls_by_law(urls)
+        
+        return self.create_sitemap_xml(sorted_urls)
 
     def create_sitemap_xml(self, urls):
         xml = '<?xml version="1.0" encoding="UTF-8"?>\n'

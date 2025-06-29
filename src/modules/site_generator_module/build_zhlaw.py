@@ -598,10 +598,19 @@ def modify_html(
     if html_tag:
         html_tag["class"] = html_tag.get("class", []) + ["no-js", "light-mode"]
 
+    # Ensure we have an html element
+    html_tag = soup.html
+    if html_tag is None:
+        html_tag = soup.new_tag("html")
+        if soup.contents:
+            soup.insert(0, html_tag)
+        else:
+            soup.append(html_tag)
+    
     head: Union[Tag, None] = soup.head
     if head is None:
         head = soup.new_tag("head")
-        soup.html.insert(0, head)
+        html_tag.insert(0, head)
 
     # Remove existing CSS links that might conflict with versioned assets
     existing_css_links = head.find_all("link", rel="stylesheet")

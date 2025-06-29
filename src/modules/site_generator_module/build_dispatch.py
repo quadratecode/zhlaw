@@ -23,11 +23,13 @@ import re
 
 
 def generate_html_page(content):
-    return f"""
-    <!DOCTYPE html>
-    <head>
+    return f"""<!DOCTYPE html>
+<html>
+<head>
         <meta charset="UTF-8">
         <meta content="width=device-width, initial-scale=1.0" name="viewport">
+        <meta name="language" content="de-CH">
+        <meta name="description" content="Feed der parlamentarischen Geschäfte (Kanton ZH). Massgebend sind die offiziellen Publikationen.">
         <link rel="stylesheet" type="text/css" href="styles.css">
         <link rel="alternate" type="application/rss+xml" title="zhlaw.ch - KRZH Dispatch" href="/dispatch-feed.xml">
         <title>zhlaw - Dispatch KRZH</title>
@@ -100,8 +102,7 @@ def generate_html_page(content):
             }});
         </script>
     </body>
-    </html>
-    """
+</html>"""
 
 
 def convert_to_html(data):
