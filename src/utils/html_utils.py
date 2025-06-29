@@ -430,3 +430,48 @@ def extract_text_from_html(html_content: str) -> str:
     processor = HTMLProcessor()
     soup = processor.parse_html(html_content)
     return processor.extract_text(soup)
+
+
+def prettify_html_soup(soup: BeautifulSoup, indent: int = 4) -> str:
+    """
+    Convert BeautifulSoup object to pretty-printed HTML string.
+    
+    Args:
+        soup: BeautifulSoup object to prettify
+        indent: Number of spaces for indentation (Note: BeautifulSoup uses fixed indentation)
+        
+    Returns:
+        Pretty-printed HTML string
+    """
+    return soup.prettify(formatter="html")
+
+
+def write_pretty_html(
+    soup: BeautifulSoup, 
+    file_path: str, 
+    encoding: str = "utf-8",
+    add_doctype: bool = True,
+    indent: int = 4
+) -> None:
+    """
+    Write BeautifulSoup object to file as pretty-printed HTML.
+    
+    Args:
+        soup: BeautifulSoup object to write
+        file_path: Output file path
+        encoding: File encoding
+        add_doctype: Whether to add DOCTYPE if missing
+        indent: Number of spaces for indentation
+    """
+    from bs4 import Doctype
+    
+    with open(file_path, "w", encoding=encoding) as f:
+        # Check if DOCTYPE already exists
+        has_doctype = any(isinstance(element, Doctype) for element in soup.contents)
+        
+        # Add DOCTYPE if requested and not present
+        if add_doctype and not has_doctype:
+            f.write("<!DOCTYPE html>\n")
+        
+        # Write pretty-printed HTML
+        f.write(prettify_html_soup(soup, indent))

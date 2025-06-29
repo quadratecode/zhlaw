@@ -276,11 +276,16 @@ def load_json_data(file_path):
 
 def save_html_file(html_content, file_path):
     """
-    Save the generated HTML content to the specified file path.
+    Save the generated HTML content to the specified file path with pretty-printing.
     """
+    from bs4 import BeautifulSoup
+    from src.utils.html_utils import write_pretty_html
+    
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, "w", encoding="utf-8") as file:
-        file.write(html_content)
+    
+    # Parse the HTML string and then write it with pretty-printing
+    soup = BeautifulSoup(html_content, "html.parser")
+    write_pretty_html(soup, file_path, encoding="utf-8", add_doctype=False)
 
 
 def generate_minimal_index(output_file_path, version_map=None):

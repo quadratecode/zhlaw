@@ -155,10 +155,15 @@ class MarkdownProcessor:
             processed = self.process_markdown_file(str(md_file))
             html_content = self.generate_html_page(processed)
             
-            # Save HTML file
+            # Save HTML file with pretty-printing
+            from bs4 import BeautifulSoup
+            from src.utils.html_utils import write_pretty_html
+            
             output_file = output_path / f"{processed['filename']}.html"
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(html_content)
+            
+            # Parse the HTML string and then write it with pretty-printing
+            soup = BeautifulSoup(html_content, "html.parser")
+            write_pretty_html(soup, str(output_file), encoding="utf-8", add_doctype=False)
             
             print(f"Processed: {md_file.name} -> {output_file.name}")
 

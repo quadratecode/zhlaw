@@ -289,9 +289,9 @@ def main():
     soup = build_zhlaw.insert_header(soup)
     soup = build_zhlaw.insert_footer(soup)
 
-    # Write the modified HTML back to the file
-    with open(html_file_path, "w") as f:
-        f.write(str(soup))
+    # Write the modified HTML back to the file with pretty-printing
+    from src.utils.html_utils import write_pretty_html
+    write_pretty_html(soup, html_file_path, encoding="utf-8", add_doctype=False)
     logger.info("Finished page build")
 
     # Generate RSS feed

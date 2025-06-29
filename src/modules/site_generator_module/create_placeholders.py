@@ -96,9 +96,8 @@ def main(laws, html_files, placeholder_dir):
                     )
 
                     # Write the modified HTML back to the file
-                    with open(placeholder_path, "w") as f:
-                        f.write("<!DOCTYPE html>\n")
-                        f.write(str(soup))
+                    from src.utils.html_utils import write_pretty_html
+                    write_pretty_html(soup, placeholder_path, encoding="utf-8", add_doctype=True)
                     placeholders_created += 1
                 
                 counter.update()

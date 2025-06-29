@@ -481,8 +481,8 @@ def main(merged_html_law: str, updated_json_file_law: str) -> None:
     soup = merge_numbered_paragraphs(soup)
     soup = update_html_with_hyperlinks(hyperlinks, soup)
 
-    with open(merged_html_law, "w", encoding="utf-8") as file:
-        file.write(str(soup))
+    from src.utils.html_utils import write_pretty_html
+    write_pretty_html(soup, merged_html_law, encoding="utf-8", add_doctype=False)
 
 
 if __name__ == "__main__":

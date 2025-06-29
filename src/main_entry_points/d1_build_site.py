@@ -145,16 +145,9 @@ def process_html_file(args):
                 os.makedirs(STATIC_PATH)
             new_file_path = os.path.join(STATIC_PATH, os.path.basename(html_file))
 
-        # Write final HTML
-        with open(new_file_path, "w", encoding="utf-8") as file:
-            # Check if the soup already has a DOCTYPE declaration
-            from bs4 import Doctype
-            has_doctype = any(isinstance(element, Doctype) for element in soup.contents)
-            
-            # Only add DOCTYPE if it's not already present
-            if not has_doctype:
-                file.write("<!DOCTYPE html>\n")
-            file.write(str(soup))
+        # Write final HTML with pretty-printing
+        from src.utils.html_utils import write_pretty_html
+        write_pretty_html(soup, new_file_path, encoding="utf-8", add_doctype=True)
 
         return True
     except Exception as e:
