@@ -202,8 +202,16 @@ def generate_tree_structure(data):
         # Calculate law count for this category
         law_count = count_laws_recursive(cat_data)
         
-        # Category summary with spans and counter
+        # Category summary with icon, spans and counter
         category_display = (
+            f'<span class="summary-col-icon">'
+            f'<svg class="icon-closed" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">'
+            f'<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m-3-3h6m5 7a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'
+            f'</svg>'
+            f'<svg class="icon-open" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">'
+            f'<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m5 7a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'
+            f'</svg>'
+            f'</span>'
             f'<span class="summary-col-number">{cat_id}:</span>'
             f'<span class="summary-col-text"> {cat_data["name"]} ({law_count})</span>'
         )
@@ -238,8 +246,16 @@ def generate_tree_structure(data):
             # Calculate law count for this section
             section_law_count = count_laws_in_section(sec_data)
             
-            # Section summary with counter
+            # Section summary with icon and counter
             section_display = (
+                f'<span class="summary-col-icon">'
+                f'<svg class="icon-closed" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">'
+                f'<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m-3-3h6m5 7a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'
+                f'</svg>'
+                f'<svg class="icon-open" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">'
+                f'<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m5 7a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'
+                f'</svg>'
+                f'</span>'
                 f'<span class="summary-col-number">{sec_id}:</span>'
                 f'<span class="summary-col-text"> {sec_data["name"]} ({section_law_count})</span>'
             )
@@ -274,8 +290,16 @@ def generate_tree_structure(data):
                 # Calculate law count for this subsection
                 subsection_law_count = len(sub_data.get("laws", []))
                 
-                # Subsection summary with counter
+                # Subsection summary with icon and counter
                 subsection_display = (
+                    f'<span class="summary-col-icon">'
+                    f'<svg class="icon-closed" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">'
+                    f'<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m-3-3h6m5 7a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'
+                    f'</svg>'
+                    f'<svg class="icon-open" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">'
+                    f'<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m5 7a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'
+                    f'</svg>'
+                    f'</span>'
                     f'<span class="summary-col-number">{sub_id}:</span>'
                     f'<span class="summary-col-text"> {sub_data["name"]} ({subsection_law_count})</span>'
                 )

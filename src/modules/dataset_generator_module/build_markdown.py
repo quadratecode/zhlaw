@@ -367,19 +367,33 @@ def process_single_html_file(args):
         return False, None
 
 
-def main(source_path, output_dir, processing_mode="sequential", max_workers=None):
+def main(source_path, processing_mode="sequential", max_workers=None, output_dir=None):
     """Process HTML files to Markdown and create a zip file.
     
-    The markdown files are stored persistently in '{output_dir}/md-files/zh/'.
+    The markdown files are stored persistently in 'datasets/md-files/zh/'.
     Existing files are cleared at the start of each run to ensure a clean build.
+    The zip file is created in the specified output directory (or 'datasets/' if not specified).
+    
+    Args:
+        source_path: Path to the source HTML files
+        processing_mode: 'sequential' or 'concurrent'
+        max_workers: Number of workers for concurrent processing
+        output_dir: Output directory for zip file (defaults to 'datasets')
     """
     try:
         source_path = Path(source_path)
-        output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Markdown files always go to datasets/md-files/zh
+        datasets_dir = Path("datasets")
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        markdown_dataset_dir = datasets_dir / "md-files" / "zh"
+        
+        # Zip file goes to output_dir (or datasets if not specified)
+        zip_output_dir = Path(output_dir) if output_dir else datasets_dir
+        zip_output_dir.mkdir(parents=True, exist_ok=True)
+        
         logger.info(f"Source directory: {source_path.resolve()}")
-        logger.info(f"Output directory: {output_dir.resolve()}")
-        markdown_dataset_dir = output_dir / "md-files" / "zh"
+        logger.info(f"Markdown files directory: {markdown_dataset_dir.resolve()}")
+        logger.info(f"Zip output directory: {zip_output_dir.resolve()}")
         if markdown_dataset_dir.exists():
             import shutil
 
@@ -488,7 +502,7 @@ def main(source_path, output_dir, processing_mode="sequential", max_workers=None
         if failed_files:
             logger.warning(f"Failed files: {', '.join(failed_files)}")
 
-        zip_file_path = output_dir / "col-zh-md.zip"
+        zip_file_path = zip_output_dir / "col-zh-md.zip"
         if successful_filenames:
             logger.info(f"Creating zip file: {zip_file_path}")
             successful_filenames.sort()
@@ -527,7 +541,6 @@ if __name__ == "__main__":
     current_dir = Path(__file__).parent if "__file__" in locals() else Path.cwd()
     # --- USER CONFIGURATION ---
     source_path_rel = "data/zhlex/zhlex_files"
-    output_dir_rel = "public"
     processing_mode = "concurrent"
     max_workers = None
     log_level = "INFO"
@@ -535,9 +548,7 @@ if __name__ == "__main__":
 
     # Log level is handled by the logging configuration
     source_path_abs = (current_dir / source_path_rel).resolve()
-    output_dir_abs = (current_dir / output_dir_rel).resolve()
     print(f"Source Path: {source_path_abs}")
-    print(f"Output Path: {output_dir_abs}")
     print(f"Processing Mode: {processing_mode}")
     if processing_mode == "concurrent":
         print(f"Max Workers: {max_workers or os.cpu_count()}")
@@ -548,7 +559,6 @@ if __name__ == "__main__":
     else:
         main(
             source_path_abs,
-            output_dir_abs,
             processing_mode=processing_mode,
             max_workers=max_workers,
         )

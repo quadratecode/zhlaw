@@ -31,6 +31,12 @@ class AssetVersionManager:
                 hasher.update(chunk)
         return hasher.hexdigest()[:8]  # Use first 8 characters
     
+    def generate_content_hash(self, content: str) -> str:
+        """Generate MD5 hash of string content for versioning."""
+        hasher = hashlib.md5()
+        hasher.update(content.encode('utf-8'))
+        return hasher.hexdigest()[:8]  # Use first 8 characters
+    
     def get_versioned_filename(self, original_path: str, file_hash: str) -> str:
         """Generate versioned filename (e.g., styles.css -> styles.v12345678.css)."""
         path = Path(original_path)
@@ -42,54 +48,128 @@ class AssetVersionManager:
         """
         Process CSS and JS files, creating versioned copies.
         Returns mapping of original filename -> versioned filename.
+        Fixed: Calculate hashes from processed content (after import resolution).
         """
         versionable_patterns = ['*.css', '*.js']
-        version_map = {}
         
-        # First pass: create version map for all assets
+        # Step 1: Create initial version map for files without @import dependencies
+        initial_version_map = {}
+        processed_content = {}
+        
+        # First, handle JS files and CSS files without imports (leaf nodes)
         for pattern in versionable_patterns:
             for file_path in self.source_dir.rglob(pattern):
                 if file_path.is_file():
-                    # Generate hash and versioned filename
-                    file_hash = self.generate_file_hash(file_path)
                     relative_path = file_path.relative_to(self.source_dir)
-                    versioned_name = self.get_versioned_filename(relative_path.name, file_hash)
+                    original_name = str(relative_path)
                     
-                    # Store mapping
-                    original_name = str(relative_path)
-                    versioned_path = str(relative_path.parent / versioned_name)
-                    version_map[original_name] = versioned_path
+                    if file_path.suffix == '.js':
+                        # JS files don't have imports, process directly
+                        file_hash = self.generate_file_hash(file_path)
+                        versioned_name = self.get_versioned_filename(relative_path.name, file_hash)
+                        versioned_path = str(relative_path.parent / versioned_name)
+                        initial_version_map[original_name] = versioned_path
+                    else:
+                        # CSS files - check if they have @import statements
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        
+                        import_pattern = r"@import\s+(?:url\()?['\"]([^'\"]+\.css)['\"](?:\))?"
+                        imports = re.findall(import_pattern, content)
+                        
+                        if not imports:
+                            # No imports, process directly
+                            file_hash = self.generate_file_hash(file_path)
+                            versioned_name = self.get_versioned_filename(relative_path.name, file_hash)
+                            versioned_path = str(relative_path.parent / versioned_name)
+                            initial_version_map[original_name] = versioned_path
+                            processed_content[original_name] = content
         
-        # Second pass: create versioned files with updated @import statements
+        # Step 2: Iteratively process CSS files with imports
+        max_iterations = 10  # Prevent infinite loops
+        for iteration in range(max_iterations):
+            progress_made = False
+            
+            for pattern in ['*.css']:  # Only CSS files have imports
+                for file_path in self.source_dir.rglob(pattern):
+                    if file_path.is_file():
+                        relative_path = file_path.relative_to(self.source_dir)
+                        original_name = str(relative_path)
+                        
+                        # Skip if already processed
+                        if original_name in initial_version_map:
+                            continue
+                        
+                        # Try to process imports with current version map
+                        try:
+                            content = self.update_css_imports(file_path, initial_version_map)
+                            
+                            # Calculate hash from processed content
+                            content_hash = self.generate_content_hash(content)
+                            versioned_name = self.get_versioned_filename(relative_path.name, content_hash)
+                            versioned_path = str(relative_path.parent / versioned_name)
+                            
+                            initial_version_map[original_name] = versioned_path
+                            processed_content[original_name] = content
+                            progress_made = True
+                            
+                        except Exception as e:
+                            # Dependencies not ready yet, try next iteration
+                            continue
+            
+            # If no progress made, we're done or have circular dependencies
+            if not progress_made:
+                break
+        
+        # Step 3: Handle any remaining files (fallback to source hash)
         for pattern in versionable_patterns:
             for file_path in self.source_dir.rglob(pattern):
                 if file_path.is_file():
                     relative_path = file_path.relative_to(self.source_dir)
                     original_name = str(relative_path)
-                    versioned_path = version_map[original_name]
+                    
+                    if original_name not in initial_version_map:
+                        logger.warning(f"Could not resolve imports for {original_name}, using source hash")
+                        file_hash = self.generate_file_hash(file_path)
+                        versioned_name = self.get_versioned_filename(relative_path.name, file_hash)
+                        versioned_path = str(relative_path.parent / versioned_name)
+                        initial_version_map[original_name] = versioned_path
+                        
+                        # Store original content for CSS files
+                        if file_path.suffix == '.css':
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                processed_content[original_name] = f.read()
+        
+        # Step 4: Create versioned files
+        for pattern in versionable_patterns:
+            for file_path in self.source_dir.rglob(pattern):
+                if file_path.is_file():
+                    relative_path = file_path.relative_to(self.source_dir)
+                    original_name = str(relative_path)
+                    versioned_path = initial_version_map[original_name]
                     versioned_name = Path(versioned_path).name
                     
                     # Create versioned file in output directory
                     output_file = self.output_dir / relative_path.parent / versioned_name
                     output_file.parent.mkdir(parents=True, exist_ok=True)
                     
-                    # Read and process file content
-                    if file_path.suffix == '.css':
-                        content = self.update_css_imports(file_path, version_map)
+                    # Write processed content
+                    if file_path.suffix == '.css' and original_name in processed_content:
                         with open(output_file, 'w', encoding='utf-8') as f:
-                            f.write(content)
+                            f.write(processed_content[original_name])
                     else:
                         # For JS files, just copy as-is
                         shutil.copy2(file_path, output_file)
                     
                     logger.info(f"Versioned asset: {original_name} -> {versioned_path}")
         
-        self.version_map = version_map
-        return version_map
+        self.version_map = initial_version_map
+        return initial_version_map
     
     def update_css_imports(self, file_path: Path, version_map: Dict[str, str]) -> str:
         """
         Update @import statements in CSS files to use versioned URLs.
+        Raises an exception if any import cannot be resolved (for iterative processing).
         """
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -97,6 +177,8 @@ class AssetVersionManager:
         # Pattern to match @import statements
         # Matches: @import url('path/to/file.css'); or @import 'path/to/file.css';
         import_pattern = r"@import\s+(?:url\()?['\"]([^'\"]+\.css)['\"](?:\))?"
+        
+        missing_imports = []
         
         def replace_import(match):
             original_path = match.group(1)
@@ -113,12 +195,18 @@ class AssetVersionManager:
                     return f"@import url('{versioned_path}')"
                 else:
                     return f"@import '{versioned_path}'"
-            
-            # Return original if no versioned version found
-            return match.group(0)
+            else:
+                # Track missing imports for error reporting
+                missing_imports.append(clean_path)
+                return match.group(0)  # Keep original for now
         
         # Replace all @import statements
         updated_content = re.sub(import_pattern, replace_import, content)
+        
+        # If any imports are missing, raise an exception for iterative processing
+        if missing_imports:
+            raise ValueError(f"Missing imports in {file_path}: {missing_imports}")
+        
         return updated_content
     
     def process_non_versionable_assets(self) -> List[str]:

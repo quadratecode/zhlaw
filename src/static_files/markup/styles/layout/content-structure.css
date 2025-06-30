@@ -13,21 +13,11 @@ details.details-col {
     /* Align with parent summary-col-number: 1.7em (icon+margin) - 0.75em (padding) */
 }
 
-/* Summary row layout and hanging indent */
-details.details-col summary {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.5em;
-    align-items: baseline;
-    cursor: pointer;
-    list-style: none;
-}
-
-/* Summary row layout */
+/* Summary row layout with flexbox for proper alignment */
 details.details-col summary {
     display: flex;
     align-items: flex-start;
-    gap: 0;
+    gap: 0.5em;
     cursor: pointer;
     list-style: none;
     position: relative;
@@ -41,31 +31,22 @@ details.details-col summary {
     padding-left: 0;
 }
 
-/* Summary row layout */
+/* Summary hover state */
 details.details-col summary:hover {
     background-color: var(--highlight-grey);
 }
 
 .summary-col-number {
-    flex: 0 0 2.5em;
     font-weight: var(--font-weight-medium);
+    width: 2.5em;
 }
 
-/* Perfect hanging indent using pseudo-element */
+/* Text column with proper alignment */
 .summary-col-text {
-    flex: 1;
     padding-left: 0.2em;
-    text-indent: -1.78em;
-    display: inline-block;
     font-weight: var(--font-weight-medium);
 }
 
-/* Fallback for text wrapping */
-.summary-col-text::before {
-    content: "";
-    display: inline-block;
-    width: 1.5em;
-}
 
 /* Law items styling */
 .law-container {
@@ -74,23 +55,41 @@ details.details-col summary:hover {
 
 /* Remove special styling for open state - use normal font coloring */
 
-/* Icons for collapsed/expanded sections using SVG data URLs */
-details.details-col summary::before {
-    content: "";
+/* Folder icon styling */
+.summary-col-icon {
+    flex: 0 0 auto;
     width: 1.2em;
     height: 1.2em;
-    margin-right: 0.5em;
-    margin-top: 0.1em;
-    background-image: url('data:image/svg+xml;charset=utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m-3-3h6m5 7a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>');
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: var(--soft-black);
+    position: relative;
+    margin-top: 0.15em;
 }
 
-details.details-col[open]>summary::before {
-    background-image: url('data:image/svg+xml;charset=utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m5 7a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>');
+.summary-col-icon svg {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+}
+
+/* Show closed icon by default, hide open icon */
+.summary-col-icon .icon-closed {
+    display: block;
+}
+
+.summary-col-icon .icon-open {
+    display: none;
+}
+
+/* When details is open, show open icon and hide closed icon - use direct child selector */
+details.details-col[open] > summary > .summary-col-icon .icon-closed {
+    display: none;
+}
+
+details.details-col[open] > summary > .summary-col-icon .icon-open {
+    display: block;
 }
 
 /* Law item link styling - remove default link appearance */

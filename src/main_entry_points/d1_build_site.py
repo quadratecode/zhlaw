@@ -464,9 +464,9 @@ def main(
             logger.info(f"Building dataset for ZH-Lex (folder: {zh_folder})")
             build_markdown.main(
                 f"data/zhlex/{zh_folder}",
-                STATIC_PATH,
                 processing_mode=processing_mode,
                 max_workers=max_workers,
+                output_dir=STATIC_PATH,
             )
             logger.info("Finished building dataset for ZH-Lex")
 
@@ -474,9 +474,9 @@ def main(
             logger.info(f"Building dataset for FedLex (folder: {ch_folder}) ...")
             build_markdown.main(
                 f"data/fedlex/{ch_folder}",
-                STATIC_PATH,
                 processing_mode=processing_mode,
                 max_workers=max_workers,
+                output_dir=STATIC_PATH,
             )
             logger.info("Finished building dataset for FedLex")
 
