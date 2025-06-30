@@ -2,9 +2,15 @@
    Content Structure & Law Organization
 ----------------------------- */
 
-/* Cascading indentation for nested law levels */
+/* Top-level details align with content edge */
+details.details-col {
+    margin-left: 0;
+}
+
+/* Cascading indentation - align nested folder icons with parent summary-col-number */
 .details-col .details-col {
-    margin-left: 1.5em;
+    margin-left: 0.95em;
+    /* Align with parent summary-col-number: 1.7em (icon+margin) - 0.75em (padding) */
 }
 
 /* Summary row layout and hanging indent */
@@ -17,19 +23,22 @@ details.details-col summary {
     list-style: none;
 }
 
-/* Cascading indentation for nested law levels */
-.details-col .details-col {
-    margin-left: 3.2em;
-}
-
 /* Summary row layout */
 details.details-col summary {
     display: flex;
-    align-items: baseline;
-    gap: 0.5em;
+    align-items: flex-start;
+    gap: 0;
     cursor: pointer;
     list-style: none;
     position: relative;
+    padding: 0.375em 0.75em;
+    margin: 0.05em 0;
+    border-radius: 0.25em;
+}
+
+/* Top-level summaries align with content edge */
+#tree>details.details-col>summary {
+    padding-left: 0;
 }
 
 /* Summary row layout */
@@ -39,6 +48,7 @@ details.details-col summary:hover {
 
 .summary-col-number {
     flex: 0 0 2.5em;
+    font-weight: var(--font-weight-medium);
 }
 
 /* Perfect hanging indent using pseudo-element */
@@ -47,7 +57,7 @@ details.details-col summary:hover {
     padding-left: 0.2em;
     text-indent: -1.78em;
     display: inline-block;
-    font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-medium);
 }
 
 /* Fallback for text wrapping */
@@ -59,24 +69,78 @@ details.details-col summary:hover {
 
 /* Law items styling */
 .law-container {
-    margin: 0.5em 0;
+    margin: 0.1em 0;
 }
 
+/* Remove special styling for open state - use normal font coloring */
+
+/* Icons for collapsed/expanded sections using SVG data URLs */
+details.details-col summary::before {
+    content: "";
+    width: 1.2em;
+    height: 1.2em;
+    margin-right: 0.5em;
+    margin-top: 0.1em;
+    background-image: url('data:image/svg+xml;charset=utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m-3-3h6m5 7a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex-shrink: 0;
+    color: var(--soft-black);
+}
+
+details.details-col[open]>summary::before {
+    background-image: url('data:image/svg+xml;charset=utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m5 7a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>');
+}
+
+/* Law item link styling - remove default link appearance */
+.law-item-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.law-item-link:hover {
+    background-color: var(--hover-blue);
+}
+
+.law-item-link:hover .law-item {
+    background-color: transparent;
+}
+
+/* Removed file icon for law items - law number will serve as visual indicator */
+
+/* Law item layout with badge-style law number */
 .law-item {
     display: flex;
-    gap: 1.5em;
-    margin: 0.25em 0;
-    margin-left: 3.2em;
+    align-items: center;
+    gap: 0.25em;
+    margin: 0.05em 0;
+    margin-left: 1.7em;
     font-weight: var(--font-weight-medium);
+    padding: 0.375em 0.75em;
+    border-radius: 0.25em;
+    color: var(--link-blue);
 }
 
+/* Style law-number as badge with dark background and white text */
 .law-number {
-    flex: 0 0 4em;
-    font-weight: var(--font-weight-semibold);
+    flex: 0 0 6.5em;
+    background-color: var(--link-blue);
+    color: var(--soft-white);
+    padding: 0.25em 0.5em;
+    border-radius: 0.3em;
+    font-weight: var(--font-weight-medium);
+    font-size: 0.65em;
+    margin-right: 2em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-align: center;
 }
 
-/* Style for all ancestor summaries in the open path */
-.details-col[open]>summary .summary-col-number,
-.details-col[open]>summary .summary-col-text {
-    color: #2b6caf;
+/* Law title styling - smaller font and centered */
+.law-title {
+    flex: 1;
+    font-size: 0.9em;
+    line-height: 1.3;
 }

@@ -66,11 +66,43 @@ html_template = """
 """
 
 
+def count_laws_recursive(category_data):
+    """
+    Recursively count all laws in a category/section/subsection structure.
+    Returns the total count including all nested laws.
+    """
+    count = len(category_data.get("laws", []))
+    
+    # Count laws in sections
+    for section_data in category_data.get("sections", {}).values():
+        count += len(section_data.get("laws", []))
+        
+        # Count laws in subsections
+        for subsection_data in section_data.get("subsections", {}).values():
+            count += len(subsection_data.get("laws", []))
+    
+    return count
+
+
+def count_laws_in_section(section_data):
+    """
+    Count all laws in a section including its subsections.
+    """
+    count = len(section_data.get("laws", []))
+    
+    # Count laws in subsections
+    for subsection_data in section_data.get("subsections", {}).values():
+        count += len(subsection_data.get("laws", []))
+    
+    return count
+
+
 def generate_tree_structure(data):
     """
     Generate HTML for a collapsible tree structure using <details> and <summary> elements,
     with laws displayed in flex containers for better mobile responsiveness.
     Uses <span> elements for summary numbers and text (no <strong> tags).
+    Includes law counters for each category/section/subsection.
     """
     # Build a nested dictionary for three levels: category -> section -> subsection.
     categories = {}
@@ -167,10 +199,13 @@ def generate_tree_structure(data):
 
     # Build the <details> structure
     for cat_id, cat_data in category_items:
-        # Category summary with spans instead of <strong>
+        # Calculate law count for this category
+        law_count = count_laws_recursive(cat_data)
+        
+        # Category summary with spans and counter
         category_display = (
             f'<span class="summary-col-number">{cat_id}:</span>'
-            f'<span class="summary-col-text"> {cat_data["name"]}</span>'
+            f'<span class="summary-col-text"> {cat_data["name"]} ({law_count})</span>'
         )
         tree_html += (
             f'<details class="details-col"><summary>{category_display}</summary>'
@@ -184,12 +219,12 @@ def generate_tree_structure(data):
                 erlasstitel = law.get("erlasstitel", "")
                 zhlaw_url_dynamic = law.get("zhlaw_url_dynamic", "#")
                 tree_html += f"""
-                <div class="law-item">
-                    <div class="law-number">{ordnungsnummer}</div>
-                    <div class="law-title">
-                        <a href="{zhlaw_url_dynamic}">{erlasstitel}</a>
+                <a href="{zhlaw_url_dynamic}" class="law-item-link">
+                    <div class="law-item">
+                        <div class="law-number">{ordnungsnummer}</div>
+                        <div class="law-title">{erlasstitel}</div>
                     </div>
-                </div>
+                </a>
                 """
             tree_html += "</div>"
 
@@ -200,10 +235,13 @@ def generate_tree_structure(data):
         )
 
         for sec_id, sec_data in section_items:
-            # Section summary
+            # Calculate law count for this section
+            section_law_count = count_laws_in_section(sec_data)
+            
+            # Section summary with counter
             section_display = (
                 f'<span class="summary-col-number">{sec_id}:</span>'
-                f'<span class="summary-col-text"> {sec_data["name"]}</span>'
+                f'<span class="summary-col-text"> {sec_data["name"]} ({section_law_count})</span>'
             )
             tree_html += (
                 f'<details class="details-col"><summary>{section_display}</summary>'
@@ -217,12 +255,12 @@ def generate_tree_structure(data):
                     erlasstitel = law.get("erlasstitel", "")
                     zhlaw_url_dynamic = law.get("zhlaw_url_dynamic", "#")
                     tree_html += f"""
-                    <div class="law-item">
-                        <div class="law-number">{ordnungsnummer}</div>
-                        <div class="law-title">
-                            <a href="{zhlaw_url_dynamic}">{erlasstitel}</a>
+                    <a href="{zhlaw_url_dynamic}" class="law-item-link">
+                        <div class="law-item">
+                            <div class="law-number">{ordnungsnummer}</div>
+                            <div class="law-title">{erlasstitel}</div>
                         </div>
-                    </div>
+                    </a>
                     """
                 tree_html += "</div>"
 
@@ -233,10 +271,13 @@ def generate_tree_structure(data):
             )
 
             for sub_id, sub_data in subsection_items:
-                # Subsection summary
+                # Calculate law count for this subsection
+                subsection_law_count = len(sub_data.get("laws", []))
+                
+                # Subsection summary with counter
                 subsection_display = (
                     f'<span class="summary-col-number">{sub_id}:</span>'
-                    f'<span class="summary-col-text"> {sub_data["name"]}</span>'
+                    f'<span class="summary-col-text"> {sub_data["name"]} ({subsection_law_count})</span>'
                 )
                 tree_html += f'<details class="details-col"><summary>{subsection_display}</summary>'
 
@@ -248,12 +289,12 @@ def generate_tree_structure(data):
                         erlasstitel = law.get("erlasstitel", "")
                         zhlaw_url_dynamic = law.get("zhlaw_url_dynamic", "#")
                         tree_html += f"""
-                        <div class="law-item">
-                            <div class="law-number">{ordnungsnummer}</div>
-                            <div class="law-title">
-                                <a href="{zhlaw_url_dynamic}">{erlasstitel}</a>
+                        <a href="{zhlaw_url_dynamic}" class="law-item-link">
+                            <div class="law-item">
+                                <div class="law-number">{ordnungsnummer}</div>
+                                <div class="law-title">{erlasstitel}</div>
                             </div>
-                        </div>
+                        </a>
                         """
                     tree_html += "</div>"
 

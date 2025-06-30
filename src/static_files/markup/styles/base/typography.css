@@ -147,7 +147,8 @@ p[class*="enum-"] {
 }
 
 /* Superscript & Subscript - Consistent Line Height Fix */
-sup, sub {
+sup,
+sub {
     vertical-align: baseline;
     position: relative;
     line-height: 0;

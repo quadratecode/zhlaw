@@ -55,9 +55,11 @@
     text-decoration: none;
 }
 
-/* Subprovision reference styling */
-.subprovision a {
-    text-underline-offset: -0.15rem;
+@supports not (-moz-appearance: none) {
+    /* Subprovision reference styling */
+    .subprovision a {
+        text-underline-offset: -0.15rem;
+    }
 }
 
 .subprovision a sup {
