@@ -166,6 +166,7 @@ htmldiff
 .idea
 _notes
 logs
+datasets
 
 # Deployment
 deploy.sh
