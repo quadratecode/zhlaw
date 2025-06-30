@@ -70,7 +70,8 @@ def get_create_tables_sql():
             provision_markdown TEXT,
             provision_sequence INTEGER,
             provision_number TEXT,
-            provision_hyperlink TEXT,
+            provision_hyperlink_static TEXT,
+            provision_hyperlink_dynamic TEXT,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (col_ordnungsnummer_nachtragsnummer) REFERENCES versions(col_ordnungsnummer_nachtragsnummer)
         )

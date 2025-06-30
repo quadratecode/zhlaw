@@ -197,6 +197,81 @@ python -m src.main_entry_points.d1_build_site --folder fedlex_main_files --mode 
 python -m src.main_entry_points.d1_build_site --folder fedlex_main_files --workers 6
 ```
 
+## 7. e1_build_database.py - SQL Database Generation Pipeline
+
+Builds an SQLite database from processed markdown law files.
+
+### Arguments:
+- `--input-dir`: Input directory containing md-files subdirectory (default: public/)
+- `--output-file`: Output database filename (default: zhlaw.db)
+- `--collections`: Collections to process
+  - `zh`: Process only Zurich laws
+  - `ch`: Process only federal laws
+  - `all`: Process all collections (default)
+- `--mode`: Processing mode
+  - `concurrent`: Parallel processing (default)
+  - `sequential`: Sequential processing
+- `--workers`: Number of worker processes (default: auto-detect)
+- `--log-level`: Logging level (DEBUG, INFO, WARNING, ERROR - default: INFO)
+
+### Common workflows:
+
+```bash
+# Build database from all collections (default)
+python -m src.main_entry_points.e1_build_database
+
+# Build from test files only
+python -m src.main_entry_points.e1_build_database --input-dir public_test/
+
+# Build only ZH collection with sequential processing
+python -m src.main_entry_points.e1_build_database --collections zh --mode sequential
+
+# Build with custom output filename and worker count
+python -m src.main_entry_points.e1_build_database --output-file custom_laws.db --workers 4
+
+# Build with debug logging
+python -m src.main_entry_points.e1_build_database --log-level DEBUG
+```
+
+### All possible combinations:
+
+```bash
+# Basic usage
+python -m src.main_entry_points.e1_build_database
+
+# Different input directories
+python -m src.main_entry_points.e1_build_database --input-dir public/
+python -m src.main_entry_points.e1_build_database --input-dir public_test/
+
+# Different collections
+python -m src.main_entry_points.e1_build_database --collections zh
+python -m src.main_entry_points.e1_build_database --collections ch
+python -m src.main_entry_points.e1_build_database --collections all
+
+# Different processing modes
+python -m src.main_entry_points.e1_build_database --mode concurrent
+python -m src.main_entry_points.e1_build_database --mode sequential
+
+# Custom output files
+python -m src.main_entry_points.e1_build_database --output-file laws.db
+python -m src.main_entry_points.e1_build_database --output-file test_laws.db
+
+# Worker configurations
+python -m src.main_entry_points.e1_build_database --workers 2
+python -m src.main_entry_points.e1_build_database --workers 4
+python -m src.main_entry_points.e1_build_database --workers 8
+
+# Logging levels
+python -m src.main_entry_points.e1_build_database --log-level DEBUG
+python -m src.main_entry_points.e1_build_database --log-level INFO
+python -m src.main_entry_points.e1_build_database --log-level WARNING
+
+# Combined examples
+python -m src.main_entry_points.e1_build_database --input-dir public_test/ --collections zh --mode sequential
+python -m src.main_entry_points.e1_build_database --output-file test.db --workers 2 --log-level DEBUG
+python -m src.main_entry_points.e1_build_database --collections ch --mode concurrent --workers 4
+```
+
 ## Complete Processing Pipelines
 
 ### Test Pipeline (Quick Testing)
@@ -214,6 +289,9 @@ python -m src.main_entry_points.b1_process_krzh_dispatch
 
 # 4. Build test site (includes placeholders and dataset)
 python -m src.main_entry_points.d1_build_site --folder all_test_files
+
+# [Optional: 5. Build database from test site]
+python -m src.main_entry_points.e1_build_database --input-dir public_test/
 ```
 
 ### Full Production Pipeline
@@ -231,6 +309,9 @@ python -m src.main_entry_points.b1_process_krzh_dispatch
 
 # 4. Build complete site
 python -m src.main_entry_points.d1_build_site --folder all_main_files
+
+# [Optional: 5. Build database from production site]
+python -m src.main_entry_points.e1_build_database --input-dir public/
 ```
 
 ### ZH-Only Pipeline
@@ -241,6 +322,9 @@ python -m src.main_entry_points.a2_process_zhlex --folder zhlex_files
 
 # 2. Build ZH-only site
 python -m src.main_entry_points.d1_build_site --folder zhlex_main_files
+
+# [Optional: 3. Build database for ZH laws only]
+python -m src.main_entry_points.e1_build_database --collections zh
 ```
 
 ### Fedlex-Only Pipeline
@@ -251,6 +335,9 @@ python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files --mode c
 
 # 2. Build Fedlex-only site
 python -m src.main_entry_points.d1_build_site --folder fedlex_main_files
+
+# [Optional: 3. Build database for federal laws only]
+python -m src.main_entry_points.e1_build_database --collections ch
 ```
 
 ### Debug Pipeline (Sequential Processing)

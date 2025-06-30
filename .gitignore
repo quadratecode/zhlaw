@@ -149,6 +149,7 @@ testfile.py
 *.xlsx
 *.xml
 *.json
+*.db
 
 # API keys and other secrets
 credentials.json

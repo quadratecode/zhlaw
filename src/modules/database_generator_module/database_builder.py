@@ -453,8 +453,8 @@ def insert_provisions_data(
     sql = """
         INSERT INTO provisions (
             col_ordnungsnummer_nachtragsnummer, provision_markdown, provision_sequence,
-            provision_number, provision_hyperlink
-        ) VALUES (?, ?, ?, ?, ?)
+            provision_number, provision_hyperlink_static, provision_hyperlink_dynamic
+        ) VALUES (?, ?, ?, ?, ?, ?)
     """
     
     for provision in provisions:
@@ -463,7 +463,8 @@ def insert_provisions_data(
             provision.get('provision_markdown'),
             provision.get('provision_sequence'),
             provision.get('provision_number'),
-            provision.get('provision_hyperlink')
+            provision.get('provision_hyperlink_static'),
+            provision.get('provision_hyperlink_dynamic')
         )
         
         conn.execute(sql, params)

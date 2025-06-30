@@ -122,6 +122,13 @@ def parse_yaml_frontmatter(content: str) -> Tuple[Dict[str, Any], str]:
 def extract_provisions(markdown_content: str, filename_stem: str) -> List[Dict[str, Any]]:
     """Extract individual provisions from markdown content.
     
+    Provisions start with patterns like:
+    - [⟨§ 1.⟩](URL) for sections
+    - [⟨Art. 1⟩](URL) for articles
+    
+    If marginalia (h6 headings) appear immediately before a provision,
+    they are included as part of that provision.
+    
     Args:
         markdown_content: Markdown text content
         filename_stem: Filename without extension for logging
@@ -141,59 +148,109 @@ def extract_provisions(markdown_content: str, filename_stem: str) -> List[Dict[s
         lines = markdown_content.split('\n')
         current_provision = None
         current_content = []
+        pending_marginalia = None  # Store marginalia that may belong to next provision
         
         for line_num, line in enumerate(lines, 1):
+            original_line = line
             line = line.strip()
             
             if not line:
-                if current_content:
+                if current_content or pending_marginalia:
                     current_content.append("")  # Preserve blank lines within provisions
                 continue
             
-            # Check if this is a provision number (bold number on its own line)
-            provision_match = re.match(r'^\*\*(\d+[a-z]?)\*\*$', line)
+            # Check for provision patterns: [⟨§ number.⟩](URL) or [⟨Art. number⟩](URL)
+            # First check for sections: [⟨§ X.⟩] where X can be '4', '4a', '4 a', etc.
+            section_match = re.search(r'\[⟨§\s*(\d+(?:\s*[a-z])*)\s*\.?⟩\]', line)
+            # Then check for articles: [⟨Art. X⟩] where X can be '1', '1a', etc.
+            article_match = re.search(r'\[⟨Art\.\s*(\d+[a-z]*)⟩\]', line)
+            
+            provision_match = section_match or article_match
             if provision_match:
                 # Save previous provision if exists
                 if current_provision:
                     provisions.append(_finalize_provision(current_provision, current_content, sequence - 1))
                 
+                # Extract provision number and type
+                if section_match:
+                    provision_number = section_match.group(1).strip()
+                    provision_type = "section"
+                else:  # article_match
+                    provision_number = article_match.group(1).strip()
+                    provision_type = "article"
+                
                 # Start new provision
-                provision_number = provision_match.group(1)
                 current_provision = {
                     'provision_number': provision_number,
+                    'provision_type': provision_type,
                     'line_number': line_num
                 }
+                
+                # Include pending marginalia if it exists
                 current_content = []
+                if pending_marginalia:
+                    current_content.append(pending_marginalia)
+                    pending_marginalia = None
+                
+                # Add the provision line itself
+                current_content.append(original_line)
                 sequence += 1
-                logger.debug(f"Found provision {provision_number} at line {line_num}")
+                logger.debug(f"Found {provision_type} {provision_number} at line {line_num}")
                 continue
             
-            # Check for marginalia (h6 headings)
-            marginalia_match = re.match(r'^#{6}\s+(.+)$', line)
-            if marginalia_match:
-                # Save previous provision if exists
+            # Check for any heading (h1-h6)
+            heading_match = re.match(r'^#{1,6}\s+(.+)$', line)
+            if heading_match:
+                heading_level = len(re.match(r'^#+', line).group(0))
+                heading_text = heading_match.group(1)
+                marginalia_line = original_line
+                
+                # For h6 headings, check if this is marginalia for the next provision
+                if heading_level == 6:
+                    # Check if next non-empty line contains a provision
+                    next_provision_found = False
+                    for next_line_num in range(line_num + 1, len(lines) + 1):
+                        if next_line_num > len(lines):
+                            break
+                        next_line = lines[next_line_num - 1].strip()
+                        if not next_line:
+                            continue
+                        # Check if next line is a provision (section or article)
+                        if (re.search(r'\[⟨§\s*\d+(?:\s*[a-z])*\s*\.?⟩\]', next_line) or 
+                            re.search(r'\[⟨Art\.\s*\d+[a-z]*⟩\]', next_line)):
+                            next_provision_found = True
+                            break
+                        else:
+                            # If next non-empty line is not a provision, break
+                            break
+                    
+                    if next_provision_found:
+                        # This h6 is marginalia for the next provision
+                        # Save current provision if exists (marginalia marks end of previous provision)
+                        if current_provision:
+                            provisions.append(_finalize_provision(current_provision, current_content, sequence - 1))
+                            current_provision = None
+                            current_content = []
+                        
+                        # Store marginalia to be included with next provision
+                        pending_marginalia = marginalia_line
+                        logger.debug(f"Found marginalia for next provision at line {line_num}: {marginalia_line[:50]}...")
+                        continue
+                
+                # All other headings (h1-h5 and h6 that don't precede provisions) end the current provision
                 if current_provision:
                     provisions.append(_finalize_provision(current_provision, current_content, sequence - 1))
+                    current_provision = None
+                    current_content = []
                 
-                # Create marginalia provision
-                marginalia_text = marginalia_match.group(1)
-                marginalia_provision = {
-                    'provision_number': f"marginalia_{sequence}",
-                    'provision_markdown': f"###### {marginalia_text}",
-                    'provision_sequence': sequence,
-                    'provision_hyperlink': extract_hyperlinks(marginalia_text),
-                    'is_marginalia': True
-                }
-                provisions.append(marginalia_provision)
-                current_provision = None
-                current_content = []
-                sequence += 1
-                logger.debug(f"Found marginalia at line {line_num}: {marginalia_text[:50]}...")
+                # Clear pending marginalia as we hit a heading that ends provisions
+                pending_marginalia = None
+                logger.debug(f"Found heading (h{heading_level}) that ends provision at line {line_num}: {heading_text[:50]}...")
                 continue
             
             # Add line to current provision content
-            if current_content or line:  # Don't start with empty lines
-                current_content.append(line)
+            if current_provision and (current_content or line):
+                current_content.append(original_line)
         
         # Don't forget the last provision
         if current_provision:
@@ -211,7 +268,7 @@ def _finalize_provision(provision_data: Dict[str, Any], content_lines: List[str]
     """Finalize a provision by combining content and extracting hyperlinks.
     
     Args:
-        provision_data: Partial provision data
+        provision_data: Partial provision data containing provision_number and provision_type
         content_lines: List of content lines
         sequence: Sequence number
         
@@ -221,60 +278,87 @@ def _finalize_provision(provision_data: Dict[str, Any], content_lines: List[str]
     # Combine content lines
     provision_text = '\n'.join(content_lines).strip()
     
-    # Extract hyperlinks
-    hyperlinks = extract_hyperlinks(provision_text)
+    # Extract static and dynamic hyperlinks
+    static_url, dynamic_url = extract_hyperlinks(provision_text)
     
     return {
         'provision_number': provision_data['provision_number'],
+        'provision_type': provision_data.get('provision_type', 'unknown'),
         'provision_markdown': provision_text,
         'provision_sequence': sequence,
-        'provision_hyperlink': hyperlinks,
+        'provision_hyperlink_static': static_url,
+        'provision_hyperlink_dynamic': dynamic_url,
         'is_marginalia': False
     }
 
 
-def extract_hyperlinks(text: str) -> Optional[str]:
-    """Extract hyperlinks from text content.
+def extract_hyperlinks(text: str) -> tuple[Optional[str], Optional[str]]:
+    """Extract static and dynamic hyperlinks from text content.
     
     Args:
         text: Text content to search for hyperlinks
         
     Returns:
-        JSON string of hyperlinks or None if none found
+        Tuple of (static_url, dynamic_url) where:
+        - static_url: The original URL from the markdown link
+        - dynamic_url: The URL converted to use "latest" version
+        
+    Example:
+        Input: "[⟨§ 1.⟩](https://www.zhlaw.ch/col-zh/722.1-085.html#seq-0-prov-1)"
+        Output: ("https://www.zhlaw.ch/col-zh/722.1-085.html#seq-0-prov-1", 
+                "https://www.zhlaw.ch/col-zh/722.1/latest#seq-0-prov-1")
     """
     try:
-        # Find markdown links [text](url)
-        md_links = re.findall(r'\[([^\]]+)\]\(([^)]+)\)', text)
+        # Find markdown links [text](url) - looking specifically for provision links
+        provision_md_links = re.findall(r'\[⟨[^⟩]+⟩\]\(([^)]+)\)', text)
         
-        # Find provision links ⟨text⟩
-        provision_links = re.findall(r'⟨([^⟩]+)⟩', text)
+        if not provision_md_links:
+            return None, None
         
-        links = []
+        # Take the first provision link found (should typically be only one per provision)
+        static_url = provision_md_links[0]
         
-        # Add markdown links
-        for link_text, url in md_links:
-            links.append({
-                'type': 'markdown',
-                'text': link_text,
-                'url': url
-            })
+        # Convert static URL to dynamic URL
+        # Pattern: https://www.zhlaw.ch/col-zh/722.1-085.html#seq-0-prov-1
+        # Target:  https://www.zhlaw.ch/col-zh/722.1/latest#seq-0-prov-1
+        dynamic_url = _convert_to_dynamic_url(static_url)
         
-        # Add provision links
-        for link_text in provision_links:
-            links.append({
-                'type': 'provision',
-                'text': link_text
-            })
-        
-        if links:
-            import json
-            return json.dumps(links)
-        
-        return None
+        return static_url, dynamic_url
         
     except Exception as e:
         logger.warning(f"Error extracting hyperlinks: {e}")
-        return None
+        return None, None
+
+
+def _convert_to_dynamic_url(static_url: str) -> Optional[str]:
+    """Convert a static URL to a dynamic URL using 'latest' version.
+    
+    Args:
+        static_url: Static URL like "https://www.zhlaw.ch/col-zh/722.1-085.html#seq-0-prov-1"
+        
+    Returns:
+        Dynamic URL like "https://www.zhlaw.ch/col-zh/722.1/latest#seq-0-prov-1"
+    """
+    try:
+        # Match pattern: https://www.zhlaw.ch/col-zh/ORDNUNGSNUMMER-NACHTRAGSNUMMER.html#anchor
+        match = re.match(r'(https://www\.zhlaw\.ch/col-zh/)([^-]+)-[^.]+\.html(#.+)?', static_url)
+        
+        if match:
+            base_url = match.group(1)
+            ordnungsnummer = match.group(2)
+            anchor = match.group(3) or ""
+            
+            # Construct dynamic URL
+            dynamic_url = f"{base_url}{ordnungsnummer}/latest{anchor}"
+            return dynamic_url
+        
+        # If pattern doesn't match, return the original URL
+        logger.warning(f"Could not convert static URL to dynamic: {static_url}")
+        return static_url
+        
+    except Exception as e:
+        logger.warning(f"Error converting URL to dynamic: {e}")
+        return static_url
 
 
 def parse_filename(filename: str) -> Dict[str, str]:
