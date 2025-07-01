@@ -165,12 +165,12 @@ def normalize_footnote_text(text: str) -> str:
     # Remove extra spaces before commas and ensure single space after
     text = re.sub(r'\s*,\s*', ', ', text)
     
+    # Remove extra spaces before periods and ensure single space after (except at end of text)
+    text = re.sub(r'\s*\.\s*', '. ', text)
+    text = re.sub(r'\.\s*$', '.', text)  # Clean final period (no trailing space)
+    
     # Clean up multiple spaces but preserve single spaces
     text = re.sub(r'\s{2,}', ' ', text)
-    
-    # Handle periods: ensure single space after periods (except at end)
-    text = re.sub(r'\.\s{2,}', '. ', text)
-    text = re.sub(r'\.$', '.', text)  # Clean final period
     
     return text.strip()
 
