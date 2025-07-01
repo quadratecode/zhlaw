@@ -186,8 +186,8 @@ def main(html_file_law, html_file_marginalia, merged_html_law):
     soup = BeautifulSoup(merged_html, "html.parser")
     soup = clean_html(soup)
 
-    from src.utils.html_utils import write_pretty_html
-    write_pretty_html(soup, merged_html_law, encoding="utf-8", add_doctype=False)
+    from src.utils.html_utils import write_html
+    write_html(soup, merged_html_law, encoding="utf-8", add_doctype=False, minify=True)
     logger.info(f"Saved merged HTML to {merged_html_law}")
 
 

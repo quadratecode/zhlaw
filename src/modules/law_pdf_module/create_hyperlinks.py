@@ -149,6 +149,32 @@ def count_footnote_numbers(soup: BeautifulSoup) -> Dict[str, int]:
     return counts
 
 
+def normalize_footnote_text(text: str) -> str:
+    """
+    Normalize spacing in footnote text by removing extra spaces around punctuation.
+    """
+    import re
+    
+    # Remove extra spaces inside parentheses (keep space before opening paren for readability)
+    text = re.sub(r'\(\s+', '(', text)  # Remove space after opening paren
+    text = re.sub(r'\s+\)', ')', text)  # Remove space before closing paren
+    
+    # Remove extra spaces before semicolons and ensure single space after
+    text = re.sub(r'\s*;\s*', '; ', text)
+    
+    # Remove extra spaces before commas and ensure single space after
+    text = re.sub(r'\s*,\s*', ', ', text)
+    
+    # Clean up multiple spaces but preserve single spaces
+    text = re.sub(r'\s{2,}', ' ', text)
+    
+    # Handle periods: ensure single space after periods (except at end)
+    text = re.sub(r'\.\s{2,}', '. ', text)
+    text = re.sub(r'\.$', '.', text)  # Clean final period
+    
+    return text.strip()
+
+
 def merge_footnotes(soup: BeautifulSoup, seq_counter: Dict[str, int]) -> BeautifulSoup:
     """
     Merge footnotes by combining adjacent paragraphs with the 'footnote' class.
@@ -163,13 +189,20 @@ def merge_footnotes(soup: BeautifulSoup, seq_counter: Dict[str, int]) -> Beautif
     for p in footnote_paragraphs:
         if p.sup:
             if current_text_parts:
-                new_paragraphs.append((sup_number, " ".join(current_text_parts)))
+                # Join and normalize the text before creating paragraph
+                merged_text = " ".join(current_text_parts)
+                normalized_text = normalize_footnote_text(merged_text)
+                new_paragraphs.append((sup_number, normalized_text))
             current_text_parts = []
             sup_number = p.sup.extract().get_text(strip=True)
-        current_text_parts.append(p.get_text())
+        # Strip whitespace from individual text parts to prevent accumulation
+        current_text_parts.append(p.get_text().strip())
 
     if current_text_parts:
-        new_paragraphs.append((sup_number, " ".join(current_text_parts)))
+        # Join and normalize the final text
+        merged_text = " ".join(current_text_parts)
+        normalized_text = normalize_footnote_text(merged_text)
+        new_paragraphs.append((sup_number, normalized_text))
 
     for p in footnote_paragraphs:
         p.decompose()
@@ -259,14 +292,41 @@ def update_html_with_hyperlinks(
         text_elements = soup.find_all(text=re.compile(regex))
         for text_element in text_elements:
             if text_element.parent.name != "a":
-                new_text: str = re.sub(
-                    regex,
-                    f'<a href="{link_uri}">{link_text}</a>',
-                    text_element,
-                    flags=re.IGNORECASE,
-                )
-                new_soup: BeautifulSoup = BeautifulSoup(new_text, "html.parser")
-                text_element.replace_with(new_soup)
+                # Find all matches in the text
+                text_str = str(text_element)
+                matches = list(re.finditer(regex, text_str, flags=re.IGNORECASE))
+                
+                if matches:
+                    # Get the parent to insert new elements
+                    parent = text_element.parent
+                    
+                    # Build list of new elements (text segments and links)
+                    new_elements = []
+                    last_end = 0
+                    
+                    for match in matches:
+                        # Add text before match
+                        if match.start() > last_end:
+                            new_elements.append(NavigableString(text_str[last_end:match.start()]))
+                        
+                        # Create link element
+                        a_tag = soup.new_tag("a", href=link_uri)
+                        a_tag.string = match.group()
+                        new_elements.append(a_tag)
+                        
+                        last_end = match.end()
+                    
+                    # Add remaining text after last match
+                    if last_end < len(text_str):
+                        new_elements.append(NavigableString(text_str[last_end:]))
+                    
+                    # Replace the original text element with new elements
+                    for i, elem in enumerate(new_elements):
+                        if i == 0:
+                            text_element.replace_with(elem)
+                        else:
+                            # Insert after the previous element
+                            new_elements[i-1].insert_after(elem)
             else:
                 text_element.parent["href"] = link_uri
 
@@ -481,8 +541,8 @@ def main(merged_html_law: str, updated_json_file_law: str) -> None:
     soup = merge_numbered_paragraphs(soup)
     soup = update_html_with_hyperlinks(hyperlinks, soup)
 
-    from src.utils.html_utils import write_pretty_html
-    write_pretty_html(soup, merged_html_law, encoding="utf-8", add_doctype=False)
+    from src.utils.html_utils import write_html
+    write_html(soup, merged_html_law, encoding="utf-8", add_doctype=False, minify=True)
 
 
 if __name__ == "__main__":

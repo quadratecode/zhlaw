@@ -740,8 +740,8 @@ def main(html_file: str) -> None:
     soup = reduce_whitespace(soup)
     soup = remove_whitespace_around_subsup(soup)
 
-    from src.utils.html_utils import write_pretty_html
-    write_pretty_html(soup, html_file, encoding="utf-8", add_doctype=False)
+    from src.utils.html_utils import write_html
+    write_html(soup, html_file, encoding="utf-8", add_doctype=False, minify=True)
 
 
 if __name__ == "__main__":
