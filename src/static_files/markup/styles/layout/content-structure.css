@@ -13,6 +13,12 @@ details.details-col {
     /* Align with parent summary-col-number: 1.7em (icon+margin) - 0.75em (padding) */
 }
 
+/* Third-level indentation - align third-level folder icons with second-level summary-col-number */
+.details-col .details-col .details-col {
+    margin-left: 1.9em;
+    /* Align icon with parent summary-col-number: 0.95em + 1.2em (icon) + 0.5em (gap) - 0.75em (padding adjustment) */
+}
+
 /* Summary row layout with flexbox for proper alignment */
 details.details-col summary {
     display: flex;
