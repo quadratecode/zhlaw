@@ -452,6 +452,57 @@ def prettify_html_soup(soup: BeautifulSoup, indent: int = 4) -> str:
     return soup.prettify(formatter="minimal")
 
 
+def write_html(
+    soup: BeautifulSoup,
+    file_path: str,
+    encoding: str = "utf-8",
+    add_doctype: bool = True,
+    indent: int = 4,
+    minify: bool = True,
+) -> None:
+    """
+    Write BeautifulSoup object to file as HTML (minified or pretty-printed).
+
+    Args:
+        soup: BeautifulSoup object to write
+        file_path: Output file path
+        encoding: File encoding
+        add_doctype: Whether to add DOCTYPE if missing
+        indent: Number of spaces for indentation (only used when not minifying)
+        minify: Whether to minify the HTML output
+    """
+    from bs4 import Doctype
+
+    # Check if DOCTYPE already exists
+    has_doctype = any(isinstance(element, Doctype) for element in soup.contents)
+
+    # Prepare HTML content
+    if minify:
+        from src.utils.minification_utils import minify_html_content
+        
+        # Convert soup to string first
+        html_content = str(soup)
+        
+        # Add DOCTYPE if requested and not present
+        if add_doctype and not has_doctype:
+            html_content = "<!DOCTYPE html>\n" + html_content
+        
+        # Minify the HTML
+        minified_content = minify_html_content(html_content, minify_css=True, minify_js=True)
+        
+        with open(file_path, "w", encoding=encoding) as f:
+            f.write(minified_content)
+    else:
+        # Use pretty-printing for debugging/development
+        with open(file_path, "w", encoding=encoding) as f:
+            # Add DOCTYPE if requested and not present
+            if add_doctype and not has_doctype:
+                f.write("<!DOCTYPE html>\n")
+            
+            # Write pretty-printed HTML
+            f.write(prettify_html_soup(soup, indent))
+
+
 def write_pretty_html(
     soup: BeautifulSoup,
     file_path: str,
@@ -461,6 +512,9 @@ def write_pretty_html(
 ) -> None:
     """
     Write BeautifulSoup object to file as pretty-printed HTML.
+    
+    This function is maintained for backward compatibility.
+    Consider using write_html() with minify=False for new code.
 
     Args:
         soup: BeautifulSoup object to write
@@ -469,15 +523,4 @@ def write_pretty_html(
         add_doctype: Whether to add DOCTYPE if missing
         indent: Number of spaces for indentation
     """
-    from bs4 import Doctype
-
-    with open(file_path, "w", encoding=encoding) as f:
-        # Check if DOCTYPE already exists
-        has_doctype = any(isinstance(element, Doctype) for element in soup.contents)
-
-        # Add DOCTYPE if requested and not present
-        if add_doctype and not has_doctype:
-            f.write("<!DOCTYPE html>\n")
-
-        # Write pretty-printed HTML
-        f.write(prettify_html_soup(soup, indent))
+    write_html(soup, file_path, encoding, add_doctype, indent, minify=False)

@@ -17,9 +17,10 @@ logger = get_module_logger(__name__)
 class AssetVersionManager:
     """Manages versioned assets for optimal caching."""
     
-    def __init__(self, source_dir: str, output_dir: str):
+    def __init__(self, source_dir: str, output_dir: str, minify_assets: bool = True):
         self.source_dir = Path(source_dir)
         self.output_dir = Path(output_dir)
+        self.minify_assets = minify_assets
         self.version_map = {}
         self.version_file = self.output_dir / 'asset-versions.json'
         
@@ -153,12 +154,32 @@ class AssetVersionManager:
                     output_file = self.output_dir / relative_path.parent / versioned_name
                     output_file.parent.mkdir(parents=True, exist_ok=True)
                     
-                    # Write processed content
+                    # Write processed content with optional minification
                     if file_path.suffix == '.css' and original_name in processed_content:
+                        content = processed_content[original_name]
+                        if self.minify_assets:
+                            from src.utils.minification_utils import minify_css_content
+                            content = minify_css_content(content)
                         with open(output_file, 'w', encoding='utf-8') as f:
-                            f.write(processed_content[original_name])
+                            f.write(content)
+                    elif file_path.suffix == '.js':
+                        # Handle JS files with optional minification
+                        if self.minify_assets:
+                            from src.utils.minification_utils import minify_js_content
+                            try:
+                                with open(file_path, 'r', encoding='utf-8') as f:
+                                    js_content = f.read()
+                                minified_content = minify_js_content(js_content, fallback_on_error=True)
+                                with open(output_file, 'w', encoding='utf-8') as f:
+                                    f.write(minified_content)
+                            except Exception as e:
+                                logger.warning(f"JS minification failed for {file_path}: {type(e).__name__}: {e}, copying original")
+                                shutil.copy2(file_path, output_file)
+                        else:
+                            # Just copy as-is if not minifying
+                            shutil.copy2(file_path, output_file)
                     else:
-                        # For JS files, just copy as-is
+                        # Other file types, copy as-is
                         shutil.copy2(file_path, output_file)
                     
                     logger.info(f"Versioned asset: {original_name} -> {versioned_path}")

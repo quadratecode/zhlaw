@@ -57,11 +57,6 @@ from src.utils.logging_utils import get_module_logger
 
 # Get logger for this module
 logger = get_module_logger(__name__)
-from src.utils.logging_decorators import configure_logging
-from src.utils.logging_utils import get_module_logger
-
-# Get logger for this module
-logger = get_module_logger(__name__)
 
 # Global variables for paths - will be set in main()
 STATIC_PATH = None
@@ -77,7 +72,7 @@ def process_html_file(args):
     Process a single HTML file and return success/error status.
     This function is designed to be callable by both sequential and parallel processors.
     """
-    html_file, collection_data_path, collection_path, law_origin = args
+    html_file, collection_data_path, collection_path, law_origin, minify_output = args
 
     # Skip diff files
     if "-diff-" in html_file:
@@ -145,9 +140,9 @@ def process_html_file(args):
                 os.makedirs(STATIC_PATH)
             new_file_path = os.path.join(STATIC_PATH, os.path.basename(html_file))
 
-        # Write final HTML with pretty-printing
-        from src.utils.html_utils import write_pretty_html
-        write_pretty_html(soup, new_file_path, encoding="utf-8", add_doctype=True)
+        # Write final HTML with optional minification
+        from src.utils.html_utils import write_html
+        write_html(soup, new_file_path, encoding="utf-8", add_doctype=True, minify=minify_output)
 
         return True
     except Exception as e:
@@ -159,7 +154,7 @@ def process_html_file(args):
 
 
 def process_html_files_sequentially(
-    html_files, collection_data_path, collection_path, law_origin
+    html_files, collection_data_path, collection_path, law_origin, minify_output=True
 ):
     """
     Process HTML files sequentially for easier debugging.
@@ -175,7 +170,7 @@ def process_html_files_sequentially(
 
         for html_file in html_files:
             success = process_html_file(
-                (html_file, collection_data_path, collection_path, law_origin)
+                (html_file, collection_data_path, collection_path, law_origin, minify_output)
             )
             if not success:
                 error_counter += 1
@@ -185,7 +180,7 @@ def process_html_files_sequentially(
 
 
 def process_html_files_concurrently(
-    html_files, collection_data_path, collection_path, law_origin, max_workers=None
+    html_files, collection_data_path, collection_path, law_origin, max_workers=None, minify_output=True
 ):
     """
     Process HTML files in parallel using ProcessPoolExecutor.
@@ -193,7 +188,7 @@ def process_html_files_concurrently(
     error_counter = 0
     # Create a list of argument tuples for the process_html_file function
     process_args = [
-        (html_file, collection_data_path, collection_path, law_origin)
+        (html_file, collection_data_path, collection_path, law_origin, minify_output)
         for html_file in html_files
     ]
 
@@ -217,13 +212,13 @@ def process_html_files_concurrently(
 
 
 @configure_logging()
-@configure_logging()
 def main(
     folder_choice,
     dataset_trigger,
     placeholders_trigger,
     processing_mode,
     max_workers=None,
+    minify_output=True,
 ):
     """
     Depending on `folder_choice`:
@@ -301,7 +296,7 @@ def main(
 
     # Initialize asset version manager
     asset_manager = AssetVersionManager(
-        source_dir="src/static_files/markup/", output_dir=STATIC_PATH
+        source_dir="src/static_files/markup/", output_dir=STATIC_PATH, minify_assets=minify_output
     )
 
     # Process versionable assets (CSS, JS)
@@ -397,6 +392,7 @@ def main(
                     COLLECTION_PATH_ZH,
                     law_origin="zh",
                     max_workers=max_workers,
+                    minify_output=minify_output,
                 )
             else:
                 error_counter_zh = process_html_files_sequentially(
@@ -404,6 +400,7 @@ def main(
                     COLLECTION_DATA_ZH,
                     COLLECTION_PATH_ZH,
                     law_origin="zh",
+                    minify_output=minify_output,
                 )
 
             logger.info(f"ZH-Lex: encountered {error_counter_zh} errors.")
@@ -445,6 +442,7 @@ def main(
                     COLLECTION_PATH_CH,
                     law_origin="ch",
                     max_workers=max_workers,
+                    minify_output=minify_output,
                 )
             else:
                 error_counter_ch = process_html_files_sequentially(
@@ -452,6 +450,7 @@ def main(
                     COLLECTION_DATA_CH,
                     COLLECTION_PATH_CH,
                     law_origin="ch",
+                    minify_output=minify_output,
                 )
 
             logger.info(f"FedLex: encountered {error_counter_ch} errors.")
@@ -687,7 +686,19 @@ if __name__ == "__main__":
         default=None,
         help="Number of worker processes for concurrent mode (default: auto)",
     )
+    parser.add_argument(
+        "--minify",
+        action="store_true",
+        default=True,
+        help="Minify HTML, CSS, and JS output (default: enabled)",
+    )
+    parser.add_argument(
+        "--no-minify",
+        dest="minify",
+        action="store_false",
+        help="Disable minification for debugging (pretty-print HTML)",
+    )
     args = parser.parse_args()
 
     logger.info(f"Script arguments: {args}")
-    main(args.folder, args.db_build, args.placeholders, args.mode, args.workers)
+    main(args.folder, args.db_build, args.placeholders, args.mode, args.workers, args.minify)

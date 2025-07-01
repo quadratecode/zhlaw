@@ -155,15 +155,15 @@ class MarkdownProcessor:
             processed = self.process_markdown_file(str(md_file))
             html_content = self.generate_html_page(processed)
             
-            # Save HTML file with pretty-printing
+            # Save HTML file with minification to avoid extra spaces around inline elements
             from bs4 import BeautifulSoup
-            from src.utils.html_utils import write_pretty_html
+            from src.utils.html_utils import write_html
             
             output_file = output_path / f"{processed['filename']}.html"
             
-            # Parse the HTML string and then write it with pretty-printing
+            # Parse the HTML string and then write it with minification
             soup = BeautifulSoup(html_content, "html.parser")
-            write_pretty_html(soup, str(output_file), encoding="utf-8", add_doctype=False)
+            write_html(soup, str(output_file), encoding="utf-8", add_doctype=False, minify=True)
             
             print(f"Processed: {md_file.name} -> {output_file.name}")
 
