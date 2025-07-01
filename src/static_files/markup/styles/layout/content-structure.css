@@ -39,12 +39,14 @@ details.details-col summary:hover {
 .summary-col-number {
     font-weight: var(--font-weight-medium);
     width: 2.5em;
+    flex: 0 0 auto;
 }
 
 /* Text column with proper alignment */
 .summary-col-text {
     padding-left: 0.2em;
     font-weight: var(--font-weight-medium);
+    flex: 1;
 }
 
 
