@@ -7,9 +7,10 @@ patterns of legal citations and creates proper anchor links within the document 
 Key features:
 - Identifies provisions and subprovisions with proper ID assignment
 - Processes footnotes and creates bidirectional links
-- Handles cross-references to other legal texts
+- Handles cross-references to other legal texts (within footnotes only)
 - Manages table of contents and structural elements
 - Refines document structure for proper navigation
+- Constrains hyperlink creation to footnote content only
 
 License:
     https://github.com/quadratecode/zhlaw/blob/main/LICENSE.md
@@ -282,59 +283,63 @@ def update_html_with_hyperlinks(
     """
     Insert hyperlinks into the HTML by finding text nodes that match the hyperlink text.
     If the text is not already inside an <a> tag, it wraps it with one.
+    Only creates hyperlinks within footnote content spans (<span class="footnote-content">).
     """
+    # Find all footnote content spans
+    footnote_content_spans = soup.find_all("span", class_="footnote-content")
+    
     for link in hyperlinks:
         link_text: str = link.get("text", "")
         link_uri: str = link.get("uri", "")
         escaped_link_text: str = re.escape(link_text)
         regex = rf"\b{escaped_link_text}\b"
 
-        text_elements = soup.find_all(text=re.compile(regex))
-        for text_element in text_elements:
-            if text_element.parent.name != "a":
-                # Find all matches in the text
-                text_str = str(text_element)
-                matches = list(re.finditer(regex, text_str, flags=re.IGNORECASE))
-                
-                if matches:
-                    # Get the parent to insert new elements
-                    parent = text_element.parent
+        # Only search for text within footnote content spans
+        for span in footnote_content_spans:
+            text_elements = span.find_all(text=re.compile(regex))
+            for text_element in text_elements:
+                if text_element.parent.name != "a":
+                    # Find all matches in the text
+                    text_str = str(text_element)
+                    matches = list(re.finditer(regex, text_str, flags=re.IGNORECASE))
                     
-                    # Build list of new elements (text segments and links)
-                    new_elements = []
-                    last_end = 0
-                    
-                    for match in matches:
-                        # Add text before match
-                        if match.start() > last_end:
-                            new_elements.append(NavigableString(text_str[last_end:match.start()]))
+                    if matches:
+                        # Build list of new elements (text segments and links)
+                        new_elements = []
+                        last_end = 0
                         
-                        # Create link element
-                        a_tag = soup.new_tag("a", href=link_uri)
-                        a_tag.string = match.group()
-                        new_elements.append(a_tag)
+                        for match in matches:
+                            # Add text before match
+                            if match.start() > last_end:
+                                new_elements.append(NavigableString(text_str[last_end:match.start()]))
+                            
+                            # Create link element
+                            a_tag = soup.new_tag("a", href=link_uri)
+                            a_tag.string = match.group()
+                            new_elements.append(a_tag)
+                            
+                            last_end = match.end()
                         
-                        last_end = match.end()
-                    
-                    # Add remaining text after last match
-                    if last_end < len(text_str):
-                        new_elements.append(NavigableString(text_str[last_end:]))
-                    
-                    # Replace the original text element with new elements
-                    for i, elem in enumerate(new_elements):
-                        if i == 0:
-                            text_element.replace_with(elem)
-                        else:
-                            # Insert after the previous element
-                            new_elements[i-1].insert_after(elem)
-            else:
-                text_element.parent["href"] = link_uri
+                        # Add remaining text after last match
+                        if last_end < len(text_str):
+                            new_elements.append(NavigableString(text_str[last_end:]))
+                        
+                        # Replace the original text element with new elements
+                        for i, elem in enumerate(new_elements):
+                            if i == 0:
+                                text_element.replace_with(elem)
+                            else:
+                                # Insert after the previous element
+                                new_elements[i-1].insert_after(elem)
+                else:
+                    text_element.parent["href"] = link_uri
 
-    # Cleanup nested <a> tags if any exist
-    for a_tag in soup.find_all("a"):
-        inner_a_tags = a_tag.find_all("a")
-        for inner_a in inner_a_tags:
-            inner_a.unwrap()
+    # Cleanup nested <a> tags if any exist (only within footnote content spans)
+    for span in footnote_content_spans:
+        for a_tag in span.find_all("a"):
+            inner_a_tags = a_tag.find_all("a")
+            for inner_a in inner_a_tags:
+                inner_a.unwrap()
 
     return soup
 
