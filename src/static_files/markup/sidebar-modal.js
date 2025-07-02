@@ -41,7 +41,22 @@
             createSidebarClone();
         }
 
-        // Background scrolling is allowed when modal is open
+        // Prevent background scrolling when modal is open
+        function preventBodyScroll() {
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${window.scrollY}px`;
+            document.body.style.width = '100%';
+        }
+        
+        function allowBodyScroll() {
+            const scrollY = document.body.style.top;
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.width = '';
+            window.scrollTo(0, parseInt(scrollY || '0') * -1);
+        }
         
         // Touch event variables for swipe detection
         let touchStartX = 0;
@@ -113,6 +128,9 @@
             
             sidebarModal.style.display = 'flex';
             
+            // Prevent body scroll
+            preventBodyScroll();
+            
             // Trigger the slide-in animation
             requestAnimationFrame(() => {
                 sidebarModal.classList.add('active');
@@ -138,6 +156,9 @@
             sidebarModalContent.removeEventListener('touchstart', handleTouchStart);
             sidebarModalContent.removeEventListener('touchmove', handleTouchMove);
             sidebarModalContent.removeEventListener('touchend', handleTouchEnd);
+            
+            // Re-enable body scroll
+            allowBodyScroll();
             
             // Wait for animation to complete before hiding
             setTimeout(() => {
