@@ -185,16 +185,28 @@
         .custom-table th,
         .custom-table td {
             border: 1px solid #ddd;
-            padding: 8px;
+            padding: 12px;
             text-align: left;
             vertical-align: top;
             min-width: 100px;
+            min-height: 40px;
         }
         
         .custom-table th {
             background: #f8f9fa;
             font-weight: 600;
             color: #495057;
+        }
+        
+        .custom-table th.header-enabled {
+            background: #e9ecef;
+            border-color: #6c757d;
+        }
+        
+        .custom-table th[contenteditable="true"]:focus {
+            outline: 2px solid #007bff;
+            outline-offset: -2px;
+            background: #fff3cd;
         }
         
         .custom-table td {
@@ -228,20 +240,29 @@
         }
         
         .radio-group {
-            display: flex;
-            gap: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
             margin-top: 10px;
         }
         
         .radio-option {
             display: flex;
-            align-items: center;
+            flex-direction: column;
             cursor: pointer;
-            padding: 8px 12px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
+            padding: 12px 15px;
+            border-radius: 6px;
+            border: 2px solid #ddd;
             background: white;
             transition: all 0.2s;
+            min-height: 60px;
+            justify-content: center;
+        }
+        
+        .radio-option-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
         }
         
         .radio-option:hover {
@@ -263,9 +284,14 @@
             border-color: #ffeaa7;
         }
         
-        .radio-option:has(input[value="confirmed"]:checked) {
+        .radio-option:has(input[value="confirmed_without_changes"]:checked) {
             background: #d4edda;
             border-color: #c3e6cb;
+        }
+        
+        .radio-option:has(input[value="confirmed_with_changes"]:checked) {
+            background: #cce5ff;
+            border-color: #99ccff;
         }
         
         .radio-option:has(input[value="rejected"]:checked) {
@@ -273,15 +299,65 @@
             border-color: #f5c6cb;
         }
         
+        .radio-description {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+            font-style: italic;
+            line-height: 1.2;
+        }
+        
         .radio-label {
             font-size: 14px;
             color: #333;
         }
         
+        .table-configuration {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .config-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .config-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+        
+        .selected-cell {
+            background-color: #007bff !important;
+            color: white !important;
+            outline: 2px solid #0056b3 !important;
+        }
+        
         .table-operations {
             display: flex;
-            gap: 10px;
+            flex-direction: column;
+            gap: 15px;
             margin-top: 15px;
+        }
+        
+        .operation-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .operation-label {
+            font-weight: 600;
+            color: #555;
+            font-size: 13px;
+            min-width: 120px;
+            margin-right: 10px;
         }
         
         .operation-btn {
@@ -357,6 +433,16 @@
         .status-edited {
             background: #d1ecf1;
             color: #0c5460;
+        }
+        
+        .status-confirmed-without-changes {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-confirmed-with-changes {
+            background: #cce5ff;
+            color: #0066cc;
         }
         
         .status-merged {
@@ -475,27 +561,79 @@
                     <label class="status-label">Table Status:</label>
                     <div class="radio-group">
                         <label class="radio-option">
-                            <input type="radio" name="table-status" value="undefined" checked onchange="updateTableStatus('undefined')">
-                            <span class="radio-label">Undefined</span>
+                            <div class="radio-option-header">
+                                <input type="radio" name="table-status" value="undefined" checked onchange="updateTableStatus('undefined')">
+                                <span class="radio-label">❓ Undefined</span>
+                            </div>
+                            <div class="radio-description">User must make a selection</div>
                         </label>
                         <label class="radio-option">
-                            <input type="radio" name="table-status" value="confirmed" onchange="updateTableStatus('confirmed')">
-                            <span class="radio-label">✓ Confirmed</span>
+                            <div class="radio-option-header">
+                                <input type="radio" name="table-status" value="confirmed_without_changes" onchange="updateTableStatus('confirmed_without_changes')">
+                                <span class="radio-label">✅ Confirmed without changes</span>
+                            </div>
+                            <div class="radio-description">Table is correctly converted, no editing needed</div>
                         </label>
                         <label class="radio-option">
-                            <input type="radio" name="table-status" value="rejected" onchange="updateTableStatus('rejected')">
-                            <span class="radio-label">✗ Rejected</span>
+                            <div class="radio-option-header">
+                                <input type="radio" name="table-status" value="confirmed_with_changes" onchange="updateTableStatus('confirmed_with_changes')">
+                                <span class="radio-label">✏️ Confirmed with changes</span>
+                            </div>
+                            <div class="radio-description">Table is a table, but edits are needed</div>
+                        </label>
+                        <label class="radio-option">
+                            <div class="radio-option-header">
+                                <input type="radio" name="table-status" value="rejected" onchange="updateTableStatus('rejected')">
+                                <span class="radio-label">❌ Rejected</span>
+                            </div>
+                            <div class="radio-description">Not a table and should not be treated as such</div>
                         </label>
                     </div>
                 </div>
                 
+                <div class="table-configuration">
+                    <label class="config-item">
+                        <input type="checkbox" id="has-header-row" onchange="toggleHeaderRow()">
+                        <span>Has header row</span>
+                    </label>
+                </div>
+                
                 <div class="table-operations">
-                    <button class="operation-btn btn-merge" onclick="mergeTable()">
-                        ⟱ Merge with Next
-                    </button>
-                    <button class="operation-btn btn-skip" onclick="skipTable()">
-                        → Skip for Now
-                    </button>
+                    <div class="operation-group">
+                        <label class="operation-label">Row Operations:</label>
+                        <button class="operation-btn btn-add-row" onclick="addRowAbove()" title="Add row above selected cell">
+                            ⬆️ + Row Above
+                        </button>
+                        <button class="operation-btn btn-add-row" onclick="addRowBelow()" title="Add row below selected cell">
+                            ⬇️ + Row Below
+                        </button>
+                        <button class="operation-btn btn-remove-row" onclick="removeRow()" title="Remove current row">
+                            🗑️ Remove Row
+                        </button>
+                    </div>
+                    
+                    <div class="operation-group">
+                        <label class="operation-label">Column Operations:</label>
+                        <button class="operation-btn btn-add-col" onclick="addColumnLeft()" title="Add column left of selected cell">
+                            ⬅️ + Col Left
+                        </button>
+                        <button class="operation-btn btn-add-col" onclick="addColumnRight()" title="Add column right of selected cell">
+                            ➡️ + Col Right
+                        </button>
+                        <button class="operation-btn btn-remove-col" onclick="removeColumn()" title="Remove current column">
+                            🗑️ Remove Col
+                        </button>
+                    </div>
+                    
+                    <div class="operation-group">
+                        <label class="operation-label">Table Operations:</label>
+                        <button class="operation-btn btn-merge" onclick="mergeTable()">
+                            ⟱ Merge with Next
+                        </button>
+                        <button class="operation-btn btn-skip" onclick="skipTable()">
+                            → Skip for Now
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -521,6 +659,7 @@
         let currentTableIndex = 0;
         let corrections = {};
         let tableData = {};
+        let selectedCell = null; // Track currently selected cell for operations
         
         // Initialize the review system
         function initReview(data) {
@@ -621,8 +760,8 @@
             renderTable(table.hash);
             
             // Set correct editable state based on status
-            const isConfirmed = status === 'confirmed';
-            setTableEditable(isConfirmed);
+            const isEditingEnabled = status === 'confirmed_with_changes' || status === 'confirmed'; // backward compatibility
+            setTableEditable(isEditingEnabled);
             
             // Update navigation
             updateNavigation();
@@ -631,41 +770,15 @@
         
         // Render table with custom editor
         function renderTable(tableHash) {
-            const container = document.getElementById('table-container');
-            const structure = tableData[tableHash];
+            const checkbox = document.getElementById('has-header-row');
+            const hasHeaderRow = checkbox ? checkbox.checked : hasActualHeaderRow(tableData[tableHash]);
             
-            if (!structure || structure.length === 0) {
-                container.innerHTML = '<p>No table data available</p>';
-                return;
+            // If checkbox doesn't match auto-detection, sync it
+            if (checkbox && !checkbox.checked && hasActualHeaderRow(tableData[tableHash])) {
+                checkbox.checked = true;
             }
             
-            let html = '<table class="custom-table" id="editable-table">';
-            
-            // Render rows
-            for (let i = 0; i < structure.length; i++) {
-                html += '<tr>';
-                for (let j = 0; j < structure[i].length; j++) {
-                    const cellContent = structure[i][j] || '';
-                    const isHeader = i === 0;
-                    const tag = isHeader ? 'th' : 'td';
-                    
-                    if (isHeader) {
-                        html += `<${tag}>${cellContent}</${tag}>`;
-                    } else {
-                        html += `<td contenteditable="true" 
-                                    data-row="${i}" 
-                                    data-col="${j}"
-                                    onblur="updateCell(${i}, ${j}, this.textContent)"
-                                    oninput="markModified(this)">${cellContent}</td>`;
-                    }
-                }
-                html += '</tr>';
-            }
-            
-            html += '</table>';
-            container.innerHTML = html;
-            
-            console.log(`✅ Rendered table ${tableHash} with ${structure.length} rows`);
+            renderTableWithHeaderSetting(tableHash, hasHeaderRow);
         }
         
         // Update cell data
@@ -684,13 +797,13 @@
             tableData[table.hash][row][col] = content;
             console.log(`📝 Updated cell [${row}][${col}] = "${content}"`);
             
-            // Auto-mark as confirmed when editing (if not already set)
+            // Auto-mark as confirmed with changes when editing (if not already set)
             if (!corrections[table.hash] || corrections[table.hash].status === 'undefined') {
-                // Set radio button to confirmed
-                const confirmedRadio = document.querySelector('input[name="table-status"][value="confirmed"]');
-                if (confirmedRadio) {
-                    confirmedRadio.checked = true;
-                    updateTableStatus('confirmed');
+                // Set radio button to confirmed with changes
+                const confirmedWithChangesRadio = document.querySelector('input[name="table-status"][value="confirmed_with_changes"]');
+                if (confirmedWithChangesRadio) {
+                    confirmedWithChangesRadio.checked = true;
+                    updateTableStatus('confirmed_with_changes');
                 }
             }
         }
@@ -745,10 +858,12 @@
         function updateTableStructureWithoutStatusChange() {
             const table = lawData.tables[currentTableIndex];
             
-            // Update the corrected structure if table is already confirmed
-            if (corrections[table.hash] && corrections[table.hash].status === 'confirmed') {
+            // Update the corrected structure if table allows editing
+            if (corrections[table.hash] && 
+                (corrections[table.hash].status === 'confirmed_with_changes' || 
+                 corrections[table.hash].status === 'confirmed')) { // backward compatibility
                 corrections[table.hash].corrected_structure = tableData[table.hash];
-                console.log(`📝 Updated table structure while maintaining confirmed status`);
+                console.log(`📝 Updated table structure while maintaining editable status`);
             }
         }
         
@@ -777,10 +892,27 @@
                 }
                 // Disable editing when undefined
                 setTableEditable(false);
-            } else if (status === 'confirmed') {
+                console.log(`❓ Table ${table.hash} set to undefined`);
+                
+            } else if (status === 'confirmed_without_changes') {
                 corrections[table.hash] = {
                     hash: table.hash,
-                    status: 'confirmed',
+                    status: 'confirmed_without_changes',
+                    found_in_versions: table.found_in_versions,
+                    pages: table.pages,
+                    pdf_paths: table.pdf_paths,
+                    source_links: table.source_links,
+                    original_structure: table.structure
+                    // No corrected_structure needed for this status
+                };
+                // Disable editing when confirmed without changes
+                setTableEditable(false);
+                console.log(`✅ Confirmed table ${table.hash} without changes`);
+                
+            } else if (status === 'confirmed_with_changes') {
+                corrections[table.hash] = {
+                    hash: table.hash,
+                    status: 'confirmed_with_changes',
                     found_in_versions: table.found_in_versions,
                     pages: table.pages,
                     pdf_paths: table.pdf_paths,
@@ -788,15 +920,18 @@
                     original_structure: table.structure,
                     corrected_structure: tableData[table.hash]
                 };
-                // Enable editing when confirmed
+                // Enable editing when confirmed with changes
                 setTableEditable(true);
-                console.log(`✅ Confirmed table ${table.hash}`);
+                console.log(`✏️ Confirmed table ${table.hash} with changes enabled`);
+                
             } else if (status === 'rejected') {
                 corrections[table.hash] = {
                     hash: table.hash,
                     status: 'rejected',
                     found_in_versions: table.found_in_versions,
                     pages: table.pages,
+                    pdf_paths: table.pdf_paths,
+                    source_links: table.source_links,
                     reason: 'Rejected by user'
                 };
                 // Disable editing when rejected
@@ -806,8 +941,8 @@
             
             // Update status display
             const statusEl = document.getElementById('table-status');
-            statusEl.textContent = status;
-            statusEl.className = `status-display status-${status === 'undefined' ? 'pending' : status}`;
+            statusEl.textContent = status.replace(/_/g, ' ');
+            statusEl.className = `status-display status-${status.replace(/_/g, '-')}`;
             
             updateProgress();
         }
@@ -861,10 +996,10 @@
             
             const nextTable = lawData.tables[nextTableIndex];
             
-            // Mark current table as confirmed (since we're editing it)
+            // Mark current table as confirmed with changes (since we're editing it)
             corrections[table.hash] = {
                 hash: table.hash,
-                status: 'confirmed',
+                status: 'confirmed_with_changes',
                 found_in_versions: table.found_in_versions,
                 pages: table.pages,
                 pdf_paths: table.pdf_paths,
@@ -877,7 +1012,7 @@
             // Mark next table as merged
             corrections[nextTable.hash] = {
                 hash: nextTable.hash,
-                status: 'merged',
+                status: `merged_with_${table.hash}`,
                 found_in_versions: nextTable.found_in_versions,
                 pages: nextTable.pages,
                 merged_into: table.hash,
@@ -888,14 +1023,17 @@
             const currentData = tableData[table.hash];
             const nextData = tableData[nextTable.hash] || nextTable.structure;
             
-            // Add a separator row (optional)
-            currentData.push(['--- Merged from next table ---']);
+            // Determine target column count (use current table's column count)
+            const targetCols = currentData[0] ? currentData[0].length : (nextData[0] ? nextData[0].length : 2);
             
-            // Append all rows from next table
+            // Add a separator row with correct column count
+            const separatorRow = new Array(targetCols).fill('');
+            separatorRow[0] = '--- Merged from next table ---';
+            currentData.push(separatorRow);
+            
+            // Append all rows from next table, adjusting column count
             nextData.forEach(row => {
-                // Ensure the row has the same number of columns
                 const newRow = [];
-                const targetCols = currentData[0] ? currentData[0].length : row.length;
                 for (let i = 0; i < targetCols; i++) {
                     newRow.push(row[i] || '');
                 }
@@ -908,10 +1046,10 @@
             // Re-render the table
             renderTable(table.hash);
             
-            // Set radio button to confirmed
-            const confirmedRadio = document.querySelector('input[name="table-status"][value="confirmed"]');
-            if (confirmedRadio) {
-                confirmedRadio.checked = true;
+            // Set radio button to confirmed with changes
+            const confirmedWithChangesRadio = document.querySelector('input[name="table-status"][value="confirmed_with_changes"]');
+            if (confirmedWithChangesRadio) {
+                confirmedWithChangesRadio.checked = true;
             }
             setTableEditable(true);
             
@@ -1057,6 +1195,349 @@
                     initReview(sampleData);
                 });
         }
+        
+        // ====== NEW TABLE MANIPULATION FUNCTIONS ======
+        
+        // Track cell selection for operations
+        function selectCell(cell, row, col) {
+            // Remove previous selection
+            document.querySelectorAll('.selected-cell').forEach(c => c.classList.remove('selected-cell'));
+            
+            // Add selection to current cell
+            cell.classList.add('selected-cell');
+            selectedCell = { element: cell, row: row, col: col };
+            
+            console.log(`📍 Selected cell [${row}][${col}]`);
+        }
+        
+        // Check if table has actual header row (heuristic detection)
+        function hasActualHeaderRow(structure) {
+            if (!structure || structure.length === 0) return false;
+            
+            const firstRow = structure[0];
+            const secondRow = structure.length > 1 ? structure[1] : null;
+            
+            // If no second row, assume first row is data
+            if (!secondRow) return false;
+            
+            // Simple heuristic: if first row cells are generally shorter and more title-like
+            // compared to second row, treat as header
+            let headerScore = 0;
+            for (let i = 0; i < Math.min(firstRow.length, secondRow.length); i++) {
+                const firstCell = (firstRow[i] || '').trim();
+                const secondCell = (secondRow[i] || '').trim();
+                
+                // Headers tend to be shorter and less detailed
+                if (firstCell.length > 0 && firstCell.length < secondCell.length * 0.7) {
+                    headerScore++;
+                }
+                
+                // Headers often don't contain numbers or detailed text
+                if (firstCell.length > 0 && !/\d{2,}/.test(firstCell) && /\d{2,}/.test(secondCell)) {
+                    headerScore++;
+                }
+            }
+            
+            // If more than half the columns suggest header behavior, treat as header
+            return headerScore > firstRow.length * 0.4;
+        }
+        
+        // Toggle header row
+        function toggleHeaderRow() {
+            const checkbox = document.getElementById('has-header-row');
+            const tableHash = lawData.tables[currentTableIndex].hash;
+            
+            // Force re-render table with new header setting based on checkbox state
+            renderTableWithHeaderSetting(tableHash, checkbox.checked);
+            
+            console.log(checkbox.checked ? '✅ Header row enabled' : '❌ Header row disabled');
+        }
+        
+        // Render table with explicit header setting
+        function renderTableWithHeaderSetting(tableHash, forceHeaderEnabled) {
+            const container = document.getElementById('table-container');
+            const structure = tableData[tableHash];
+            
+            if (!structure || structure.length === 0) {
+                container.innerHTML = '<p>No table data available</p>';
+                return;
+            }
+            
+            // Use forced header setting instead of auto-detection
+            const hasHeaderRow = forceHeaderEnabled;
+            
+            let html = '<table class="custom-table" id="editable-table">';
+            
+            // Render rows
+            for (let i = 0; i < structure.length; i++) {
+                html += '<tr>';
+                for (let j = 0; j < structure[i].length; j++) {
+                    const cellContent = structure[i][j] || '';
+                    const isHeader = hasHeaderRow && i === 0;
+                    const tag = isHeader ? 'th' : 'td';
+                    const headerClass = isHeader ? 'class="header-enabled"' : '';
+                    
+                    if (isHeader) {
+                        html += `<${tag} contenteditable="true" ${headerClass}
+                                     onclick="selectCell(this, ${i}, ${j})" 
+                                     data-row="${i}" data-col="${j}"
+                                     onblur="updateCell(${i}, ${j}, this.textContent)"
+                                     oninput="markModified(this)">${cellContent}</${tag}>`;
+                    } else {
+                        html += `<td contenteditable="true" 
+                                    data-row="${i}" 
+                                    data-col="${j}"
+                                    onclick="selectCell(this, ${i}, ${j})"
+                                    onblur="updateCell(${i}, ${j}, this.textContent)"
+                                    oninput="markModified(this)">${cellContent}</td>`;
+                    }
+                }
+                html += '</tr>';
+            }
+            
+            html += '</table>';
+            container.innerHTML = html;
+            
+            console.log(`✅ Rendered table ${tableHash} with ${structure.length} rows, forced header: ${hasHeaderRow}`);
+        }
+        
+        // Add row above selected cell
+        function addRowAbove() {
+            const table = lawData.tables[currentTableIndex];
+            const currentData = tableData[table.hash];
+            let targetRow = 0;
+            
+            if (selectedCell) {
+                targetRow = selectedCell.row;
+            } else {
+                // If no cell selected, default to adding at top
+                targetRow = 0;
+            }
+            
+            // Create new empty row
+            const colCount = currentData[0] ? currentData[0].length : 2;
+            const newRow = new Array(colCount).fill('');
+            
+            // Insert row
+            currentData.splice(targetRow, 0, newRow);
+            
+            // Re-render table and maintain selection
+            renderTable(table.hash);
+            
+            // Reselect cell at same position (now shifted down)
+            if (selectedCell) {
+                const newCell = document.querySelector(`[data-row="${targetRow + 1}"][data-col="${selectedCell.col}"]`);
+                if (newCell) {
+                    selectCell(newCell, targetRow + 1, selectedCell.col);
+                }
+            }
+            
+            // Auto-mark as confirmed with changes
+            autoMarkAsConfirmedWithChanges();
+            
+            console.log(`➕ Added row above row ${targetRow}`);
+        }
+        
+        // Add row below selected cell
+        function addRowBelow() {
+            const table = lawData.tables[currentTableIndex];
+            const currentData = tableData[table.hash];
+            let targetRow = currentData.length;
+            
+            if (selectedCell) {
+                targetRow = selectedCell.row + 1;
+            } else {
+                // If no cell selected, default to adding at bottom
+                targetRow = currentData.length;
+            }
+            
+            // Create new empty row
+            const colCount = currentData[0] ? currentData[0].length : 2;
+            const newRow = new Array(colCount).fill('');
+            
+            // Insert row
+            currentData.splice(targetRow, 0, newRow);
+            
+            // Re-render table and maintain selection
+            renderTable(table.hash);
+            
+            // Reselect cell at same position
+            if (selectedCell) {
+                const newCell = document.querySelector(`[data-row="${selectedCell.row}"][data-col="${selectedCell.col}"]`);
+                if (newCell) {
+                    selectCell(newCell, selectedCell.row, selectedCell.col);
+                }
+            }
+            
+            // Auto-mark as confirmed with changes
+            autoMarkAsConfirmedWithChanges();
+            
+            console.log(`➕ Added row below row ${selectedCell ? selectedCell.row : 'end'}`);
+        }
+        
+        // Remove current row
+        function removeRow() {
+            const table = lawData.tables[currentTableIndex];
+            const currentData = tableData[table.hash];
+            
+            if (!selectedCell) {
+                // If no cell selected, remove last row
+                if (currentData.length <= 1) {
+                    alert('Cannot remove the last row');
+                    return;
+                }
+                currentData.splice(currentData.length - 1, 1);
+                renderTable(table.hash);
+                autoMarkAsConfirmedWithChanges();
+                console.log('🗑️ Removed last row');
+                return;
+            }
+            
+            const targetRow = selectedCell.row;
+            
+            if (currentData.length <= 1) {
+                alert('Cannot remove the last row');
+                return;
+            }
+            
+            // Remove row
+            currentData.splice(targetRow, 1);
+            
+            // Re-render table
+            renderTable(table.hash);
+            
+            // Try to reselect a nearby cell
+            let newRow = Math.min(targetRow, currentData.length - 1);
+            const newCell = document.querySelector(`[data-row="${newRow}"][data-col="${selectedCell.col}"]`);
+            if (newCell) {
+                selectCell(newCell, newRow, selectedCell.col);
+            } else {
+                selectedCell = null;
+            }
+            
+            // Auto-mark as confirmed with changes
+            autoMarkAsConfirmedWithChanges();
+            
+            console.log(`🗑️ Removed row ${targetRow}`);
+        }
+        
+        // Add column left of selected cell
+        function addColumnLeft() {
+            const table = lawData.tables[currentTableIndex];
+            const currentData = tableData[table.hash];
+            let targetCol = 0;
+            
+            if (selectedCell) {
+                targetCol = selectedCell.col;
+            } else {
+                // If no cell selected, default to adding at left
+                targetCol = 0;
+            }
+            
+            // Add column to each row
+            currentData.forEach(row => {
+                row.splice(targetCol, 0, '');
+            });
+            
+            // Re-render table and maintain selection
+            renderTable(table.hash);
+            
+            // Reselect cell at new position (shifted right)
+            if (selectedCell) {
+                const newCell = document.querySelector(`[data-row="${selectedCell.row}"][data-col="${targetCol + 1}"]`);
+                if (newCell) {
+                    selectCell(newCell, selectedCell.row, targetCol + 1);
+                }
+            }
+            
+            // Auto-mark as confirmed with changes
+            autoMarkAsConfirmedWithChanges();
+            
+            console.log(`➕ Added column left of column ${targetCol}`);
+        }
+        
+        // Add column right of selected cell
+        function addColumnRight() {
+            const table = lawData.tables[currentTableIndex];
+            const currentData = tableData[table.hash];
+            let targetCol = currentData[0] ? currentData[0].length : 0;
+            
+            if (selectedCell) {
+                targetCol = selectedCell.col + 1;
+            } else {
+                // If no cell selected, default to adding at right
+                targetCol = currentData[0] ? currentData[0].length : 0;
+            }
+            
+            // Add column to each row
+            currentData.forEach(row => {
+                row.splice(targetCol, 0, '');
+            });
+            
+            // Re-render table and maintain selection
+            renderTable(table.hash);
+            
+            // Reselect cell at same position
+            if (selectedCell) {
+                const newCell = document.querySelector(`[data-row="${selectedCell.row}"][data-col="${selectedCell.col}"]`);
+                if (newCell) {
+                    selectCell(newCell, selectedCell.row, selectedCell.col);
+                }
+            }
+            
+            // Auto-mark as confirmed with changes
+            autoMarkAsConfirmedWithChanges();
+            
+            console.log(`➕ Added column right of column ${selectedCell ? selectedCell.col : 'end'}`);
+        }
+        
+        // Remove current column
+        function removeColumn() {
+            if (!selectedCell) {
+                alert('Please select a cell first');
+                return;
+            }
+            
+            const table = lawData.tables[currentTableIndex];
+            const currentData = tableData[table.hash];
+            const targetCol = selectedCell.col;
+            
+            if (currentData[0] && currentData[0].length <= 1) {
+                alert('Cannot remove the last column');
+                return;
+            }
+            
+            // Remove column from each row
+            currentData.forEach(row => {
+                row.splice(targetCol, 1);
+            });
+            
+            // Clear selection
+            selectedCell = null;
+            
+            // Re-render table
+            renderTable(table.hash);
+            
+            // Auto-mark as confirmed with changes
+            autoMarkAsConfirmedWithChanges();
+            
+            console.log(`🗑️ Removed column ${targetCol}`);
+        }
+        
+        // Auto-mark table as confirmed with changes when editing
+        function autoMarkAsConfirmedWithChanges() {
+            if (!corrections[lawData.tables[currentTableIndex].hash] || 
+                corrections[lawData.tables[currentTableIndex].hash].status === 'undefined') {
+                
+                const confirmedWithChangesRadio = document.querySelector('input[name="table-status"][value="confirmed_with_changes"]');
+                if (confirmedWithChangesRadio) {
+                    confirmedWithChangesRadio.checked = true;
+                    updateTableStatus('confirmed_with_changes');
+                }
+            }
+        }
+        
+        // ====== END NEW FUNCTIONS ======
         
         // Initialize
         document.addEventListener('DOMContentLoaded', loadData);

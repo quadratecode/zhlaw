@@ -19,6 +19,54 @@ class CorrectionApplier:
         self.correction_manager = CorrectionManager(base_path)
         self.logger = logging.getLogger(__name__)
     
+    def _normalize_status(self, correction: Dict[str, Any]) -> str:
+        """
+        Normalize legacy status values to the new status system.
+        
+        New status system:
+        - undefined: User must make a selection
+        - confirmed_without_changes: Table is correctly converted, no editing needed
+        - confirmed_with_changes: Table is a table, but edits are needed
+        - rejected: Table is not a table and should not be treated as such
+        
+        Args:
+            correction: Single table correction data
+            
+        Returns:
+            Normalized status string
+        """
+        status = correction.get("status", "undefined")
+        
+        # Handle new status system (pass through unchanged)
+        if status in ["undefined", "confirmed_without_changes", "confirmed_with_changes", "rejected"]:
+            return status
+        
+        # Handle merge statuses (pass through unchanged)
+        if status.startswith("merged"):
+            return status
+            
+        # Handle legacy status system
+        if status == "confirmed":
+            # Check if corrections exist to determine the correct new status
+            has_corrections = (
+                "corrected_structure" in correction and 
+                correction["corrected_structure"] != correction.get("original_structure", [])
+            )
+            if has_corrections:
+                self.logger.info(f"Migrating legacy status 'confirmed' to 'confirmed_with_changes' for table {correction.get('hash', 'unknown')}")
+                return "confirmed_with_changes"
+            else:
+                self.logger.info(f"Migrating legacy status 'confirmed' to 'confirmed_without_changes' for table {correction.get('hash', 'unknown')}")
+                return "confirmed_without_changes"
+                
+        elif status == "edited":
+            self.logger.info(f"Migrating legacy status 'edited' to 'confirmed_with_changes' for table {correction.get('hash', 'unknown')}")
+            return "confirmed_with_changes"
+        
+        # Unknown status, default to undefined
+        self.logger.warning(f"Unknown status '{status}' for table {correction.get('hash', 'unknown')}, defaulting to 'undefined'")
+        return "undefined"
+    
     def apply_corrections(self, elements: List[Dict[str, Any]], law_id: str, 
                          version: str, folder: str = "zhlex_files") -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
@@ -44,10 +92,14 @@ class CorrectionApplier:
         # Track which corrections were applied
         corrections_applied = {
             "total_tables": 0,
+            "undefined": 0,
+            "confirmed_without_changes": 0,
+            "confirmed_with_changes": 0,
             "rejected": 0,
-            "confirmed": 0,
-            "edited": 0,
-            "merged": 0
+            "merged": 0,
+            # Keep legacy counters for backward compatibility reporting
+            "legacy_confirmed": 0,
+            "legacy_edited": 0
         }
         
         # First pass: identify all tables and their hashes
@@ -72,37 +124,63 @@ class CorrectionApplier:
                 
                 if table_hash and table_hash in corrections.get("tables", {}):
                     correction = corrections["tables"][table_hash]
-                    status = correction.get("status", "")
+                    original_status = correction.get("status", "undefined")
+                    normalized_status = self._normalize_status(correction)
                     
-                    if status == "rejected":
-                        # Remove TableID from all elements of this table
+                    # Track legacy statuses for reporting
+                    if original_status == "confirmed":
+                        corrections_applied["legacy_confirmed"] += 1
+                    elif original_status == "edited":
+                        corrections_applied["legacy_edited"] += 1
+                    
+                    if normalized_status == "undefined":
+                        # No decision made, keep original table structure
+                        corrections_applied["undefined"] += 1
+                        modified_elements.extend(
+                            self._get_table_elements(elements, table_info[table_id]["indices"])
+                        )
+                        processed_table_ids.add(table_id)
+                        self.logger.debug(f"Table {table_hash} has undefined status, keeping original structure")
+                        
+                    elif normalized_status == "confirmed_without_changes":
+                        # Table is correct as-is, keep original structure
+                        corrections_applied["confirmed_without_changes"] += 1
+                        modified_elements.extend(
+                            self._get_table_elements(elements, table_info[table_id]["indices"])
+                        )
+                        processed_table_ids.add(table_id)
+                        self.logger.debug(f"Table {table_hash} confirmed without changes")
+                        
+                    elif normalized_status == "confirmed_with_changes":
+                        # Table structure needs corrections, apply them
+                        corrections_applied["confirmed_with_changes"] += 1
+                        corrected_structure = correction.get("corrected_structure", [])
+                        if corrected_structure:
+                            modified_elements.extend(
+                                self._edit_table(elements, table_id, table_info[table_id]["indices"],
+                                               corrected_structure)
+                            )
+                            self.logger.debug(f"Table {table_hash} confirmed with changes applied")
+                        else:
+                            self.logger.warning(f"Table {table_hash} marked as 'confirmed_with_changes' but no corrected_structure found, keeping original")
+                            modified_elements.extend(
+                                self._get_table_elements(elements, table_info[table_id]["indices"])
+                            )
+                        processed_table_ids.add(table_id)
+                        
+                    elif normalized_status == "rejected":
+                        # Not a table, convert to regular paragraphs
                         corrections_applied["rejected"] += 1
                         modified_elements.extend(
                             self._reject_table(elements, table_id, table_info[table_id]["indices"])
                         )
                         processed_table_ids.add(table_id)
+                        self.logger.debug(f"Table {table_hash} rejected and converted to paragraphs")
                         
-                    elif status == "confirmed":
-                        # Keep table as-is
-                        corrections_applied["confirmed"] += 1
-                        modified_elements.extend(
-                            self._get_table_elements(elements, table_info[table_id]["indices"])
-                        )
-                        processed_table_ids.add(table_id)
-                        
-                    elif status == "edited":
-                        # Apply edits to table
-                        corrections_applied["edited"] += 1
-                        modified_elements.extend(
-                            self._edit_table(elements, table_id, table_info[table_id]["indices"],
-                                           correction.get("corrected_structure", []))
-                        )
-                        processed_table_ids.add(table_id)
-                        
-                    elif status.startswith("merged_with_"):
-                        # Handle table merging
+                    elif normalized_status.startswith("merged_with_"):
+                        # Handle table merging (unchanged logic)
                         corrections_applied["merged"] += 1
-                        target_hash = status.replace("merged_with_", "")
+                        target_hash = normalized_status.replace("merged_with_", "")
                         
                         # Find target table ID
                         target_table_id = None
@@ -123,6 +201,7 @@ class CorrectionApplier:
                                 # Mark both tables as processed
                                 processed_table_ids.add(table_id)
                                 processed_table_ids.add(target_table_id)
+                                self.logger.debug(f"Table {table_hash} merged with {target_hash}")
                             else:
                                 # Target already processed, skip this source table
                                 self.logger.info(f"Skipping merge source table {table_id} as target {target_table_id} already processed")
@@ -134,7 +213,8 @@ class CorrectionApplier:
                             )
                             processed_table_ids.add(table_id)
                     else:
-                        # Unknown status, keep as-is
+                        # Unknown status, default to keeping original
+                        self.logger.warning(f"Unknown normalized status '{normalized_status}' for table {table_hash}, keeping original")
                         modified_elements.extend(
                             self._get_table_elements(elements, table_info[table_id]["indices"])
                         )
@@ -215,30 +295,134 @@ class CorrectionApplier:
         """
         Apply edits to a table based on corrected structure.
         
-        This is a complex operation that needs to map the corrected structure
-        back to the element format. For now, this is a simplified implementation.
+        This method reconstructs the entire table structure based on the corrected
+        structure, creating new elements as needed.
         """
-        # Get original elements
+        if not corrected_structure:
+            # No corrected structure, return original elements
+            return self._get_table_elements(elements, indices)
+        
+        # Get all table elements
         table_elements = self._get_table_elements(elements, indices)
+        if not table_elements:
+            return []
         
-        # Create a mapping of cell positions to corrected text
-        correction_map = self._create_correction_map(table_elements, corrected_structure)
+        # Analyze original table structure to get column positions
+        column_bounds = self._analyze_column_positions(table_elements)
         
-        # Apply corrections
+        # Find a suitable template element (prefer header elements)
+        template_element = None
+        for elem in table_elements:
+            if "/TH" in elem.get("Path", ""):
+                template_element = elem.copy()
+                break
+        if template_element is None:
+            template_element = table_elements[0].copy()
+        
+        # Reconstruct the table with corrected structure
         edited_elements = []
-        for element in table_elements:
-            element_copy = element.copy()
-            
-            # Check if this element's text should be corrected
-            path = element.get("Path", "")
-            text = element.get("Text", "")
-            
-            if text and path in correction_map:
-                element_copy["Text"] = correction_map[path]
-            
-            edited_elements.append(element_copy)
         
+        for row_idx, row in enumerate(corrected_structure):
+            for col_idx, cell_text in enumerate(row):
+                # Create element for this cell
+                element = {}
+                
+                # Copy basic structure from template
+                for key in template_element:
+                    if key not in ["Text", "Path", "Bounds", "CharBounds"]:
+                        element[key] = template_element[key]
+                
+                # Set the text content - preserve empty strings for empty cells
+                element["Text"] = cell_text
+                
+                # Update the path to reflect the correct position
+                # Use 1-based indexing for consistency with Adobe Extract format
+                if row_idx == 0:
+                    # Header row
+                    element["Path"] = f"//Document/Table/TR/TH[{col_idx + 1}]/P"
+                else:
+                    # Data row
+                    element["Path"] = f"//Document/Table/TR[{row_idx + 1}]/TD[{col_idx + 1}]/P"
+                
+                # Ensure TableID is preserved
+                if "attributes" not in element:
+                    element["attributes"] = {}
+                element["attributes"]["TableID"] = table_id
+                
+                # Set bounds based on column positions
+                if "Bounds" in template_element and col_idx < len(column_bounds):
+                    # Use the analyzed column positions
+                    col_info = column_bounds[col_idx]
+                    
+                    # Get row height from template or calculate
+                    if len(template_element["Bounds"]) >= 4:
+                        _, template_y, _, template_y2 = template_element["Bounds"][:4]
+                        row_height = abs(template_y2 - template_y)
+                        
+                        # Calculate Y position based on row
+                        y1 = template_y + (row_idx * row_height * 1.1)  # 1.1 for spacing
+                        y2 = y1 + row_height
+                        
+                        # Use column bounds for X positions
+                        element["Bounds"] = [col_info["left"], y1, col_info["right"], y2]
+                        
+                        # Copy additional bounds data if present
+                        if len(template_element["Bounds"]) > 4:
+                            element["Bounds"].extend(template_element["Bounds"][4:])
+                
+                edited_elements.append(element)
+        
+        self.logger.debug(f"Reconstructed table {table_id}: {len(table_elements)} -> {len(edited_elements)} elements")
         return edited_elements
+    
+    def _analyze_column_positions(self, table_elements: List[Dict[str, Any]]) -> List[Dict[str, float]]:
+        """
+        Analyze the original table elements to determine column positions.
+        
+        Returns a list of column bounds info: [{"left": x1, "right": x2}, ...]
+        """
+        # Find header row elements to determine columns
+        header_elements = []
+        for elem in table_elements:
+            if "/TH" in elem.get("Path", "") and "Bounds" in elem:
+                header_elements.append(elem)
+        
+        # If no headers found, use first row elements
+        if not header_elements:
+            # Find elements from first row
+            import re
+            min_row = float('inf')
+            for elem in table_elements:
+                match = re.search(r"/TR\[?(\d+)\]?", elem.get("Path", ""))
+                if match:
+                    row_num = int(match.group(1))
+                    min_row = min(min_row, row_num)
+            
+            for elem in table_elements:
+                if f"/TR[{min_row}]" in elem.get("Path", "") or f"/TR/{min_row}" in elem.get("Path", ""):
+                    header_elements.append(elem)
+        
+        # Sort by X position
+        header_elements.sort(key=lambda e: e.get("Bounds", [0])[0])
+        
+        # Extract column bounds
+        column_bounds = []
+        for elem in header_elements:
+            if "Bounds" in elem and len(elem["Bounds"]) >= 4:
+                x1, _, x2, _ = elem["Bounds"][:4]
+                column_bounds.append({"left": x1, "right": x2})
+        
+        # If we couldn't determine columns, create default positions
+        if not column_bounds:
+            # Assume 2 columns with equal width
+            default_left = 50
+            default_width = 250
+            column_bounds = [
+                {"left": default_left, "right": default_left + default_width},
+                {"left": default_left + default_width + 10, "right": default_left + 2 * default_width + 10}
+            ]
+        
+        return column_bounds
     
     def _create_correction_map(self, table_elements: List[Dict[str, Any]], 
                               corrected_structure: List[List[str]]) -> Dict[str, str]:

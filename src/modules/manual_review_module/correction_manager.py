@@ -147,10 +147,92 @@ class CorrectionManager:
                 return "not_started"
                 
             return corrections.get("status", "error")
-            
         except Exception as e:
             self.logger.error(f"Error getting status for law {law_id}: {e}")
             return "error"
+    
+    def migrate_correction_file(self, law_id: str, folder: str = "zhlex_files_test") -> bool:
+        """
+        Migrate a correction file from legacy status system to new status system.
+        
+        Args:
+            law_id: The law identifier
+            folder: The folder name
+            
+        Returns:
+            True if migration was successful or not needed, False if failed
+        """
+        try:
+            corrections = self.get_corrections(law_id, folder)
+            if not corrections:
+                return True  # No file to migrate
+            
+            migrated = False
+            tables = corrections.get("tables", {})
+            
+            for table_hash, table_data in tables.items():
+                old_status = table_data.get("status", "")
+                new_status = self._migrate_table_status(table_data)
+                
+                if new_status != old_status:
+                    table_data["status"] = new_status
+                    migrated = True
+                    self.logger.info(f"Migrated table {table_hash} from '{old_status}' to '{new_status}'")
+            
+            if migrated:
+                # Save the migrated file
+                success = self.save_corrections(law_id, tables, folder)
+                if success:
+                    self.logger.info(f"Successfully migrated correction file for law {law_id}")
+                    return True
+                else:
+                    self.logger.error(f"Failed to save migrated correction file for law {law_id}")
+                    return False
+            else:
+                self.logger.debug(f"No migration needed for law {law_id}")
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"Error migrating correction file for law {law_id}: {e}")
+            return False
+    
+    def _migrate_table_status(self, table_data: Dict[str, Any]) -> str:
+        """
+        Migrate a single table's status from legacy to new system.
+        
+        Args:
+            table_data: The table correction data
+            
+        Returns:
+            The new status string
+        """
+        status = table_data.get("status", "undefined")
+        
+        # Handle new status system (pass through unchanged)
+        if status in ["undefined", "confirmed_without_changes", "confirmed_with_changes", "rejected"]:
+            return status
+        
+        # Handle merge statuses (pass through unchanged)
+        if status.startswith("merged"):
+            return status
+            
+        # Handle legacy status system
+        if status == "confirmed":
+            # Check if corrections exist to determine the correct new status
+            has_corrections = (
+                "corrected_structure" in table_data and 
+                table_data["corrected_structure"] != table_data.get("original_structure", [])
+            )
+            if has_corrections:
+                return "confirmed_with_changes"
+            else:
+                return "confirmed_without_changes"
+                
+        elif status == "edited":
+            return "confirmed_with_changes"
+        
+        # Unknown status, default to undefined
+        return "undefined"
     
     def get_progress_summary(self, folder: str = "zhlex_files_test") -> Dict[str, Any]:
         """

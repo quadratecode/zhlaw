@@ -83,22 +83,66 @@ class CorrectionValidator:
         
         # Validate status
         if 'status' in table_data:
-            valid_statuses = ['confirmed', 'rejected', 'edited', 'pending']
-            # Also allow merged_with_* pattern
-            if not (table_data['status'] in valid_statuses or 
-                   table_data['status'].startswith('merged_with_')):
-                errors.append(f"{prefix}Invalid status: {table_data['status']}")
+            # New status system
+            new_valid_statuses = ['undefined', 'confirmed_without_changes', 'confirmed_with_changes', 'rejected']
+            # Legacy status system (for backward compatibility)
+            legacy_valid_statuses = ['confirmed', 'rejected', 'edited', 'pending']
+            
+            status = table_data['status']
+            is_valid_status = (
+                status in new_valid_statuses or 
+                status in legacy_valid_statuses or 
+                status.startswith('merged_with_')
+            )
+            
+            if not is_valid_status:
+                errors.append(f"{prefix}Invalid status: {status}. Must be one of {new_valid_statuses + legacy_valid_statuses} or 'merged_with_*'")
         
-        # Validate edited tables have corrected structure
-        if table_data.get('status') == 'edited':
+        # Validate status-specific requirements
+        status = table_data.get('status', '')
+        
+        # New status system validation
+        if status == 'confirmed_with_changes':
             if 'corrected_structure' not in table_data:
-                errors.append(f"{prefix}Edited table missing corrected_structure")
-            elif 'original_structure' in table_data:
-                # Validate structure dimensions match
-                orig_rows = len(table_data.get('original_structure', []))
-                corr_rows = len(table_data.get('corrected_structure', []))
-                if orig_rows != corr_rows:
-                    errors.append(f"{prefix}Row count mismatch: original={orig_rows}, corrected={corr_rows}")
+                errors.append(f"{prefix}Status 'confirmed_with_changes' requires corrected_structure")
+            if 'original_structure' not in table_data:
+                errors.append(f"{prefix}Status 'confirmed_with_changes' requires original_structure")
+                
+        elif status == 'confirmed_without_changes':
+            if 'corrected_structure' in table_data:
+                # Check if corrected_structure is actually different from original
+                original = table_data.get('original_structure', [])
+                corrected = table_data.get('corrected_structure', [])
+                if original != corrected:
+                    errors.append(f"{prefix}Status 'confirmed_without_changes' should not have different corrected_structure")
+            if 'original_structure' not in table_data:
+                errors.append(f"{prefix}Status 'confirmed_without_changes' requires original_structure")
+                
+        # Legacy status system validation (for backward compatibility)
+        elif status == 'edited':
+            if 'corrected_structure' not in table_data:
+                errors.append(f"{prefix}Legacy status 'edited' requires corrected_structure")
+            if 'original_structure' not in table_data:
+                errors.append(f"{prefix}Legacy status 'edited' requires original_structure")
+                
+        # Validate structure consistency when both exist
+        if 'original_structure' in table_data and 'corrected_structure' in table_data:
+            orig_structure = table_data.get('original_structure', [])
+            corr_structure = table_data.get('corrected_structure', [])
+            
+            if orig_structure and corr_structure:
+                orig_rows = len(orig_structure)
+                corr_rows = len(corr_structure)
+                
+                # For now, we allow different row counts (e.g., splitting rows)
+                # but validate that both are valid table structures
+                orig_valid, orig_errors = self.validate_table_structure(orig_structure)
+                corr_valid, corr_errors = self.validate_table_structure(corr_structure)
+                
+                if not orig_valid:
+                    errors.extend([f"{prefix}Invalid original_structure: {err}" for err in orig_errors])
+                if not corr_valid:
+                    errors.extend([f"{prefix}Invalid corrected_structure: {err}" for err in corr_errors])
         
         # Validate merged tables
         if table_data.get('status', '').startswith('merged_with_'):
