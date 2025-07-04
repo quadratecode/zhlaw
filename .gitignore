@@ -167,6 +167,7 @@ htmldiff
 _notes
 logs
 datasets
+src/modules/manual_review_module/table_editor
 
 # Deployment
 deploy.sh

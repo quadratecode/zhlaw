@@ -16,8 +16,10 @@ License:
 import json
 import re
 from bs4 import BeautifulSoup, NavigableString
+from pathlib import Path
 
 from src.utils.logging_utils import get_module_logger
+from src.modules.manual_review_module.correction_applier import CorrectionApplier
 
 # Get logger for this module
 logger = get_module_logger(__name__)
@@ -923,6 +925,48 @@ def assign_heading_level(font_variants, font_weight, font_size):
 def main(json_file_law_updated, metadata, html_file, marginalia):
     reset_provision_sequences()
     json_data = read_json(json_file_law_updated)
+    
+    # Extract law_id and version from file path
+    file_path = Path(json_file_law_updated)
+    law_id = None
+    version = None
+    folder = "zhlex_files"  # Default folder
+    
+    # Try to extract from path structure: .../zhlex_files/170.4/118/170.4-118-modified-updated.json
+    try:
+        if "zhlex_files_test" in str(file_path):
+            folder = "zhlex_files_test"
+        elif "zhlex_files" in str(file_path):
+            folder = "zhlex_files"
+            
+        # Extract law_id and version from path
+        parts = file_path.parts
+        for i, part in enumerate(parts):
+            if part in ["zhlex_files", "zhlex_files_test"]:
+                if i + 2 < len(parts):
+                    law_id = parts[i + 1]  # e.g., "170.4"
+                    version = parts[i + 2]  # e.g., "118"
+                break
+    except Exception as e:
+        logger.warning(f"Could not extract law_id and version from path: {e}")
+    
+    # Apply corrections if law_id and version are available
+    if law_id and version and json_data:
+        logger.info(f"Applying corrections for law {law_id} version {version}")
+        correction_applier = CorrectionApplier(base_path="data/zhlex")
+        elements = json_data.get("elements", [])
+        
+        # Apply corrections
+        corrected_elements, corrections_info = correction_applier.apply_corrections(
+            elements, law_id, version, folder
+        )
+        
+        # Update json_data with corrected elements
+        json_data["elements"] = corrected_elements
+        
+        if corrections_info:
+            logger.info(f"Corrections applied: {corrections_info}")
+    
     # Get title from metadata doc_info
     erlasstitel = metadata["doc_info"]["erlasstitel"]
     html_content = convert_to_html(json_data, erlasstitel, marginalia)
