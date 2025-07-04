@@ -296,19 +296,16 @@ class CorrectionApplier:
         Apply edits to a table based on corrected structure.
         
         This method reconstructs the entire table structure based on the corrected
-        structure, creating new elements as needed.
+        structure, trusting the user's column layout completely.
         """
         if not corrected_structure:
             # No corrected structure, return original elements
             return self._get_table_elements(elements, indices)
         
-        # Get all table elements
+        # Get all table elements for template
         table_elements = self._get_table_elements(elements, indices)
         if not table_elements:
             return []
-        
-        # Analyze original table structure to get column positions
-        column_bounds = self._analyze_column_positions(table_elements)
         
         # Find a suitable template element (prefer header elements)
         template_element = None
@@ -318,6 +315,14 @@ class CorrectionApplier:
                 break
         if template_element is None:
             template_element = table_elements[0].copy()
+        
+        # Calculate new column layout based on corrected structure
+        col_count = max(len(row) for row in corrected_structure) if corrected_structure else 2
+        
+        # Create evenly distributed column positions based on corrected structure
+        base_x = 50  # Starting X position
+        col_width = 150  # Standard column width
+        col_spacing = 10  # Space between columns
         
         # Reconstruct the table with corrected structure
         edited_elements = []
@@ -349,80 +354,29 @@ class CorrectionApplier:
                     element["attributes"] = {}
                 element["attributes"]["TableID"] = table_id
                 
-                # Set bounds based on column positions
-                if "Bounds" in template_element and col_idx < len(column_bounds):
-                    # Use the analyzed column positions
-                    col_info = column_bounds[col_idx]
+                # Create new bounds based on corrected table structure
+                if "Bounds" in template_element and len(template_element["Bounds"]) >= 4:
+                    # Get base positioning from template
+                    _, template_y, _, template_y2 = template_element["Bounds"][:4]
+                    row_height = abs(template_y2 - template_y)
                     
-                    # Get row height from template or calculate
-                    if len(template_element["Bounds"]) >= 4:
-                        _, template_y, _, template_y2 = template_element["Bounds"][:4]
-                        row_height = abs(template_y2 - template_y)
-                        
-                        # Calculate Y position based on row
-                        y1 = template_y + (row_idx * row_height * 1.1)  # 1.1 for spacing
-                        y2 = y1 + row_height
-                        
-                        # Use column bounds for X positions
-                        element["Bounds"] = [col_info["left"], y1, col_info["right"], y2]
-                        
-                        # Copy additional bounds data if present
-                        if len(template_element["Bounds"]) > 4:
-                            element["Bounds"].extend(template_element["Bounds"][4:])
+                    # Calculate position for this cell
+                    x1 = base_x + (col_idx * (col_width + col_spacing))
+                    x2 = x1 + col_width
+                    y1 = template_y + (row_idx * row_height * 1.2)  # 1.2 for spacing
+                    y2 = y1 + row_height
+                    
+                    element["Bounds"] = [x1, y1, x2, y2]
+                    
+                    # Copy additional bounds data if present
+                    if len(template_element["Bounds"]) > 4:
+                        element["Bounds"].extend(template_element["Bounds"][4:])
                 
                 edited_elements.append(element)
         
-        self.logger.debug(f"Reconstructed table {table_id}: {len(table_elements)} -> {len(edited_elements)} elements")
+        self.logger.debug(f"Reconstructed table {table_id}: {len(table_elements)} -> {len(edited_elements)} elements, {col_count} columns")
         return edited_elements
     
-    def _analyze_column_positions(self, table_elements: List[Dict[str, Any]]) -> List[Dict[str, float]]:
-        """
-        Analyze the original table elements to determine column positions.
-        
-        Returns a list of column bounds info: [{"left": x1, "right": x2}, ...]
-        """
-        # Find header row elements to determine columns
-        header_elements = []
-        for elem in table_elements:
-            if "/TH" in elem.get("Path", "") and "Bounds" in elem:
-                header_elements.append(elem)
-        
-        # If no headers found, use first row elements
-        if not header_elements:
-            # Find elements from first row
-            import re
-            min_row = float('inf')
-            for elem in table_elements:
-                match = re.search(r"/TR\[?(\d+)\]?", elem.get("Path", ""))
-                if match:
-                    row_num = int(match.group(1))
-                    min_row = min(min_row, row_num)
-            
-            for elem in table_elements:
-                if f"/TR[{min_row}]" in elem.get("Path", "") or f"/TR/{min_row}" in elem.get("Path", ""):
-                    header_elements.append(elem)
-        
-        # Sort by X position
-        header_elements.sort(key=lambda e: e.get("Bounds", [0])[0])
-        
-        # Extract column bounds
-        column_bounds = []
-        for elem in header_elements:
-            if "Bounds" in elem and len(elem["Bounds"]) >= 4:
-                x1, _, x2, _ = elem["Bounds"][:4]
-                column_bounds.append({"left": x1, "right": x2})
-        
-        # If we couldn't determine columns, create default positions
-        if not column_bounds:
-            # Assume 2 columns with equal width
-            default_left = 50
-            default_width = 250
-            column_bounds = [
-                {"left": default_left, "right": default_left + default_width},
-                {"left": default_left + default_width + 10, "right": default_left + 2 * default_width + 10}
-            ]
-        
-        return column_bounds
     
     def _create_correction_map(self, table_elements: List[Dict[str, Any]], 
                               corrected_structure: List[List[str]]) -> Dict[str, str]:
