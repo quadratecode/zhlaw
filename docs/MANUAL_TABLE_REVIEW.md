@@ -25,11 +25,12 @@ The Manual Table Review System is a sophisticated human-in-the-loop quality cont
 
 ### Key Features
 
-- **Intelligent Table Extraction**: Automatically identifies and deduplicates tables across multiple document versions
-- **Web-Based Editor**: Intuitive browser interface for reviewing and editing table structures
-- **Four-Status System**: Clear status options (Undefined → Confirmed without changes/Confirmed with changes/Rejected)
-- **Advanced Editing**: Add/remove rows/columns, edit cell content, merge tables
-- **Batch Processing**: Efficient processing of multiple laws with progress tracking and automatic resume capability
+- **Per-Version Architecture**: Independent correction files for each law version (no cross-version deduplication)
+- **Version Targeting**: Focus on latest versions (immediate value) or target specific/all versions
+- **Two-Step Process**: Separate table extraction (a3) and human review (a4) phases
+- **Auto-Progression Interface**: Single-tab workflow with automatic progression between laws
+- **Advanced Table Editor**: Compact controls for editing, merging, and status management
+- **Smart Completion Validation**: Prevents completion until all tables are decided
 - **Comprehensive Reporting**: Statistics, progress tracking, and export capabilities
 - **Pipeline Integration**: Seamless integration with the main zhlaw document processing pipeline
 
@@ -46,25 +47,31 @@ The Manual Table Review System is a sophisticated human-in-the-loop quality cont
 
 ### Quick Start
 
-1. **Test with Sample Data**
+1. **Extract Tables from Legal Documents**
    ```bash
    # Navigate to project root
    cd /home/rdm/github/zhlaw
    
-   # Review tables in test dataset using batch processing
-   python -m src.main_entry_points.f1_table_review --folder zhlex_files_test
+   # Extract tables from test dataset
+   python -m src.main_entry_points.a3_table_extraction --folder zhlex_files_test
    ```
 
-2. **Review a Specific Law**
+2. **Review Extracted Tables**
    ```bash
-   # Review tables for a specific law
-   python -m src.main_entry_points.f1_table_review --law 170.4 --folder zhlex_files_test
+   # Review latest versions only (recommended for immediate value)
+   python -m src.main_entry_points.a4_table_review --version latest --folder zhlex_files_test
+   
+   # Review all versions of all laws (comprehensive coverage)
+   python -m src.main_entry_points.a4_table_review --version all --folder zhlex_files_test
+   
+   # Review specific law and version
+   python -m src.main_entry_points.a4_table_review --law 172.110.1 --version 129 --folder zhlex_files_test
    ```
 
 3. **Generate Reports**
    ```bash
    # Generate comprehensive reports
-   python -m src.main_entry_points.f1_table_review --report html --folder zhlex_files_test
+   python -m src.main_entry_points.a4_table_review --report html --folder zhlex_files_test
    ```
 
 ### First Use Walkthrough
@@ -88,9 +95,9 @@ The Manual Table Review System is a sophisticated human-in-the-loop quality cont
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Manual Table Review System                    │
 ├─────────────────────────────────────────────────────────────────┤
-│  Main Entry Point: table_review.py                             │
+│  Entry Points: a3_table_extraction.py | a4_table_review.py      │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
-│  │ LawTableReview  │  │ BatchProcessor  │  │ ProgressReporter│ │
+│  │ TableExtractor  │  │ BatchProcessor  │  │ ProgressReporter│ │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
 ├─────────────────────────────────────────────────────────────────┤
 │  Core Processing Modules                                        │
@@ -117,12 +124,14 @@ The Manual Table Review System is a sophisticated human-in-the-loop quality cont
 [Legal Document PDFs]
     ↓ (Adobe Extract API)
 [JSON with table elements]
-    ↓ (LawTableExtractor.extract_unique_tables_from_law)
-[Unique table structures with hashes]
+    ↓ (LawTableExtractor.extract_tables_from_version)
+[Per-version table structures with hashes]
+    ↓ (CorrectionManager.create_correction_file_for_version)
+[Per-version correction files (.json)]
     ↓ (TableEditorInterface.launch_editor_for_law)
 [Human review via web interface]
     ↓ (CorrectionManager.save_corrections)
-[Saved correction files (.json)]
+[Updated per-version correction files]
     ↓ (During HTML generation)
 [CorrectionApplier.apply_corrections]
     ↓ (json_to_html.py)
@@ -133,9 +142,9 @@ The Manual Table Review System is a sophisticated human-in-the-loop quality cont
 
 | Component | Purpose | Key Methods |
 |-----------|---------|-------------|
-| **LawTableExtractor** | Extract and deduplicate tables | `extract_unique_tables_from_law()` |
+| **LawTableExtractor** | Extract per-version tables | `extract_tables_from_version()` |
 | **TableEditorInterface** | Manage web-based editor | `launch_editor_for_law()` |
-| **CorrectionManager** | Save/load corrections | `save_corrections()`, `get_corrections()` |
+| **CorrectionManager** | Save/load per-version corrections | `save_corrections()`, `create_correction_file_for_version()` |
 | **BatchProcessor** | Batch processing with progress | `process_folder_batch()` |
 | **CorrectionApplier** | Apply corrections to pipeline | `apply_corrections()` |
 | **StatisticsCollector** | Generate reports and metrics | `collect_statistics()` |
@@ -144,73 +153,135 @@ The Manual Table Review System is a sophisticated human-in-the-loop quality cont
 
 ## User Workflows
 
-### Workflow 1: Batch Processing (Recommended)
+### Workflow 1: Complete Two-Step Process (Recommended)
 
 ```bash
-# Process entire test dataset
-python -m src.main_entry_points.f1_table_review \
-    --folder zhlex_files_test \
-    --workers 4 \
-    --resume
+# Step 1: Extract tables from entire dataset and create per-version correction files
+python -m src.main_entry_points.a3_table_extraction --folder zhlex_files_test
+
+# Step 2: Review latest versions for immediate value (recommended)
+python -m src.main_entry_points.a4_table_review --version latest --folder zhlex_files_test
 ```
 
 **Steps:**
-1. System scans all laws in the folder
-2. Extracts unique tables across versions
-3. Opens web interface for each law with tables
-4. User reviews and corrects tables
-5. Progress is automatically saved
-6. Can be interrupted and resumed
+1. **Extraction Phase**: System scans all laws and extracts tables per version (no deduplication)
+2. **Review Phase**: Single-tab interface opens with auto-progression
+3. User reviews tables one law at a time
+4. System automatically moves to next law upon completion (no manual prompts)
+5. Smart validation prevents incomplete reviews
+6. Progress is automatically saved per version
 
-### Workflow 2: Individual Law Review
+### Review Modes: Auto-Progression vs Manual Navigation
+
+The table review system offers two distinct review modes for processing multiple laws:
+
+#### 🚀 Auto-Progression Mode (Default: `--folder`)
+
+**Browser Behavior:**
+- **Single browser tab** that automatically loads the next law when you finish the current one
+- Browser **automatically transitions** from one law to the next without closing
+- **No command-line interaction** required during review process
+- **Seamless workflow** - you stay in the browser throughout
+
+**User Experience:**
+1. Opens browser with Law 1
+2. You review tables in browser
+3. When you finish, browser **automatically loads Law 2**
+4. Process continues until all laws reviewed
+5. Only stops if you close browser or encounter errors
+
+**Terminal Interaction:**
+- Minimal terminal interaction during review
+- Only prompts if errors occur: `"Continue with next law? (y/n)"`
+- Progress shown: `"📋 Processing law 2/5: 170.4"`
+
+**Best for:** Fast, focused review sessions where you want to process many laws sequentially without interruption.
+
+#### 🎮 Manual Navigation Mode (`--sequential`)
+
+**Browser Behavior:**
+- **New browser tab** opened for each law
+- Browser tab **closes** when you finish reviewing each law
+- **Returns to terminal** after each law for navigation choices
+
+**User Experience:**
+1. Shows complete law list with status first
+2. Opens browser for Law 1
+3. When finished, **returns to terminal**
+4. Terminal asks: `"Next action? (n=next, p=previous, s=skip, r=review again, q=quit)"`
+5. You choose what to do next
+6. Opens browser for your chosen law
+7. Repeat process
+
+**Terminal Interaction:**
+- **Heavy terminal interaction** between each law
+- Full navigation control with commands:
+  - `n` = next law
+  - `p` = previous law
+  - `s` = skip current law
+  - `r` = review current law again
+  - `q` = quit entirely
+- Shows law overview: `"📋 Law 2/5: 170.4 (3 tables) - ⏳ Pending"`
+
+**Best for:** Deliberate review where you want full control over which law to review next, ability to go back to previous laws, or when you need to take breaks between laws.
+
+#### 📊 Comparison Summary
+
+| Aspect | Auto-Progression | Manual Navigation |
+|--------|------------------|------------------|
+| **Browser tabs** | 1 tab, auto-updates | New tab per law |
+| **Terminal use** | Minimal | Heavy between laws |
+| **Flow** | Continuous | Stop-and-choose |
+| **Control** | Limited (close to stop) | Full (next/prev/skip/quit) |
+| **Speed** | Faster, seamless | Slower, more deliberate |
+| **Re-review** | Run command again | Built-in `r` option |
+| **Backtrack** | Not possible | `p` for previous |
+
+**Note:** Both modes automatically skip laws that have been completed and only show laws with undefined tables that need review.
+
+### Workflow 2: Version-Specific Review
 
 ```bash
-# Review specific law
-python -m src.main_entry_points.f1_table_review \
-    --law 170.4 \
-    --folder zhlex_files_test
+# Extract tables for specific law
+python -m src.main_entry_points.a3_table_extraction --law 172.110.1 --folder zhlex_files_test
+
+# Review latest version only
+python -m src.main_entry_points.a4_table_review --law 172.110.1 --version latest --folder zhlex_files_test
+
+# Review specific version
+python -m src.main_entry_points.a4_table_review --law 172.110.1 --version 129 --folder zhlex_files_test
+
+# Review all versions of specific law
+python -m src.main_entry_points.a4_table_review --law 172.110.1 --version all --folder zhlex_files_test
 ```
 
 **Steps:**
-1. System processes only the specified law
-2. Extracts tables for all versions of that law
-3. Opens web interface for review
-4. Saves corrections for that law only
+1. System processes specified law and version(s)
+2. Creates per-version correction files
+3. Opens web interface for targeted review
+4. Saves corrections per version independently
 
-### Workflow 3: Legacy Sequential Processing
-
-```bash
-# Process laws one by one without parallelization (legacy mode)
-python -m src.main_entry_points.f1_table_review \
-    --folder zhlex_files_test \
-    --no-batch
-```
-
-**Steps:**
-1. Process laws in alphabetical order
-2. Complete each law before moving to next
-3. Suitable for compatibility with old workflows
-
-### Workflow 4: Interactive Sequential Mode
+### Workflow 3: Complete Coverage Review
 
 ```bash
-# Review laws one by one with navigation controls
-python -m src.main_entry_points.f1_table_review \
-    --folder zhlex_files_test \
-    --sequential
+# Review all versions for comprehensive coverage (when needed)
+python -m src.main_entry_points.a4_table_review --version all --folder zhlex_files_test
+
+# Regenerate all correction files from scratch
+python -m src.main_entry_points.a3_table_extraction --folder zhlex_files_test --regenerate-all
 ```
 
-**Steps:**
-1. Lists all laws with tables and their completion status
-2. Allows navigation between laws (next, previous, skip)
-3. Provides interactive controls for methodical review
-4. Can be paused and resumed at any time
+**Key Features:**
+- **Per-Version Processing**: Each law version processed independently with separate correction files
+- **No Cross-Version Deduplication**: Eliminates brittleness from API output variations
+- **Version Targeting**: `--version latest/all/specific` for focused or comprehensive coverage
+- **Auto-Progression**: Seamless browser workflow with quit option
 
-### Workflow 5: Report Generation
+### Workflow 4: Report Generation
 
 ```bash
 # Generate comprehensive reports
-python -m src.main_entry_points.f1_table_review \
+python -m src.main_entry_points.a4_table_review \
     --report html \
     --folder zhlex_files_test
 ```
@@ -233,11 +304,7 @@ The web-based table editor provides an intuitive interface for reviewing table s
 │                      Table Review Interface                      │
 ├─────────────────────────────────────────────────────────────────┤
 │  Navigation: [← Previous] [Next →] [Overview]                   │
-│  Progress: 5/23 tables reviewed (22%)                          │
-├─────────────────────────────────────────────────────────────────┤
-│  Table 1 of 23 | hash: a1b2c3d4... | Status: [Radio Buttons]  │
-│                                                                 │
-│  ○ Undefined  ◉ Confirmed  ○ Rejected                         │
+│  Progress: 5/23 tables reviewed (22%) | Auto-Progression: ON   │
 ├─────────────────────────────────────────────────────────────────┤
 │  Context Information:                                           │
 │  • Found in versions: v118, v119                               │
@@ -245,54 +312,70 @@ The web-based table editor provides an intuitive interface for reviewing table s
 │  • PDF Documents: [View v118 on zh.ch] [View v119 on zh.ch]   │
 │  • Structure: 5 rows × 3 columns                               │
 ├─────────────────────────────────────────────────────────────────┤
-│  Table Editor: [+ Row] [+ Column] [- Row] [- Column] [Reset]   │
+│  Table Editor: [+ Row] [+ Col] [- Row] [- Col] [Reset] [☑ Has Header] │
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │  Header 1  │  Header 2   │  Header 3   │                   │ │
 │  │  Cell 1,1  │  Cell 1,2   │  Cell 1,3   │ (editable cells) │ │
 │  │  Cell 2,1  │  Cell 2,2   │  Cell 2,3   │                   │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────────┤
-│  Actions: [⟱ Merge with Next] [→ Skip for Now]                │
+│  Status: [Confirmed] [Confirmed+] [Rejected] [Unmerge]         │
 ├─────────────────────────────────────────────────────────────────┤
-│  Final Actions: [Save All Corrections] [Export JSON] [Cancel]  │
+│  Actions: [⟱ Merge with Next] [Finish Review] [Save & Continue]│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Table Status System
 
-| Status | Description | Editing Enabled |
-|--------|-------------|-----------------|
-| **Undefined** | Default state, no decision made | ❌ No |
-| **Confirmed without changes** | Table correctly converted, no editing needed | ❌ No |
-| **Confirmed with changes** | Table is valid but edits are needed | ✅ Yes |
-| **Rejected** | Table excluded from output (converted to paragraphs) | ❌ No |
+| Status | Button | Description | Editing Enabled |
+|--------|--------|-------------|-----------------|
+| **Undefined** | *None* | Default state, no decision made | ❌ No |
+| **Confirmed without changes** | [Confirmed] | Table correctly converted, no editing needed | ❌ No |
+| **Confirmed with changes** | [Confirmed+] | Table is valid but edits are needed | ✅ Yes |
+| **Rejected** | [Rejected] | Table excluded from output (converted to paragraphs) | ❌ No |
+| **Merged** | [Unmerge] | Table merged with previous (double-click to unmerge) | ❌ No |
 
 ### Key Features
 
-#### 1. Status Selection
-- **Radio buttons** for status selection
+#### 1. Auto-Progression Interface
+- **Single-tab workflow**: One tab automatically progresses between laws
+- **Smart completion validation**: Prevents progression until all tables decided
+- **Automatic save**: Server-side saving without downloads
+
+#### 2. Compact Table Editor
+- **Integrated controls**: Row/column operations in table header
+- **Header checkbox**: Mark tables with header rows
+- **Reset button**: Restore original table structure
+- **Status controls**: Compact buttons below table editor
+
+#### 3. Status Selection
+- **Button interface**: Clear status buttons replacing radio buttons
 - **Color-coded** status indicators
 - **Automatic save** when status changes
 
-#### 2. Table Editing (Confirmed Status Only)
+#### 4. Table Editing (Confirmed+ Status Only)
+- **Cell selection restricted**: Cells can only be selected when "Confirmed with changes" is active
 - **Click cells** to edit content
-- **Add/remove rows/columns** with buttons
+- **Add/remove rows/columns** with integrated buttons
 - **Visual feedback** for modified cells
 - **Automatic structure updates**
+- **Proper row height**: Empty rows maintain sufficient height for cursor visibility
 
-#### 3. Context Information
+#### 5. Merge & Unmerge Functionality
+- **Combine tables**: Merge current table with next table
+- **Smart disable**: Merge button automatically disabled on last table
+- **Unmerge capability**: Unmerge merged tables back to undefined status
+- **Status updates**: Next table marked as "merged"
+- **Seamless workflow**: Continue editing merged result
+
+#### 6. Smart Context Information
 - **Version tracking**: Which versions contain this table
 - **Page references**: Exact page numbers
 - **PDF links**: Direct links to view original documents on zh.ch
 - **Structure info**: Current table dimensions
+- **Incremental processing**: Shows only new undefined tables when corrections exist
 
-#### 4. Merge Functionality
-- **Combine tables**: Merge current table with next table
-- **Automatic append**: Next table content added to current
-- **Status updates**: Next table marked as "merged"
-- **Seamless workflow**: Continue editing merged result
-
-#### 5. Navigation
+#### 7. Navigation
 - **Previous/Next**: Navigate between tables
 - **Progress tracking**: Current position and completion percentage
 - **Overview**: Summary of all table statuses
@@ -305,14 +388,37 @@ The web-based table editor provides an intuitive interface for reviewing table s
 | `Ctrl/Cmd + →` | Next table |
 | `Ctrl/Cmd + S` | Save corrections |
 
+### Intelligent Processing Features
+
+#### Per-Version Processing
+- **Independent files**: Each version gets separate correction file: `{law_id}-{version}-table-corrections.json`
+- **No cross-version deduplication**: Each version processed independently for API stability
+- **Version targeting**: Focus on latest versions or target specific versions as needed
+
+#### Incremental Correction Updates
+- **Preserve existing work**: When new law versions added, existing per-version corrections preserved
+- **New tables only**: Only newly discovered tables marked as "undefined"
+- **Automatic detection**: System automatically detects new vs. existing tables per version
+
+#### Completion Validation
+- **Comprehensive checking**: All tables must have status before law completion
+- **Prevents incomplete work**: Cannot progress until all tables decided
+- **Smart validation**: Uses `validate_law_completion()` method
+
 ---
 
 ## Command Line Reference
 
-### Main Command
+### Step 1: Table Extraction
 
 ```bash
-python -m src.main_entry_points.f1_table_review [OPTIONS]
+python -m src.main_entry_points.a3_table_extraction [OPTIONS]
+```
+
+### Step 2: Table Review
+
+```bash
+python -m src.main_entry_points.a4_table_review [OPTIONS]
 ```
 
 ### Required Arguments
@@ -321,29 +427,48 @@ python -m src.main_entry_points.f1_table_review [OPTIONS]
 |----------|-------------|--------|
 | `--folder` | Target folder for processing | `zhlex_files_test`, `zhlex_files` |
 
-### Optional Arguments
+### Table Extraction Arguments
 
 | Argument | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `--law LAW_ID` | Review specific law only | None | `--law 170.4` |
-| `--workers N` | Number of parallel workers | Auto-detect | `--workers 4` |
-| `--sequential` | Interactive sequential mode | False | `--sequential` |
-| `--no-batch` | Use legacy sequential mode | False | `--no-batch` |
-| `--simulate` | Use simulation instead of browser | False | `--simulate` |
-| `--no-resume` | Don't resume from previous progress | False | `--no-resume` |
-| `--report FORMAT` | Generate reports | None | `--report html` |
-| `--reset` | Reset corrections (with --law) | False | `--reset` |
-| `--reset-all` | Reset all corrections | False | `--reset-all` |
-| `--status` | Show review progress | False | `--status` |
-| `--stats` | Show detailed statistics | False | `--stats` |
+| `--law LAW_ID` | Process specific law only | None | `--law 172.110.1` |
+| `--status` | Show extraction status without processing | False | `--status` |
+| `--regenerate` | Regenerate specific law from scratch (requires --law) | False | `--regenerate` |
+| `--regenerate-all` | Regenerate all per-version correction files from scratch | False | `--regenerate-all` |
+| `--workers N` | Number of concurrent workers | 4 | `--workers 8` |
+| `--no-concurrent` | Use sequential processing | False | `--no-concurrent` |
+| `--verbose` | Enable verbose logging | False | `--verbose` |
+
+### Table Review Arguments
+
+| Argument | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `--law LAW_ID` | Review specific law only | None | `--law 172.110.1` |
+| `--version SPEC` | **Version targeting**: latest/all/specific version | None | `--version latest` |
+| `--sequential` | Use manual navigation mode with full control | False | `--sequential` |
+| `--report FORMAT` | Generate reports (json/csv/html/all) | None | `--report html` |
+| `--status` | Show basic review progress | False | `--status` |
+| `--stats` | Show detailed statistics and metrics | False | `--stats` |
+| `--export` | Export all correction JSON files | False | `--export` |
+| `--export-path PATH` | Destination for export | None | `--export-path /backup` |
+| `--verbose` | Enable verbose logging | False | `--verbose` |
+
+### Version Targeting Options
+
+| Version Spec | Description | Use Case |
+|--------------|-------------|----------|
+| `--version latest` | Review latest version of each law | **Recommended**: Focus on current content for immediate value |
+| `--version all` | Review all versions of all laws | Comprehensive coverage when needed |
+| `--version 129` | Review specific version (requires --law) | Target specific law version |
+| `--law X --version latest` | Latest version of specific law | Single law, current content |
+| `--law X --version all` | All versions of specific law | Single law, all versions |
 
 ### Processing Modes
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
-| Default (batch) | Parallel processing with automatic resume | Fast batch processing |
-| `--sequential` | Interactive one-by-one review with navigation | Methodical review with user control |
-| `--no-batch` | Legacy sequential mode (one law at a time) | Compatibility mode |
+| **Default (Auto-Progression)** | Single-tab browser with automatic progression between laws | Fast, focused review sessions |
+| **`--sequential` (Manual Navigation)** | Interactive terminal-controlled review with full navigation | Deliberate review with user control and ability to backtrack |
 
 ### Report Formats
 
@@ -356,83 +481,102 @@ python -m src.main_entry_points.f1_table_review [OPTIONS]
 
 ### Examples
 
-#### Basic Usage
+#### Basic Two-Step Workflow
 ```bash
-# Review test dataset
-python -m src.main_entry_points.f1_table_review --folder zhlex_files_test
+# Step 1: Extract tables from test dataset
+python -m src.main_entry_points.a3_table_extraction --folder zhlex_files_test
 
-# Review production dataset
-python -m src.main_entry_points.f1_table_review --folder zhlex_files
+# Step 2: Review extracted tables (single-tab auto-progression)
+python -m src.main_entry_points.a4_table_review --folder zhlex_files_test
+
+# Production dataset workflow
+python -m src.main_entry_points.a3_table_extraction --folder zhlex_files
+python -m src.main_entry_points.a4_table_review --folder zhlex_files
 ```
 
-#### Advanced Usage
+#### Advanced Table Review Options
 ```bash
-# High-performance batch processing
-python -m src.main_entry_points.f1_table_review \
-    --folder zhlex_files \
-    --workers 8
+# Review with incremental processing (preserves existing corrections)
+python -m src.main_entry_points.a4_table_review \
+    --folder zhlex_files_test
 
-# Interactive sequential review
-python -m src.main_entry_points.f1_table_review \
-    --folder zhlex_files_test \
-    --sequential
-
-# Testing without browser interaction
-python -m src.main_entry_points.f1_table_review \
-    --folder zhlex_files_test \
-    --simulate
-
-# Start fresh (don't resume previous work)
-python -m src.main_entry_points.f1_table_review \
-    --folder zhlex_files_test \
-    --no-resume
-```
-
-#### Specific Law Review
-```bash
-# Review single law
-python -m src.main_entry_points.f1_table_review \
+# Review specific law (allows re-review of completed laws)
+python -m src.main_entry_points.a4_table_review \
     --law 170.4 \
     --folder zhlex_files_test
 
-# Review multiple specific laws (run separately)
-python -m src.main_entry_points.f1_table_review --law 170.4 --folder zhlex_files_test
-python -m src.main_entry_points.f1_table_review --law 172.110.1 --folder zhlex_files_test
+# Reset and re-review specific law
+python -m src.main_entry_points.a4_table_review \
+    --law 170.4 \
+    --reset \
+    --folder zhlex_files_test
+```
+
+#### Incremental Processing (New Tables)
+```bash
+# When new version of law is processed, only new tables require review
+# Existing corrections are preserved automatically
+
+# Extract new tables (preserves existing extractions)
+python -m src.main_entry_points.a3_table_extraction --folder zhlex_files_test
+
+# Review only shows new "undefined" tables, existing corrections preserved
+python -m src.main_entry_points.a4_table_review --folder zhlex_files_test
+
+# Force complete re-review of all tables in a law
+python -m src.main_entry_points.a4_table_review \
+    --law 170.4 \
+    --reset \
+    --folder zhlex_files_test
 ```
 
 #### Report Generation and Statistics
 ```bash
-# Show basic progress
-python -m src.main_entry_points.f1_table_review \
+# Show basic progress summary (completed/total counts, law lists)
+python -m src.main_entry_points.a4_table_review \
     --folder zhlex_files_test \
     --status
 
-# Show detailed statistics
-python -m src.main_entry_points.f1_table_review \
+# Show detailed statistics and metrics (processing efficiency, distribution, etc.)
+python -m src.main_entry_points.a4_table_review \
     --folder zhlex_files_test \
     --stats
 
 # Generate HTML report
-python -m src.main_entry_points.f1_table_review \
+python -m src.main_entry_points.a4_table_review \
     --report html \
     --folder zhlex_files_test
 
 # Generate all report formats
-python -m src.main_entry_points.f1_table_review \
+python -m src.main_entry_points.a4_table_review \
     --report all \
     --folder zhlex_files
 ```
 
+#### Export and Backup
+```bash
+# Export all correction JSON files (prompts for destination)
+python -m src.main_entry_points.a4_table_review \
+    --export \
+    --folder zhlex_files_test
+
+# Export with specific destination path
+python -m src.main_entry_points.a4_table_review \
+    --export \
+    --folder zhlex_files_test \
+    --export-path /path/to/backup
+```
+
 #### Reset and Maintenance
 ```bash
-# Reset specific law
-python -m src.main_entry_points.f1_table_review \
+# Reset specific law (forces complete re-review)
+python -m src.main_entry_points.a4_table_review \
     --law 170.4 \
     --reset \
     --folder zhlex_files_test
 
 # Reset all corrections (use with caution!)
-python -m src.main_entry_points.f1_table_review \
+python -m src.main_entry_points.a4_table_review \
     --reset-all \
     --folder zhlex_files_test
 ```
@@ -471,68 +615,36 @@ data/zhlex/zhlex_files_test/170.4/118/170.4-118-metadata.json
 
 ### Output Data
 
-#### Correction Files
-Saved as `{law_id}-table-corrections.json` in law directory:
+#### Per-Version Correction Files
+Saved as `{law_id}-{version}-table-corrections.json` in version directories:
 
+**File Structure:**
+```
+data/zhlex/zhlex_files_test/
+└── 172.110.1/
+    └── 129/
+        └── 172.110.1-129-table-corrections.json
+```
+
+**File Format:**
 ```json
 {
-  "law_id": "170.4",
-  "reviewed_at": "2024-07-04T12:34:56.789Z",
-  "reviewer": "system_user",
+  "law_id": "172.110.1",
+  "reviewed_at": "2025-07-05T15:14:13.079884",
+  "reviewer": "user",
   "status": "completed",
-  "statistics": {
-    "total_tables": 3,
-    "confirmed": 2,
-    "rejected": 1,
-    "edited": 1,
-    "merged": 0
-  },
   "tables": {
-    "a1b2c3d4e5f6g7h8": {
-      "hash": "a1b2c3d4e5f6g7h8",
-      "status": "confirmed",
-      "found_in_versions": ["118", "119"],
-      "pages": {
-        "118": [2, 3],
-        "119": [2, 3]
-      },
-      "pdf_paths": {
-        "118": "data/zhlex/zhlex_files_test/170.4/118/170.4-118-original.pdf",
-        "119": "data/zhlex/zhlex_files_test/170.4/119/170.4-119-original.pdf"
-      },
-      "source_links": {
-        "118": "https://www.zh.ch/de/politik-staat/gesetze-beschluesse/...",
-        "119": "https://www.zh.ch/de/politik-staat/gesetze-beschluesse/..."
-      },
+    "4050be8c04bc5b59": {
+      "hash": "4050be8c04bc5b59",
+      "status": "confirmed_without_changes",
+      "found_in_versions": ["129"],
+      "pages": {"129": [19]},
+      "pdf_paths": {"129": "data/zhlex/zhlex_files_test/172.110.1/129/172.110.1-129-original.pdf"},
+      "source_links": {"129": "https://www.zh.ch/de/politik-staat/gesetze-beschluesse/..."},
       "original_structure": [
-        ["Header 1", "Header 2", "Header 3"],
-        ["Cell 1,1", "Cell 1,2", "Cell 1,3"],
-        ["Cell 2,1", "Cell 2,2", "Cell 2,3"]
-      ],
-      "corrected_structure": [
-        ["Header 1", "Header 2", "Header 3"],
-        ["Cell 1,1", "Corrected Cell", "Cell 1,3"],
-        ["Cell 2,1", "Cell 2,2", "Cell 2,3"]
+        ["Verwaltungseinheit", "Gliederung"],
+        ["Gemeindeamt", "a. Antragstellung an das Eidgenössische Justiz- und Polizeidepartement..."]
       ]
-    },
-    "x9y8z7w6v5u4t3s2": {
-      "hash": "x9y8z7w6v5u4t3s2",
-      "status": "rejected",
-      "found_in_versions": ["118"],
-      "pages": {
-        "118": [5]
-      },
-      "reason": "Not a real table - just aligned text"
-    },
-    "m1n2o3p4q5r6s7t8": {
-      "hash": "m1n2o3p4q5r6s7t8",
-      "status": "merged",
-      "found_in_versions": ["118"],
-      "pages": {
-        "118": [4]
-      },
-      "merged_into": "a1b2c3d4e5f6g7h8",
-      "reason": "Merged into table a1b2c3d4e5f6g7h8"
     }
   }
 }
@@ -583,6 +695,20 @@ data/zhlex/zhlex_files_test/
 ├── 172.110.1/
 │   └── ...
 └── batch_progress.json             # Progress tracking
+```
+
+### Export Structure
+
+When using `--export`, corrections are organized in a timestamped directory:
+
+```
+/export/path/table_corrections_zhlex_files_test_20240705_143022/
+├── 170.4/
+│   └── 170.4-table-corrections.json
+├── 172.110.1/
+│   └── 172.110.1-table-corrections.json
+├── ...
+└── export_summary.json            # Export metadata and file list
 ```
 
 ---
@@ -670,13 +796,48 @@ json_data["elements"] = corrected_elements
 2. [Main Pipeline: 02_process_zhlex_main.py]
    Processes PDFs with Adobe Extract API
    ↓
-3. [Manual Review: table_review.py] ← MANUAL INTERVENTION
-   Human reviews and corrects tables
+3. [Table Review: a3_table_extraction.py]
+   Extracts and deduplicates tables from processed JSON
    ↓
-4. [Main Pipeline: 03_build_site_main.py]
-   Generates HTML with corrections applied
+4. [Table Review: a4_table_review.py]
+   Manual review of extracted tables
    ↓
-5. [Output: Static website with corrected tables]
+5. [Main Pipeline: 03_build_zhlex_main.py]
+   Applies corrections and generates final output
+```
+
+### Handling New Law Versions
+
+When new versions of laws are added to the system, the table review process intelligently handles both existing and new tables:
+
+#### For Existing Tables (Previously Reviewed)
+- **Preserved decisions**: All existing corrections are maintained
+- **No re-review needed**: Tables with existing corrections are not shown for review
+- **Content-based matching**: Uses table content hash to identify existing tables across versions
+
+#### For New Tables (Newly Discovered)
+- **Automatic detection**: System identifies tables not present in previous versions
+- **Undefined status**: New tables are marked as "undefined" requiring review
+- **Incremental processing**: Only new tables are presented for review
+- **Smart updates**: Uses `CorrectionManager.update_corrections_with_new_tables()`
+
+#### Example Workflow
+```bash
+# Initial review of law 170.4
+python -m src.main_entry_points.a3_table_extraction --law 170.4 --folder zhlex_files_test
+python -m src.main_entry_points.a4_table_review --law 170.4 --folder zhlex_files_test
+# User reviews 5 tables, saves corrections
+
+# New version of law 170.4 is added with 2 additional tables
+python -m src.main_entry_points.a3_table_extraction --law 170.4 --folder zhlex_files_test
+python -m src.main_entry_points.a4_table_review --law 170.4 --folder zhlex_files_test
+# User only needs to review 2 new tables, existing 5 corrections preserved
+```
+
+#### Force Complete Re-Review
+If you need to re-review all tables in a law (not just new ones):
+```bash
+python -m src.main_entry_points.a4_table_review --law 170.4 --reset --folder zhlex_files_test
 ```
 
 ### Correction Application
@@ -1252,7 +1413,10 @@ class CustomReportGenerator:
 #### Backup Strategy
 
 ```bash
-# Backup all corrections
+# Recommended: Use the built-in export command
+python -m src.main_entry_points.a4_table_review --export --folder zhlex_files_test
+
+# Alternative: Manual backup
 cp -r data/zhlex/zhlex_files_test/*/*.json backup/corrections/
 
 # Backup progress files
@@ -1289,6 +1453,6 @@ For additional support or feature requests, please refer to the project's issue 
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: July 2024  
+**Document Version**: 1.1  
+**Last Updated**: January 2025  
 **Compatibility**: zhlaw pipeline v2.0+

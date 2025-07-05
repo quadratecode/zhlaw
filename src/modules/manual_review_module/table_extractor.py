@@ -18,49 +18,71 @@ class LawTableExtractor:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
     
-    def extract_unique_tables_from_law(self, law_id: str, base_path: str) -> Dict[str, Any]:
+    def extract_tables_from_version(self, law_id: str, version: str, base_path: str) -> Dict[str, Any]:
         """
-        Extract all unique tables across all versions of a law.
+        Extract all tables from a specific version of a law.
         
         Args:
             law_id: The law identifier (e.g., "170.4")
+            version: The version identifier (e.g., "118")
             base_path: Base path to the law files (e.g., "data/zhlex/zhlex_files_test")
             
         Returns:
-            Dictionary of unique tables with their metadata
+            Dictionary of tables with their metadata (version-specific)
         """
-        versions = self.find_law_versions(law_id, base_path)
-        unique_tables = {}
+        json_path = self._get_version_json_path(law_id, version, base_path)
         
-        for version, json_path in versions.items():
-            try:
-                tables = self.extract_tables_from_json(json_path)
+        if not json_path or not Path(json_path).exists():
+            self.logger.warning(f"JSON file not found for law {law_id} version {version}")
+            return {}
+        
+        try:
+            tables = self.extract_tables_from_json(json_path)
+            version_tables = {}
+            
+            for table_id, table_data in tables.items():
+                # Generate simple hash for this specific table
+                table_hash = self.generate_table_hash(table_data['elements'])
                 
-                for table_id, table_data in tables.items():
-                    # Generate content-only hash
-                    table_hash = self.generate_table_hash(table_data['elements'])
-                    
-                    if table_hash not in unique_tables:
-                        unique_tables[table_hash] = {
-                            'hash': table_hash,
-                            'found_in_versions': [version],
-                            'pages': {version: table_data['pages']},
-                            'pdf_paths': {version: self.get_pdf_path(json_path)},
-                            'source_links': {version: self.get_source_link(json_path)},
-                            'original_structure': self.elements_to_table_structure(table_data['elements'])
-                        }
-                    else:
-                        # Add version to existing table
-                        unique_tables[table_hash]['found_in_versions'].append(version)
-                        unique_tables[table_hash]['pages'][version] = table_data['pages']
-                        unique_tables[table_hash]['pdf_paths'][version] = self.get_pdf_path(json_path)
-                        unique_tables[table_hash]['source_links'][version] = self.get_source_link(json_path)
-                        
-            except Exception as e:
-                self.logger.error(f"Error processing version {version} of law {law_id}: {e}")
-                continue
+                version_tables[table_hash] = {
+                    'hash': table_hash,
+                    'table_id': table_id,
+                    'version': version,
+                    'pages': table_data['pages'],
+                    'pdf_path': self.get_pdf_path(json_path),
+                    'source_link': self.get_source_link(json_path),
+                    'original_structure': self.elements_to_table_structure(table_data['elements'])
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Error processing law {law_id} version {version}: {e}")
+            return {}
         
-        return unique_tables
+        return version_tables
+    
+    def _get_version_json_path(self, law_id: str, version: str, base_path: str) -> Optional[str]:
+        """
+        Get the JSON file path for a specific law version.
+        
+        Args:
+            law_id: The law identifier
+            version: The version identifier
+            base_path: Base path to search in
+            
+        Returns:
+            Path to the JSON file or None if not found
+        """
+        law_path = Path(base_path) / law_id / version
+        
+        if not law_path.exists():
+            return None
+            
+        json_pattern = f"{law_id}-{version}-modified-updated.json"
+        json_path = law_path / json_pattern
+        
+        if json_path.exists():
+            return str(json_path)
+        return None
     
     def find_law_versions(self, law_id: str, base_path: str) -> Dict[str, str]:
         """
@@ -363,3 +385,51 @@ class LawTableExtractor:
                 laws.append(item.name)
                 
         return sorted(laws)
+    
+    def extract_unique_tables_from_law(self, law_id: str, base_path: str) -> Dict[str, Any]:
+        """
+        DEPRECATED: Legacy method for backward compatibility.
+        Extract all unique tables across all versions of a law.
+        
+        This method is kept for backward compatibility but should be replaced
+        with extract_tables_from_version() for per-version processing.
+        
+        Args:
+            law_id: The law identifier (e.g., "170.4")
+            base_path: Base path to the law files (e.g., "data/zhlex/zhlex_files_test")
+            
+        Returns:
+            Dictionary of unique tables with their metadata
+        """
+        versions = self.find_law_versions(law_id, base_path)
+        unique_tables = {}
+        
+        for version, json_path in versions.items():
+            try:
+                tables = self.extract_tables_from_json(json_path)
+                
+                for table_id, table_data in tables.items():
+                    # Generate content-only hash
+                    table_hash = self.generate_table_hash(table_data['elements'])
+                    
+                    if table_hash not in unique_tables:
+                        unique_tables[table_hash] = {
+                            'hash': table_hash,
+                            'found_in_versions': [version],
+                            'pages': {version: table_data['pages']},
+                            'pdf_paths': {version: self.get_pdf_path(json_path)},
+                            'source_links': {version: self.get_source_link(json_path)},
+                            'original_structure': self.elements_to_table_structure(table_data['elements'])
+                        }
+                    else:
+                        # Add version to existing table
+                        unique_tables[table_hash]['found_in_versions'].append(version)
+                        unique_tables[table_hash]['pages'][version] = table_data['pages']
+                        unique_tables[table_hash]['pdf_paths'][version] = self.get_pdf_path(json_path)
+                        unique_tables[table_hash]['source_links'][version] = self.get_source_link(json_path)
+                        
+            except Exception as e:
+                self.logger.error(f"Error processing version {version} of law {law_id}: {e}")
+                continue
+        
+        return unique_tables

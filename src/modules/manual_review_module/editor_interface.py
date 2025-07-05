@@ -13,6 +13,7 @@ import tempfile
 import time
 import threading
 import webbrowser
+from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -27,7 +28,66 @@ class TableEditorInterface:
         self.editor_path = Path(__file__).parent
         self.force_simulation = False
         
-    def launch_editor_for_law(self, law_id: str, unique_tables: Dict[str, Any], base_path: str = None) -> Dict[str, Any]:
+    def launch_editor_for_law_with_progression(self, law_id: str, unique_tables: Dict[str, Any], 
+                                              base_path: str = None, progression_info: Dict[str, Any] = None,
+                                              review_mode: str = 'folder') -> Dict[str, Any]:
+        """
+        Launch table editor with auto-progression support for folder review.
+        
+        Args:
+            law_id: The law identifier
+            unique_tables: Dictionary of unique tables for the law
+            base_path: Base path to the law files
+            progression_info: Info about next law and progression state
+            review_mode: 'single' or 'folder' to indicate review mode
+            
+        Returns:
+            Dictionary of corrections from the editor
+        """
+        # Add progression info to the data
+        if not unique_tables:
+            self.logger.warning(f"No tables to review for law {law_id}")
+            return {}
+            
+        # Prepare data file for table_editor
+        # Extract folder name from progression_info or base_path
+        folder_name = "zhlex_files_test"  # default
+        if progression_info and 'folder_name' in progression_info:
+            folder_name = progression_info['folder_name']
+        elif base_path:
+            # Extract folder name from base_path (e.g., "data/zhlex/zhlex_files_test" -> "zhlex_files_test")
+            folder_name = Path(base_path).name
+        
+        editor_data = self.prepare_editor_data(law_id, unique_tables, review_mode, base_path, folder_name)
+        
+        # Add progression info if provided
+        if progression_info:
+            editor_data['progression'] = progression_info
+        
+        # Create temporary data file and launch
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
+            json.dump(editor_data, tmp_file, indent=2, ensure_ascii=False)
+            data_file = tmp_file.name
+        
+        try:
+            # Launch table_editor
+            self.logger.info(f"Launching table editor for law {law_id} with {len(unique_tables)} tables (folder mode)")
+            corrections = self._launch_editor(data_file, law_id, base_path)
+            
+            return corrections
+            
+        except Exception as e:
+            self.logger.error(f"Error launching table editor for law {law_id}: {e}")
+            return {}
+            
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(data_file)
+            except Exception as e:
+                self.logger.warning(f"Could not delete temporary file {data_file}: {e}")
+    
+    def launch_editor_for_law(self, law_id: str, unique_tables: Dict[str, Any], base_path: str = None, review_mode: str = 'single') -> Dict[str, Any]:
         """
         Launch modified table_editor with law's unique tables.
         
@@ -35,6 +95,7 @@ class TableEditorInterface:
             law_id: The law identifier
             unique_tables: Dictionary of unique tables for the law
             base_path: Base path to the law files (e.g., "data/zhlex/zhlex_files_test")
+            review_mode: 'single' or 'folder' to indicate review mode
             
         Returns:
             Dictionary of corrections from the editor
@@ -44,7 +105,12 @@ class TableEditorInterface:
             return {}
             
         # Prepare data file for table_editor
-        editor_data = self.prepare_editor_data(law_id, unique_tables)
+        # Extract folder name from base_path
+        folder_name = "zhlex_files_test"  # default
+        if base_path:
+            folder_name = Path(base_path).name
+        
+        editor_data = self.prepare_editor_data(law_id, unique_tables, review_mode, base_path, folder_name)
         
         # Create temporary data file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
@@ -69,41 +135,139 @@ class TableEditorInterface:
             except Exception as e:
                 self.logger.warning(f"Could not delete temporary file {data_file}: {e}")
     
-    def prepare_editor_data(self, law_id: str, unique_tables: Dict[str, Any]) -> Dict[str, Any]:
+    def prepare_editor_data(self, law_id: str, unique_tables: Dict[str, Any], review_mode: str = 'single', 
+                           base_path: str = None, folder_name: str = "zhlex_files_test") -> Dict[str, Any]:
         """
         Prepare data structure for table_editor.
         
         Args:
             law_id: The law identifier
             unique_tables: Dictionary of unique tables
+            review_mode: 'single' or 'folder' to indicate review mode
+            base_path: Base path to the law files
+            folder_name: Name of the folder for corrections
             
         Returns:
             Data structure for the table editor
         """
+        from src.modules.manual_review_module.correction_manager import CorrectionManager
+        
+        # Load existing corrections if they exist
+        # CorrectionManager expects just the base data path, not including the folder
+        if base_path and base_path.endswith(folder_name):
+            # If base_path includes the folder name, remove it
+            correction_base_path = base_path.rsplit('/' + folder_name, 1)[0]
+        else:
+            correction_base_path = base_path or "data/zhlex"
+        
+        correction_manager = CorrectionManager(correction_base_path)
+        existing_corrections = correction_manager.get_corrections(law_id, folder_name)
+        existing_tables = existing_corrections.get('tables', {}) if existing_corrections else {}
+        
+        
         tables_list = []
+        reviewed_tables = []
+        
+        # Check if this is a specific law review (allow re-review) vs folder review (incremental)
+        allow_re_review = review_mode == 'single'
         
         for table_hash, table_data in unique_tables.items():
-            table_entry = {
-                'hash': table_hash,
-                'found_in_versions': table_data['found_in_versions'],
-                'pages': table_data['pages'],
-                'pdf_paths': table_data['pdf_paths'],
-                'source_links': table_data.get('source_links', {}),  # Include source links
-                'structure': table_data['original_structure'],
-                'status': 'pending',
-                'operation': 'confirm'  # Default operation
-            }
-            tables_list.append(table_entry)
+            # Check if this table has already been reviewed
+            existing_review = existing_tables.get(table_hash, {})
+            existing_status = existing_review.get('status', 'undefined')
+            
+            # Define completed statuses that should not be re-reviewed in incremental mode
+            completed_statuses = [
+                'confirmed_without_changes', 
+                'confirmed_with_changes', 
+                'rejected'
+            ]
+            
+            # Check if status is a merge status
+            is_merged = existing_status.startswith('merged')
+            
+            # Determine if this table should be included for review
+            should_review = False
+            
+            if allow_re_review:
+                # Single law review mode: show all tables (allows re-review)
+                should_review = True
+            else:
+                # Folder/incremental review mode: only show unreviewed tables
+                if existing_status == 'undefined' or existing_status not in completed_statuses and not is_merged:
+                    should_review = True
+            
+            if should_review:
+                # Determine the correct status and operation for the editor
+                if not existing_review or existing_status == 'undefined':
+                    # New or undefined table
+                    status = 'pending'
+                    operation = 'confirm'
+                else:
+                    # Table has some existing review - load the existing state
+                    status = existing_status
+                    if existing_status == 'confirmed_without_changes':
+                        operation = 'confirm'
+                    elif existing_status == 'confirmed_with_changes':
+                        operation = 'edit'
+                    elif existing_status == 'rejected':
+                        operation = 'reject'
+                    elif is_merged:
+                        operation = 'merge'
+                    else:
+                        operation = 'confirm'  # fallback
+                
+                table_entry = {
+                    'hash': table_hash,
+                    'found_in_versions': table_data['found_in_versions'],
+                    'pages': table_data['pages'],
+                    'pdf_paths': table_data['pdf_paths'],
+                    'source_links': table_data.get('source_links', {}),
+                    'structure': table_data['original_structure'],
+                    'status': status,
+                    'operation': operation
+                }
+                
+                # Include corrected structure if it exists
+                if existing_review.get('corrected_structure'):
+                    table_entry['corrected_structure'] = existing_review['corrected_structure']
+                
+                tables_list.append(table_entry)
+            else:
+                # Track reviewed tables that are not shown
+                reviewed_tables.append({
+                    'hash': table_hash,
+                    'status': existing_status,
+                    'found_in_versions': table_data['found_in_versions']
+                })
         
-        return {
+        editor_data = {
             'law_id': law_id,
+            'review_mode': review_mode,
             'tables': tables_list,
             'metadata': {
                 'total_tables': len(unique_tables),
+                'tables_to_review': len(tables_list),
+                'already_reviewed': len(reviewed_tables),
                 'created_at': json.dumps(None),  # Will be set by editor
-                'version': '1.0'
+                'version': '2.0'  # Updated version to indicate new features
             }
         }
+        
+        # Include existing corrections if they exist
+        if existing_tables:
+            editor_data['existing_corrections'] = existing_tables
+            if allow_re_review:
+                self.logger.info(f"Loading {len(existing_tables)} existing corrections for law {law_id} (re-review mode)")
+            else:
+                self.logger.info(f"Found {len(existing_tables)} existing corrections for law {law_id}, showing {len(tables_list)} tables for review")
+        
+        # Include information about already reviewed tables
+        if reviewed_tables:
+            editor_data['already_reviewed_tables'] = reviewed_tables
+            self.logger.info(f"Skipping {len(reviewed_tables)} already reviewed tables for law {law_id}")
+        
+        return editor_data
     
     def _launch_editor(self, data_file: str, law_id: str, base_path: str = None) -> Dict[str, Any]:
         """
@@ -253,25 +417,69 @@ class TableEditorInterface:
             
             def do_POST(self):
                 if self.path == '/save-corrections':
-                    # Read the corrections from the request
+                    # Read the request data
                     content_length = int(self.headers['Content-Length'])
                     post_data = self.rfile.read(content_length)
                     
                     try:
-                        corrections = json.loads(post_data.decode('utf-8'))
+                        request_data = json.loads(post_data.decode('utf-8'))
                         
-                        # Save corrections to file
+                        # Extract corrections and action
+                        corrections = request_data.get('corrections', {})
+                        action = request_data.get('action', 'complete')
+                        law_id = request_data.get('law_id', '')
+                        
+                        # Prepare response data
+                        response_data = {
+                            "status": "success",
+                            "action": action,
+                            "law_id": law_id
+                        }
+                        
+                        # Save corrections to file with action info (but don't save corrections if cancelled)
+                        result_data = {
+                            'action': action,
+                            'law_id': law_id,
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        
+                        if action != 'cancel':
+                            # Only save corrections if not cancelled
+                            result_data['corrections'] = corrections
+                        else:
+                            # For cancel action, indicate no corrections saved
+                            result_data['corrections'] = {}
+                            result_data['cancelled'] = True
+                        
                         with open(results_file, 'w', encoding='utf-8') as f:
-                            json.dump(corrections, f, indent=2)
+                            json.dump(result_data, f, indent=2)
+                        
+                        # Signal that review is complete and action should be taken
+                        if action in ['next', 'quit', 'cancel', 'cancel_next', 'cancel_quit']:
+                            # This will signal the server to stop and take action
+                            response_data["review_complete"] = True
                         
                         self.send_response(200)
                         self.send_header('Content-type', 'application/json')
                         self.send_header('Access-Control-Allow-Origin', '*')
                         self.end_headers()
-                        self.wfile.write(b'{"status": "success"}')
+                        self.wfile.write(json.dumps(response_data).encode('utf-8'))
+                        
+                        # If action requires server shutdown, shut down the server after response
+                        if action in ['next', 'quit', 'cancel', 'cancel_next', 'cancel_quit']:
+                            # Give client time to receive response before shutting down
+                            def delayed_shutdown():
+                                time.sleep(1)
+                                self.server.shutdown()
+                            
+                            shutdown_thread = threading.Thread(target=delayed_shutdown)
+                            shutdown_thread.daemon = True
+                            shutdown_thread.start()
+                        
                     except Exception as e:
                         self.send_response(500)
                         self.send_header('Content-type', 'application/json')
+                        self.send_header('Access-Control-Allow-Origin', '*')
                         self.end_headers()
                         self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
                 else:
@@ -324,28 +532,50 @@ class TableEditorInterface:
             print("3. Click 'Save Corrections' when done")
             print("4. Return here and press Enter to continue")
             
-            # Wait for user input
-            input("\nPress Enter when you have completed the review and saved corrections...")
+            # For folder mode with auto-progression, we wait for the server to shut down
+            # instead of waiting for user input
+            if editor_data.get('review_mode') == 'folder':
+                print("\nReview in progress. The browser will automatically handle progression.")
+                # Wait for server to shut down (which happens when review is complete)
+                server_thread.join()
+            else:
+                # Original behavior for single law review
+                input("\nPress Enter when you have completed the review and saved corrections...")
             
             # Check if results file was created
             max_wait_time = 10  # seconds
             wait_interval = 0.5
             waited_time = 0
             
-            while not results_file.exists() and waited_time < max_wait_time:
-                time.sleep(wait_interval)
-                waited_time += wait_interval
+            # For folder mode, results should already exist
+            if editor_data.get('review_mode') != 'folder':
+                while not results_file.exists() and waited_time < max_wait_time:
+                    time.sleep(wait_interval)
+                    waited_time += wait_interval
             
             if results_file.exists():
                 # Read the results
                 with open(results_file, 'r', encoding='utf-8') as f:
-                    corrections = json.load(f)
+                    result_data = json.load(f)
                 
                 # Clean up results file
                 results_file.unlink()
                 
-                self.logger.info(f"Received {len(corrections)} corrections from editor")
-                return corrections
+                # Extract corrections from the new format
+                if 'corrections' in result_data:
+                    corrections = result_data['corrections']
+                    action = result_data.get('action', 'complete')
+                    self.logger.info(f"Received {len(corrections)} corrections from editor with action: {action}")
+                    # Return the full result with action
+                    return {
+                        'corrections': corrections,
+                        'action': action
+                    }
+                else:
+                    # Legacy format fallback
+                    corrections = result_data
+                    self.logger.info(f"Received {len(corrections)} corrections from editor (legacy format)")
+                    return corrections
             else:
                 self.logger.warning("No corrections file found, using empty corrections")
                 return {}

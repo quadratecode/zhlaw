@@ -23,6 +23,7 @@ import random
 
 # Get logger from main module
 from src.utils.logging_utils import get_module_logger
+
 logger = get_module_logger(__name__)
 
 # Module-level constants for default values and magic numbers
@@ -988,10 +989,14 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     elements = flatten_elements(elements)
     # Map tables to elements
     elements = map_tables_to_elements(elements)
+
     # Adjust tables with section signs in header
     elements = adjust_table_headers_with_section_sign(elements)
+
+    # (Commented out in preference of manual review -> src/modules/manual_review_module)
     # Remove table with only one single row
-    elements = remove_tables_with_single_row(elements)
+    # elements = remove_tables_with_single_row(elements)
+
     # Remove elements with no text
     elements = del_empty_elements(elements)
     # Add page heights to elements
@@ -1000,8 +1005,11 @@ def main(original_pdf_path, modified_pdf_path, json_path, updated_json_path):
     elements = convert_bounds_to_pymupdf(elements)
     # Sort elements
     elements = sort_elements(elements)
+
+    # (Commented out in preference of manual review -> src/modules/manual_review_module)
     # Remove provisions from tables
-    elements = remove_section_elements_from_tables(elements)
+    # elements = remove_section_elements_from_tables(elements)
+
     # Assign unique IDs to elements
     elements = assign_unique_ids(elements)
     # Merge dash elements

@@ -147,9 +147,61 @@
         
         .editor-header {
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
+            gap: 15px;
+        }
+        
+        .editor-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .editor-control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .editor-control-group label {
+            font-size: 12px;
+            color: #666;
+            margin-right: 5px;
+        }
+        
+        .compact-btn {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            background: white;
+            cursor: pointer;
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .compact-btn:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .compact-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .header-checkbox {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .header-checkbox input {
+            margin-right: 5px;
         }
         
         .editor-title {
@@ -158,23 +210,6 @@
             color: #007bff;
         }
         
-        .table-controls {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .table-btn {
-            padding: 4px 8px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-            background: white;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        
-        .table-btn:hover {
-            background: #f5f5f5;
-        }
         
         .custom-table {
             width: 100%;
@@ -185,11 +220,13 @@
         .custom-table th,
         .custom-table td {
             border: 1px solid #ddd;
-            padding: 12px;
+            padding: 6px 12px;
             text-align: left;
             vertical-align: top;
             min-width: 100px;
-            min-height: 40px;
+            min-height: 20px;
+            height: 20px;
+            line-height: 1.5;
         }
         
         .custom-table th {
@@ -224,6 +261,14 @@
             border-color: #28a745;
         }
         
+        /* Ensure empty cells maintain height */
+        .custom-table td:empty::after,
+        .custom-table th:empty::after {
+            content: '\00a0'; /* Non-breaking space */
+            display: inline-block;
+            min-height: 10px;
+        }
+        
         .table-status-control {
             margin-top: 20px;
             padding: 15px;
@@ -240,9 +285,9 @@
         }
         
         .radio-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
             margin-top: 10px;
         }
         
@@ -250,13 +295,15 @@
             display: flex;
             flex-direction: column;
             cursor: pointer;
-            padding: 12px 15px;
-            border-radius: 6px;
-            border: 2px solid #ddd;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
             background: white;
             transition: all 0.2s;
-            min-height: 60px;
+            min-height: 45px;
             justify-content: center;
+            flex: 1;
+            min-width: 200px;
         }
         
         .radio-option-header {
@@ -450,6 +497,107 @@
             color: #383d41;
         }
         
+        .btn-unmerge {
+            background: #fd7e14;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .btn-unmerge:hover {
+            background: #e8690b;
+        }
+        
+        .btn-reset {
+            background: #6c757d;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        
+        .btn-reset:hover {
+            background: #5a6268;
+        }
+        
+        .merged-status {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .merged-message {
+            color: #856404;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+        
+        .confirmation-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .confirmation-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .confirmation-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #dc3545;
+        }
+        
+        .confirmation-message {
+            margin-bottom: 20px;
+            color: #6c757d;
+        }
+        
+        .confirmation-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .btn-confirm {
+            background: #dc3545;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-cancel {
+            background: #6c757d;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
         .final-actions {
             display: flex;
             gap: 10px;
@@ -467,14 +615,34 @@
             font-weight: 500;
         }
         
-        .btn-save {
+        .btn-finish {
             background: #28a745;
             color: white;
         }
         
-        .btn-export {
-            background: #007bff;
+        .btn-finish:hover:not(:disabled) {
+            background: #218838;
+        }
+        
+        .btn-finish:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .btn-finish-close {
+            background: #17a2b8;
             color: white;
+        }
+        
+        .btn-finish-close:hover:not(:disabled) {
+            background: #138496;
+        }
+        
+        .btn-finish-close:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
         }
         
         .btn-cancel {
@@ -540,15 +708,44 @@
                     </div>
                 </div>
                 
+                
+                
                 <div class="table-editor">
                     <div class="editor-header">
                         <div class="editor-title">Table Editor</div>
-                        <div class="table-controls">
-                            <button class="table-btn" onclick="addRow()">+ Row</button>
-                            <button class="table-btn" onclick="addColumn()">+ Column</button>
-                            <button class="table-btn" onclick="removeRow()">- Row</button>
-                            <button class="table-btn" onclick="removeColumn()">- Column</button>
-                            <button class="table-btn" onclick="resetTable()">Reset</button>
+                        
+                        <div class="editor-controls">
+                            <!-- Header row checkbox -->
+                            <label class="header-checkbox">
+                                <input type="checkbox" id="has-header-row" onchange="toggleHeaderRow()">
+                                Has header row
+                            </label>
+                            
+                            <!-- Row operations -->
+                            <div class="editor-control-group">
+                                <label>Rows:</label>
+                                <button class="compact-btn" onclick="addRowAbove()" title="Add row above selected cell">⬆️+</button>
+                                <button class="compact-btn" onclick="addRowBelow()" title="Add row below selected cell">⬇️+</button>
+                                <button class="compact-btn" onclick="removeRow()" title="Remove current row">🗑️</button>
+                            </div>
+                            
+                            <!-- Column operations -->
+                            <div class="editor-control-group">
+                                <label>Cols:</label>
+                                <button class="compact-btn" onclick="addColumnLeft()" title="Add column left of selected cell">⬅️+</button>
+                                <button class="compact-btn" onclick="addColumnRight()" title="Add column right of selected cell">➡️+</button>
+                                <button class="compact-btn" onclick="removeColumn()" title="Remove current column">🗑️</button>
+                            </div>
+                            
+                            <!-- Table operations -->
+                            <div class="editor-control-group">
+                                <label>Table:</label>
+                                <button class="compact-btn" onclick="mergeTable()" title="Merge with next table">⟱ Merge</button>
+                                <button class="compact-btn" onclick="skipTable()" title="Skip for now">→ Skip</button>
+                            </div>
+                            
+                            <!-- Reset button -->
+                            <button class="btn-reset" onclick="resetTableStructure()" title="Reset to original structure">🔄 Reset</button>
                         </div>
                     </div>
                     
@@ -557,9 +754,10 @@
                     </div>
                 </div>
                 
-                <div class="table-status-control">
+                <!-- Table Status Control (moved below editor) -->
+                <div class="table-status-control" id="status-control">
                     <label class="status-label">Table Status:</label>
-                    <div class="radio-group">
+                    <div class="radio-group" id="status-radio-group">
                         <label class="radio-option">
                             <div class="radio-option-header">
                                 <input type="radio" name="table-status" value="undefined" checked onchange="updateTableStatus('undefined')">
@@ -591,50 +789,12 @@
                     </div>
                 </div>
                 
-                <div class="table-configuration">
-                    <label class="config-item">
-                        <input type="checkbox" id="has-header-row" onchange="toggleHeaderRow()">
-                        <span>Has header row</span>
-                    </label>
+                <!-- Merged Status Display (shown when table is merged) -->
+                <div class="merged-status" id="merged-status" style="display: none;">
+                    <div class="merged-message" id="merged-message">This table has been merged with a previous table.</div>
+                    <button class="btn-unmerge" onclick="showUnmergeConfirmation()">Unmerge Table</button>
                 </div>
                 
-                <div class="table-operations">
-                    <div class="operation-group">
-                        <label class="operation-label">Row Operations:</label>
-                        <button class="operation-btn btn-add-row" onclick="addRowAbove()" title="Add row above selected cell">
-                            ⬆️ + Row Above
-                        </button>
-                        <button class="operation-btn btn-add-row" onclick="addRowBelow()" title="Add row below selected cell">
-                            ⬇️ + Row Below
-                        </button>
-                        <button class="operation-btn btn-remove-row" onclick="removeRow()" title="Remove current row">
-                            🗑️ Remove Row
-                        </button>
-                    </div>
-                    
-                    <div class="operation-group">
-                        <label class="operation-label">Column Operations:</label>
-                        <button class="operation-btn btn-add-col" onclick="addColumnLeft()" title="Add column left of selected cell">
-                            ⬅️ + Col Left
-                        </button>
-                        <button class="operation-btn btn-add-col" onclick="addColumnRight()" title="Add column right of selected cell">
-                            ➡️ + Col Right
-                        </button>
-                        <button class="operation-btn btn-remove-col" onclick="removeColumn()" title="Remove current column">
-                            🗑️ Remove Col
-                        </button>
-                    </div>
-                    
-                    <div class="operation-group">
-                        <label class="operation-label">Table Operations:</label>
-                        <button class="operation-btn btn-merge" onclick="mergeTable()">
-                            ⟱ Merge with Next
-                        </button>
-                        <button class="operation-btn btn-skip" onclick="skipTable()">
-                            → Skip for Now
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
         
@@ -647,33 +807,74 @@
         </div>
         
         <div class="final-actions">
-            <button class="final-btn btn-save" onclick="saveCorrections()">Save All Corrections</button>
-            <button class="final-btn btn-export" onclick="exportCorrections()">Export JSON</button>
-            <button class="final-btn btn-cancel" onclick="cancelReview()">Cancel Review</button>
+            <button class="final-btn btn-finish" id="finish-review-btn" onclick="finishReviewForLaw()" disabled>
+                Finish Review for this Law
+            </button>
+            <button class="final-btn btn-finish-close" id="finish-close-btn" onclick="finishReviewAndClose()" disabled style="display: none;">
+                Finish Review for this Law and Quit
+            </button>
+            <button class="final-btn btn-cancel" onclick="cancelReview()">
+                Cancel Review
+            </button>
+            <button class="final-btn btn-cancel" id="cancel-quit-btn" onclick="cancelReviewAndQuit()" style="display: none;">
+                Cancel Review and Quit
+            </button>
         </div>
     </div>
 
     <script>
-        // Global state
+        // ====== GLOBAL STATE ======
         let lawData = null;
         let currentTableIndex = 0;
         let corrections = {};
         let tableData = {};
         let selectedCell = null; // Track currently selected cell for operations
+        let reviewMode = 'single'; // 'single' or 'folder'
         
-        // Initialize the review system
+        // ====== INITIALIZATION ======
+        
         function initReview(data) {
             console.log('🚀 Initializing custom table review:', data);
             lawData = data;
             corrections = {};
             currentTableIndex = 0;
             
+            // Load existing corrections if available
+            if (data.existing_corrections) {
+                corrections = { ...data.existing_corrections };
+                console.log('📋 Loaded existing corrections:', Object.keys(corrections).length, 'tables');
+                
+                // Log correction details for debugging
+                Object.entries(corrections).forEach(([hash, correction]) => {
+                    console.log(`  - Table ${hash.substring(0, 8)}: ${correction.status}`);
+                });
+            }
+            
+            // Detect review mode from URL parameters or data
+            const urlParams = new URLSearchParams(window.location.search);
+            reviewMode = urlParams.get('mode') || data.review_mode || 'single';
+            
+            // Store progression info if available
+            if (data.progression) {
+                window.progressionInfo = data.progression;
+                console.log('📊 Progression info:', progressionInfo);
+            }
+            
             document.getElementById('title').textContent = `Law ${data.law_id} - Table Review`;
             document.getElementById('total-tables').textContent = data.tables.length;
             
+            // Show appropriate buttons based on review mode
+            updateButtonVisibility();
+            
             // Initialize table data storage
             data.tables.forEach(table => {
-                tableData[table.hash] = JSON.parse(JSON.stringify(table.structure)); // Deep copy
+                // Use corrected structure if available, otherwise use original structure
+                if (corrections[table.hash] && corrections[table.hash].corrected_structure) {
+                    tableData[table.hash] = JSON.parse(JSON.stringify(corrections[table.hash].corrected_structure));
+                    console.log(`📋 Using corrected structure for table ${table.hash.substring(0, 8)}`);
+                } else {
+                    tableData[table.hash] = JSON.parse(JSON.stringify(table.structure)); // Deep copy
+                }
             });
             
             if (data.tables.length === 0) {
@@ -683,10 +884,12 @@
             }
             
             updateNavigation();
+            updateCompletionStatus();
             console.log('✅ Custom review system initialized');
         }
         
-        // Show specific table
+        // ====== TABLE DISPLAY AND NAVIGATION ======
+        
         function showTable(index) {
             if (index < 0 || index >= lawData.tables.length) return;
             
@@ -712,20 +915,41 @@
             statusEl.textContent = displayStatus;
             statusEl.className = `status-display status-${status === 'undefined' ? 'pending' : status}`;
             
-            // Set radio button
-            const radioStatus = status === 'pending' ? 'undefined' : status;
-            const radioButtons = document.querySelectorAll('input[name="table-status"]');
-            radioButtons.forEach(radio => {
-                radio.checked = radio.value === radioStatus;
-                // Disable radio buttons for merged tables
-                radio.disabled = status === 'merged';
-            });
+            // Handle merged status display
+            const statusControl = document.getElementById('status-control');
+            const mergedStatus = document.getElementById('merged-status');
+            const mergedMessage = document.getElementById('merged-message');
             
-            // Also disable merge button if current table is merged
-            const mergeBtn = document.querySelector('.btn-merge');
+            if (status === 'merged' || status.startsWith('merged_with_')) {
+                // Show merged status, hide radio controls
+                statusControl.style.display = 'none';
+                mergedStatus.style.display = 'block';
+                if (corrections[table.hash] && corrections[table.hash].merged_into) {
+                    mergedMessage.textContent = `This table has been merged with table ${corrections[table.hash].merged_into.substring(0, 8)}...`;
+                } else {
+                    mergedMessage.textContent = 'This table has been merged with a previous table.';
+                }
+            } else {
+                // Show radio controls, hide merged status
+                statusControl.style.display = 'block';
+                mergedStatus.style.display = 'none';
+                
+                // Set radio button
+                const radioStatus = status === 'pending' ? 'undefined' : status;
+                const radioButtons = document.querySelectorAll('input[name="table-status"]');
+                radioButtons.forEach(radio => {
+                    radio.checked = radio.value === radioStatus;
+                    radio.disabled = false;
+                });
+            }
+            
+            // Disable merge button if current table is merged or if there's no next table
+            const mergeBtn = document.querySelector('button[onclick="mergeTable()"]');
             if (mergeBtn) {
-                mergeBtn.disabled = status === 'merged';
-                mergeBtn.style.opacity = status === 'merged' ? '0.5' : '1';
+                const hasNextTable = currentTableIndex < lawData.tables.length - 1;
+                mergeBtn.disabled = status === 'merged' || !hasNextTable;
+                mergeBtn.style.opacity = (status === 'merged' || !hasNextTable) ? '0.5' : '1';
+                mergeBtn.title = !hasNextTable ? 'No next table to merge' : '';
             }
             
             // Update context info
@@ -768,7 +992,8 @@
             updateProgress();
         }
         
-        // Render table with custom editor
+        // ====== TABLE RENDERING ======
+        
         function renderTable(tableHash) {
             const checkbox = document.getElementById('has-header-row');
             const hasHeaderRow = checkbox ? checkbox.checked : hasActualHeaderRow(tableData[tableHash]);
@@ -813,7 +1038,7 @@
             cell.classList.add('modified');
         }
         
-        // Table manipulation functions
+        // ====== TABLE MANIPULATION ======
         function addRow() {
             const table = lawData.tables[currentTableIndex];
             const structure = tableData[table.hash];
@@ -881,7 +1106,7 @@
             showTable(currentTableIndex); // Refresh display
         }
         
-        // Table status control
+        // ====== TABLE STATUS MANAGEMENT ======
         function updateTableStatus(status) {
             const table = lawData.tables[currentTableIndex];
             
@@ -944,25 +1169,242 @@
             statusEl.textContent = status.replace(/_/g, ' ');
             statusEl.className = `status-display status-${status.replace(/_/g, '-')}`;
             
+            // Update merge button state when status changes
+            const mergeBtn = document.querySelector('button[onclick="mergeTable()"]');
+            if (mergeBtn) {
+                const hasNextTable = currentTableIndex < lawData.tables.length - 1;
+                const isEditingEnabled = status === 'confirmed_with_changes' || status === 'confirmed';
+                // Disable merge button if: no next table, current status is not editable, or table is merged
+                mergeBtn.disabled = !hasNextTable || !isEditingEnabled || status === 'merged';
+                mergeBtn.style.opacity = mergeBtn.disabled ? '0.5' : '1';
+                mergeBtn.title = !hasNextTable ? 'No next table to merge' : (!isEditingEnabled ? 'Select "Confirmed with changes" to enable merging' : '');
+            }
+            
             updateProgress();
+            updateCompletionStatus();
         }
         
-        // Enable/disable table editing
+        // ====== COMPLETION VALIDATION AND BUTTON MANAGEMENT ======
+        
+        function validateAllTablesDecided() {
+            /**
+             * Check if all tables have been decided (no undefined status).
+             * Returns {isComplete: boolean, undecidedHashes: string[]}
+             */
+            const undecidedHashes = [];
+            
+            for (const table of lawData.tables) {
+                const tableHash = table.hash;
+                const correction = corrections[tableHash];
+                
+                if (!correction || correction.status === 'undefined') {
+                    undecidedHashes.push(tableHash);
+                }
+            }
+            
+            return {
+                isComplete: undecidedHashes.length === 0,
+                undecidedHashes: undecidedHashes
+            };
+        }
+        
+        function updateButtonVisibility() {
+            /**
+             * Show/hide buttons based on review mode
+             */
+            const finishBtn = document.getElementById('finish-review-btn');
+            const finishCloseBtn = document.getElementById('finish-close-btn');
+            const cancelQuitBtn = document.getElementById('cancel-quit-btn');
+            
+            if (reviewMode === 'folder') {
+                // Show additional buttons for folder mode
+                finishBtn.style.display = 'inline-block';
+                finishCloseBtn.style.display = 'inline-block';
+                cancelQuitBtn.style.display = 'inline-block';
+                finishBtn.textContent = 'Finish Review for this Law';
+            } else {
+                // Show only finish button for single law mode
+                finishBtn.style.display = 'inline-block';
+                finishCloseBtn.style.display = 'none';
+                cancelQuitBtn.style.display = 'none';
+                finishBtn.textContent = 'Finish Review for this Law';
+            }
+        }
+        
+        function updateCompletionStatus() {
+            /**
+             * Update button states based on completion status
+             */
+            const validation = validateAllTablesDecided();
+            const finishBtn = document.getElementById('finish-review-btn');
+            const finishCloseBtn = document.getElementById('finish-close-btn');
+            
+            // Enable/disable buttons based on completion
+            finishBtn.disabled = !validation.isComplete;
+            finishCloseBtn.disabled = !validation.isComplete;
+            
+            // Update button tooltips
+            if (!validation.isComplete) {
+                const message = `Please decide on ${validation.undecidedHashes.length} remaining table(s)`;
+                finishBtn.title = message;
+                finishCloseBtn.title = message;
+            } else {
+                finishBtn.title = '';
+                finishCloseBtn.title = '';
+            }
+            
+            console.log(`📊 Completion status: ${validation.isComplete ? 'Complete' : `${validation.undecidedHashes.length} tables undecided`}`);
+        }
+        
+        function finishReviewForLaw() {
+            /**
+             * Finish review for current law and proceed to next (folder mode) or close (single mode)
+             */
+            const validation = validateAllTablesDecided();
+            
+            if (!validation.isComplete) {
+                // Buttons are disabled when validation fails, so this shouldn't happen
+                console.log(`Validation failed: ${validation.undecidedHashes.length} table(s) still need decisions`);
+                return;
+            }
+            
+            // Save corrections and proceed to next law
+            saveCorrectionsAndProceed('next');
+        }
+        
+        function finishReviewAndClose() {
+            /**
+             * Finish review for current law and close browser (folder mode only)
+             */
+            const validation = validateAllTablesDecided();
+            
+            if (!validation.isComplete) {
+                // Buttons are disabled when validation fails, so this shouldn't happen
+                console.log(`Validation failed: ${validation.undecidedHashes.length} table(s) still need decisions`);
+                return;
+            }
+            
+            // Save corrections and quit the entire process
+            saveCorrectionsAndProceed('quit');
+        }
+        
+        function saveCorrectionsAndProceed(action) {
+            /**
+             * Save corrections and take specified action
+             * @param {string} action - 'next', 'close', or 'complete'
+             */
+            // Update all edited tables
+            Object.keys(corrections).forEach(hash => {
+                if (corrections[hash].status === 'confirmed_with_changes') {
+                    corrections[hash].corrected_structure = tableData[hash];
+                }
+            });
+            
+            // Prepare request data
+            const requestData = {
+                corrections: corrections,
+                action: action,
+                law_id: lawData.law_id
+            };
+            
+            fetch('/save-corrections', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    console.log('✅ Corrections saved successfully');
+                    
+                    if (action === 'next') {
+                        // Silent auto-progression to next law - no popups
+                        console.log('✅ Review complete, proceeding to next law');
+                        window.close();
+                        
+                    } else if (action === 'quit') {
+                        // User chose to quit - end the process
+                        console.log('✅ Review complete, ending process');
+                        window.close();
+                        
+                    } else {
+                        // Single law completed or unknown action
+                        showSingleLawCompleted();
+                    }
+                } else {
+                    throw new Error(data.error || 'Save failed');
+                }
+            })
+            .catch(error => {
+                console.error('Server save failed:', error);
+                alert('❌ Failed to save corrections: ' + error.message + '\n\nPlease try again or contact support.');
+            });
+        }
+        
+        function showAllLawsCompleted() {
+            /**
+             * Show completion message for all laws in folder
+             */
+            document.getElementById('table-review-section').classList.add('hidden');
+            document.getElementById('completion-section').classList.remove('hidden');
+            
+            document.querySelector('.completion-message h2').textContent = '🎉 All Laws Completed!';
+            document.getElementById('review-summary').textContent = 'All laws in this folder have been reviewed.';
+            
+            // Close browser automatically after a brief delay
+            setTimeout(() => {
+                window.close();
+                // Fallback if close doesn't work
+                setTimeout(() => {
+                    alert('✅ All reviews completed! You can close this tab.');
+                }, 1000);
+            }, 2000);
+        }
+        
+        function showSingleLawCompleted() {
+            /**
+             * Show completion message for single law
+             */
+            document.getElementById('table-review-section').classList.add('hidden');
+            document.getElementById('completion-section').classList.remove('hidden');
+            
+            document.querySelector('.completion-message h2').textContent = '🎉 Law Review Complete!';
+            document.getElementById('review-summary').textContent = `Law ${lawData.law_id} has been reviewed.`;
+            
+            // Close browser automatically after a brief delay
+            setTimeout(() => {
+                window.close();
+                // Fallback if close doesn't work
+                setTimeout(() => {
+                    alert('✅ Review completed! You can close this tab.');
+                }, 1000);
+            }, 2000);
+        }
+        
+        // ====== END COMPLETION VALIDATION ======
+        
+        // ====== TABLE EDITING CONTROL ======
         function setTableEditable(editable) {
-            const cells = document.querySelectorAll('#editable-table td[contenteditable]');
+            const cells = document.querySelectorAll('#editable-table td[contenteditable], #editable-table th[contenteditable]');
             cells.forEach(cell => {
                 cell.contentEditable = editable;
                 if (editable) {
                     cell.style.cursor = 'text';
                     cell.style.backgroundColor = '';
                 } else {
-                    cell.style.cursor = 'not-allowed';
+                    cell.style.cursor = 'default';
                     cell.style.backgroundColor = '#f5f5f5';
                 }
             });
             
+            // Clear any existing selection when disabling editing
+            if (!editable) {
+                document.querySelectorAll('.selected-cell').forEach(c => c.classList.remove('selected-cell'));
+                selectedCell = null;
+            }
+            
             // Enable/disable table manipulation buttons
-            const tableButtons = document.querySelectorAll('.table-controls button');
+            const tableButtons = document.querySelectorAll('.editor-controls .compact-btn');
             tableButtons.forEach(btn => {
                 btn.disabled = !editable;
                 btn.style.opacity = editable ? '1' : '0.5';
@@ -983,6 +1425,8 @@
             
             showTable(currentTableIndex);
         }
+        
+        // ====== SPECIAL TABLE OPERATIONS ======
         
         function mergeTable() {
             const table = lawData.tables[currentTableIndex];
@@ -1055,6 +1499,7 @@
             
             console.log(`⟱ Merged table ${nextTable.hash} into ${table.hash}`);
             updateProgress();
+            updateCompletionStatus();
         }
         
         function skipTable() {
@@ -1062,7 +1507,7 @@
             nextTable();
         }
         
-        // Navigation
+        // ====== NAVIGATION ======
         function previousTable() {
             if (currentTableIndex > 0) {
                 showTable(currentTableIndex - 1);
@@ -1098,6 +1543,8 @@
             alert(summary);
         }
         
+        // ====== PROGRESS AND OVERVIEW ======
+        
         function showCompletion() {
             document.getElementById('table-review-section').classList.add('hidden');
             document.getElementById('completion-section').classList.remove('hidden');
@@ -1108,34 +1555,13 @@
             document.getElementById('review-summary').textContent = summary;
         }
         
-        // Save and export
+        // Legacy save function - redirects to new completion flow
         function saveCorrections() {
-            // Update all edited tables
-            Object.keys(corrections).forEach(hash => {
-                if (corrections[hash].status === 'edited') {
-                    corrections[hash].corrected_structure = tableData[hash];
-                }
-            });
-            
-            fetch('/save-corrections', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(corrections)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert('✅ Corrections saved successfully!');
-                } else {
-                    throw new Error(data.error || 'Save failed');
-                }
-            })
-            .catch(error => {
-                console.warn('Server save failed:', error);
-                exportCorrections();
-                alert('⬇️ Corrections exported as file!');
-            });
+            console.log('⚠️ Legacy saveCorrections called - redirecting to completion flow');
+            finishReviewForLaw();
         }
+        
+        // ====== LEGACY AND UTILITY FUNCTIONS ======
         
         function exportCorrections() {
             // Update corrections with current table data
@@ -1155,16 +1581,70 @@
         }
         
         function cancelReview() {
-            if (confirm('Cancel review? All unsaved changes will be lost.')) {
-                if (window.parent && window.parent.cancelReview) {
-                    window.parent.cancelReview();
-                } else {
+            // Prevent multiple executions
+            if (window.cancelInProgress) {
+                return;
+            }
+            
+            let action, message;
+            
+            if (reviewMode === 'folder') {
+                // In folder mode, cancel current law and move to next
+                action = 'cancel_next';
+                message = 'Cancel review for this law? Unsaved changes will be lost and the next law will be opened.';
+            } else {
+                // In single mode, cancel and quit
+                action = 'cancel';
+                message = 'Cancel review? All unsaved changes will be lost.';
+            }
+            
+            if (confirm(message)) {
+                window.cancelInProgress = true;
+                console.log('❌ Review cancelled by user with action:', action);
+                
+                // Send cancel action to backend
+                fetch('/save-corrections', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        corrections: {},
+                        action: action,
+                        law_id: lawData.law_id
+                    })
+                })
+                .finally(() => {
                     window.close();
-                }
+                });
             }
         }
         
-        // Load data
+        function cancelReviewAndQuit() {
+            // Prevent multiple executions
+            if (window.cancelInProgress) {
+                return;
+            }
+            
+            if (confirm('Cancel review and quit entire process? All unsaved changes will be lost.')) {
+                window.cancelInProgress = true;
+                console.log('❌ Review cancelled and quit by user');
+                
+                // Send cancel and quit action to backend
+                fetch('/save-corrections', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        corrections: {},
+                        action: 'cancel_quit',
+                        law_id: lawData.law_id
+                    })
+                })
+                .finally(() => {
+                    window.close();
+                });
+            }
+        }
+        
+        // ====== DATA LOADING ======
         function loadData() {
             fetch('/data.json')
                 .then(response => response.json())
@@ -1196,10 +1676,19 @@
                 });
         }
         
-        // ====== NEW TABLE MANIPULATION FUNCTIONS ======
+        // ====== ADVANCED TABLE OPERATIONS ======
         
         // Track cell selection for operations
         function selectCell(cell, row, col) {
+            // Check if table is in editable state
+            const table = lawData.tables[currentTableIndex];
+            const status = corrections[table.hash] ? corrections[table.hash].status : 'undefined';
+            
+            // Only allow selection if status is 'confirmed_with_changes' or legacy 'confirmed'
+            if (status !== 'confirmed_with_changes' && status !== 'confirmed') {
+                return; // Don't allow selection
+            }
+            
             // Remove previous selection
             document.querySelectorAll('.selected-cell').forEach(c => c.classList.remove('selected-cell'));
             
@@ -1537,9 +2026,59 @@
             }
         }
         
-        // ====== END NEW FUNCTIONS ======
+        // ====== UNMERGE FUNCTIONALITY ======
         
-        // Initialize
+        function showUnmergeConfirmation() {
+            const modal = document.getElementById('unmerge-modal');
+            modal.style.display = 'flex';
+        }
+        
+        function hideUnmergeConfirmation() {
+            const modal = document.getElementById('unmerge-modal');
+            modal.style.display = 'none';
+        }
+        
+        function confirmUnmerge() {
+            const table = lawData.tables[currentTableIndex];
+            const tableHash = table.hash;
+            
+            // Remove the correction (reset to undefined)
+            if (corrections[tableHash]) {
+                delete corrections[tableHash];
+            }
+            
+            // Hide modal
+            hideUnmergeConfirmation();
+            
+            // Refresh display - this will also update the status
+            showTable(currentTableIndex);
+            
+            console.log(`Table ${tableHash} has been unmerged and reset to undefined status`);
+        }
+        
+        // ====== RESET FUNCTIONALITY ======
+        
+        function resetTableStructure() {
+            const table = lawData.tables[currentTableIndex];
+            const tableHash = table.hash;
+            
+            // Reset tableData to original structure
+            tableData[tableHash] = JSON.parse(JSON.stringify(table.structure));
+            
+            // Re-render the table with original structure
+            renderTable(tableHash);
+            
+            // Update corrections to remove any structural changes
+            if (corrections[tableHash]) {
+                corrections[tableHash].corrected_structure = JSON.parse(JSON.stringify(table.structure));
+            }
+            
+            console.log('Table structure reset to original');
+        }
+        
+        // ====== INITIALIZATION AND EVENT HANDLERS ======
+        
+        // Initialize system when page loads
         document.addEventListener('DOMContentLoaded', loadData);
         
         // Keyboard shortcuts
@@ -1562,5 +2101,19 @@
             }
         });
     </script>
+    
+    <!-- Unmerge Confirmation Modal -->
+    <div class="confirmation-modal" id="unmerge-modal">
+        <div class="confirmation-content">
+            <div class="confirmation-title">⚠️ Confirm Unmerge</div>
+            <div class="confirmation-message">
+                Are you sure you want to unmerge this table? This action will restore the table to its original state and allow you to make a new decision.
+            </div>
+            <div class="confirmation-buttons">
+                <button class="btn-cancel" onclick="hideUnmergeConfirmation()">Cancel</button>
+                <button class="btn-confirm" onclick="confirmUnmerge()">Unmerge</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

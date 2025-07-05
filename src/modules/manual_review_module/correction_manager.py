@@ -23,33 +23,40 @@ class CorrectionManager:
         self.validator = CorrectionValidator()
         self.safety_checker = CorrectionSafetyChecker()
     
-    def get_correction_file_path(self, law_id: str, folder: str = "zhlex_files_test") -> Path:
+    def get_correction_file_path(self, law_id: str, version: str = None, folder: str = "zhlex_files_test") -> Path:
         """
         Get the path to a law's correction file.
         
         Args:
             law_id: The law identifier
+            version: The version identifier (if None, uses legacy law-level path)
             folder: The folder name (zhlex_files_test or zhlex_files)
             
         Returns:
             Path to the correction file
         """
-        return self.base_path / folder / law_id / f"{law_id}-table-corrections.json"
+        if version is None:
+            # Legacy path for backward compatibility
+            return self.base_path / folder / law_id / f"{law_id}-table-corrections.json"
+        else:
+            # New per-version path
+            return self.base_path / folder / law_id / version / f"{law_id}-{version}-table-corrections.json"
     
-    def save_corrections(self, law_id: str, corrections: Dict[str, Any], folder: str = "zhlex_files_test") -> bool:
+    def save_corrections(self, law_id: str, corrections: Dict[str, Any], version: str = None, folder: str = "zhlex_files_test") -> bool:
         """
         Save corrections for a law with validation.
         
         Args:
             law_id: The law identifier
             corrections: Dictionary of corrections
+            version: The version identifier (if None, uses legacy law-level path)
             folder: The folder name
             
         Returns:
             True if successful, False otherwise
         """
         try:
-            correction_file = self.get_correction_file_path(law_id, folder)
+            correction_file = self.get_correction_file_path(law_id, version, folder)
             
             # Ensure directory exists
             correction_file.parent.mkdir(parents=True, exist_ok=True)
@@ -90,19 +97,20 @@ class CorrectionManager:
             self.logger.error(f"Error saving corrections for law {law_id}: {e}")
             return False
     
-    def get_corrections(self, law_id: str, folder: str = "zhlex_files_test") -> Optional[Dict[str, Any]]:
+    def get_corrections(self, law_id: str, version: str = None, folder: str = "zhlex_files_test") -> Optional[Dict[str, Any]]:
         """
         Get corrections for a law.
         
         Args:
             law_id: The law identifier
+            version: The version identifier (if None, uses legacy law-level path)
             folder: The folder name
             
         Returns:
             Dictionary of corrections or None if not found
         """
         try:
-            correction_file = self.get_correction_file_path(law_id, folder)
+            correction_file = self.get_correction_file_path(law_id, version, folder)
             
             if not correction_file.exists():
                 return None
@@ -116,19 +124,174 @@ class CorrectionManager:
             self.logger.error(f"Error reading corrections for law {law_id}: {e}")
             return None
     
-    def is_law_completed(self, law_id: str, folder: str = "zhlex_files_test") -> bool:
+    def is_law_completed(self, law_id: str, version: str = None, folder: str = "zhlex_files_test") -> bool:
         """
         Check if a law has been completed (has corrections).
+        
+        Args:
+            law_id: The law identifier
+            version: The version identifier (if None, uses legacy law-level path)
+            folder: The folder name
+            
+        Returns:
+            True if the law has been reviewed and completed
+        """
+        corrections = self.get_corrections(law_id, version, folder)
+        return corrections is not None and corrections.get("status") == "completed"
+    
+    def validate_law_completion(self, law_id: str, folder: str = "zhlex_files_test") -> Tuple[bool, List[str]]:
+        """
+        Validate that all tables in a law have been properly decided.
+        
+        A law is considered complete only when ALL extracted tables have a status of:
+        - confirmed_without_changes
+        - confirmed_with_changes  
+        - rejected
+        - merged_with_* (any merge status)
+        
+        Tables with "undefined" status prevent completion.
         
         Args:
             law_id: The law identifier
             folder: The folder name
             
         Returns:
-            True if the law has been reviewed and completed
+            Tuple of (is_complete, list_of_undecided_table_hashes)
         """
-        corrections = self.get_corrections(law_id, folder)
-        return corrections is not None and corrections.get("status") == "completed"
+        from src.modules.manual_review_module.table_extractor import LawTableExtractor
+        
+        try:
+            # Get all extracted tables for this law
+            extractor = LawTableExtractor()
+            folder_path = self.base_path / folder
+            unique_tables = extractor.extract_unique_tables_from_law(law_id, str(folder_path))
+            
+            if not unique_tables:
+                # No tables to review, law is complete
+                return True, []
+            
+            # Get corrections for this law
+            corrections = self.get_corrections(law_id, folder)
+            if not corrections:
+                # No corrections exist, all tables are undecided
+                return False, list(unique_tables.keys())
+            
+            tables_corrections = corrections.get("tables", {})
+            undecided_tables = []
+            
+            # Check each extracted table
+            for table_hash in unique_tables.keys():
+                if table_hash not in tables_corrections:
+                    # Table has no correction entry - undecided
+                    undecided_tables.append(table_hash)
+                else:
+                    table_status = tables_corrections[table_hash].get("status", "undefined")
+                    
+                    # Check if status is a valid completion status
+                    if table_status == "undefined":
+                        undecided_tables.append(table_hash)
+                    elif table_status in ["confirmed_without_changes", "confirmed_with_changes", "rejected"]:
+                        # Valid completion status
+                        continue
+                    elif table_status.startswith("merged"):
+                        # Merged tables count as processed
+                        continue
+                    else:
+                        # Unknown/invalid status - treat as undecided
+                        undecided_tables.append(table_hash)
+                        self.logger.warning(f"Unknown table status '{table_status}' for table {table_hash} in law {law_id}")
+            
+            is_complete = len(undecided_tables) == 0
+            return is_complete, undecided_tables
+            
+        except Exception as e:
+            self.logger.error(f"Error validating completion for law {law_id}: {e}")
+            return False, []
+    
+    def is_law_fully_completed(self, law_id: str, folder: str = "zhlex_files_test") -> bool:
+        """
+        Enhanced completion check that validates all tables have been decided.
+        
+        Args:
+            law_id: The law identifier
+            folder: The folder name
+            
+        Returns:
+            True if the law is fully completed with all tables decided
+        """
+        is_complete, undecided_tables = self.validate_law_completion(law_id, folder)
+        return is_complete
+    
+    def update_corrections_with_new_tables(self, law_id: str, folder: str = "zhlex_files_test") -> bool:
+        """
+        Update existing corrections to include any new tables discovered during extraction.
+        New tables are added with "undefined" status, preserving existing corrections.
+        
+        Args:
+            law_id: The law identifier
+            folder: The folder name
+            
+        Returns:
+            True if corrections were updated, False otherwise
+        """
+        from src.modules.manual_review_module.table_extractor import LawTableExtractor
+        
+        try:
+            # Get all currently extracted tables
+            extractor = LawTableExtractor()
+            folder_path = self.base_path / folder
+            unique_tables = extractor.extract_unique_tables_from_law(law_id, str(folder_path))
+            
+            if not unique_tables:
+                # No tables found, nothing to update
+                return True
+            
+            # Get existing corrections
+            existing_corrections = self.get_corrections(law_id, folder)
+            
+            if not existing_corrections:
+                # No existing corrections - let normal review process handle this
+                self.logger.info(f"No existing corrections for law {law_id}, skipping update")
+                return True
+            
+            existing_tables = existing_corrections.get("tables", {})
+            new_tables_added = False
+            
+            # Check for new tables that don't have corrections yet
+            for table_hash, table_data in unique_tables.items():
+                if table_hash not in existing_tables:
+                    # This is a new table - add it with undefined status
+                    existing_tables[table_hash] = {
+                        "hash": table_hash,
+                        "status": "undefined",
+                        "found_in_versions": table_data["found_in_versions"],
+                        "pages": table_data["pages"],
+                        "pdf_paths": table_data["pdf_paths"],
+                        "source_links": table_data.get("source_links", {}),
+                        "original_structure": table_data["original_structure"],
+                        "added_date": datetime.now().isoformat(),
+                        "reason": "Newly discovered table"
+                    }
+                    new_tables_added = True
+                    self.logger.info(f"🆕 Added new table {table_hash[:8]}... to corrections for law {law_id} (preserving existing corrections)")
+            
+            # Save updated corrections if new tables were added
+            if new_tables_added:
+                success = self.save_corrections(law_id, existing_tables, folder)
+                if success:
+                    self.logger.info(f"Successfully updated corrections for law {law_id} with new tables")
+                    return True
+                else:
+                    self.logger.error(f"Failed to save updated corrections for law {law_id}")
+                    return False
+            else:
+                # No new tables found
+                self.logger.debug(f"No new tables found for law {law_id}")
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"Error updating corrections for law {law_id}: {e}")
+            return False
     
     def get_correction_status(self, law_id: str, folder: str = "zhlex_files_test") -> str:
         """
@@ -452,19 +615,62 @@ class CorrectionManager:
         
         return edited_elements
     
-    def delete_corrections(self, law_id: str, folder: str = "zhlex_files_test") -> bool:
+    def create_correction_file_for_version(self, law_id: str, version: str, tables: Dict[str, Any], folder: str = "zhlex_files_test") -> bool:
+        """
+        Create a new correction file for a specific version with tables in undefined status.
+        
+        Args:
+            law_id: The law identifier
+            version: The version identifier
+            tables: Dictionary of extracted tables
+            folder: The folder name
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        correction_file_path = self.get_correction_file_path(law_id, version, folder)
+        
+        # Don't overwrite existing correction files
+        if correction_file_path.exists():
+            self.logger.info(f"Correction file already exists for {law_id} version {version}, skipping creation")
+            return True
+        
+        # Prepare tables with undefined status
+        correction_tables = {}
+        for table_hash, table_data in tables.items():
+            correction_tables[table_hash] = {
+                "hash": table_hash,
+                "status": "undefined",
+                "found_in_versions": [version],  # Must be a list for validation
+                "pages": {version: table_data.get("pages", [])},  # Must be a dict with version keys
+                "pdf_paths": {version: table_data.get("pdf_path", "")},
+                "source_links": {version: table_data.get("source_link", "")},
+                "original_structure": table_data.get("original_structure", []),
+                "table_id": table_data.get("table_id"),
+                "created_date": datetime.now().isoformat()
+            }
+        
+        # Save correction file
+        success = self.save_corrections(law_id, correction_tables, version, folder)
+        if success:
+            self.logger.info(f"Created correction file for {law_id} version {version} with {len(correction_tables)} tables")
+        
+        return success
+    
+    def delete_corrections(self, law_id: str, version: str = None, folder: str = "zhlex_files_test") -> bool:
         """
         Delete corrections for a law.
         
         Args:
             law_id: The law identifier
+            version: The version identifier (if None, uses legacy law-level path)
             folder: The folder name
             
         Returns:
             True if successful, False otherwise
         """
         try:
-            correction_file = self.get_correction_file_path(law_id, folder)
+            correction_file = self.get_correction_file_path(law_id, version, folder)
             
             if correction_file.exists():
                 correction_file.unlink()
@@ -477,6 +683,33 @@ class CorrectionManager:
         except Exception as e:
             self.logger.error(f"Error deleting corrections for law {law_id}: {e}")
             return False
+    
+    def get_all_versions_with_corrections(self, folder: str = "zhlex_files_test") -> List[Tuple[str, str]]:
+        """
+        Get a list of all law versions that have correction files.
+        
+        Args:
+            folder: The folder name
+            
+        Returns:
+            List of tuples (law_id, version) that have corrections
+        """
+        folder_path = self.base_path / folder
+        versions_with_corrections = []
+        
+        if not folder_path.exists():
+            return versions_with_corrections
+        
+        # Look for all per-version correction files
+        for law_dir in folder_path.iterdir():
+            if law_dir.is_dir():
+                for version_dir in law_dir.iterdir():
+                    if version_dir.is_dir():
+                        correction_file = version_dir / f"{law_dir.name}-{version_dir.name}-table-corrections.json"
+                        if correction_file.exists():
+                            versions_with_corrections.append((law_dir.name, version_dir.name))
+        
+        return sorted(versions_with_corrections)
     
     def get_all_laws_with_corrections(self, folder: str = "zhlex_files_test") -> List[str]:
         """
@@ -494,18 +727,30 @@ class CorrectionManager:
         if not folder_path.exists():
             return laws_with_corrections
         
-        # Look for all correction files
+        # Look for legacy correction files AND new per-version files
         for law_dir in folder_path.iterdir():
             if law_dir.is_dir():
-                correction_file = law_dir / f"{law_dir.name}-table-corrections.json"
-                if correction_file.exists():
+                # Check for legacy correction file
+                legacy_correction_file = law_dir / f"{law_dir.name}-table-corrections.json"
+                if legacy_correction_file.exists():
                     laws_with_corrections.append(law_dir.name)
+                else:
+                    # Check for any per-version correction files
+                    has_version_corrections = False
+                    for version_dir in law_dir.iterdir():
+                        if version_dir.is_dir():
+                            version_correction_file = version_dir / f"{law_dir.name}-{version_dir.name}-table-corrections.json"
+                            if version_correction_file.exists():
+                                has_version_corrections = True
+                                break
+                    if has_version_corrections:
+                        laws_with_corrections.append(law_dir.name)
         
         return sorted(laws_with_corrections)
     
     def reset_all_corrections(self, folder: str = "zhlex_files_test") -> dict:
         """
-        Reset all corrections in a folder.
+        Reset all corrections in a folder, including per-version correction files.
         
         Args:
             folder: The folder name
@@ -513,28 +758,98 @@ class CorrectionManager:
         Returns:
             Dictionary with reset results
         """
+        # Get all law IDs with any type of correction files
         laws_with_corrections = self.get_all_laws_with_corrections(folder)
+        
+        # Also get all per-version correction files
+        versions_with_corrections = self.get_all_versions_with_corrections(folder)
         
         results = {
             "total_found": len(laws_with_corrections),
+            "per_version_files_found": len(versions_with_corrections),
             "successfully_reset": 0,
             "failed": 0,
             "failed_laws": [],
             "reset_laws": []
         }
         
+        # Track all files deleted for better reporting
+        files_deleted = 0
+        
         for law_id in laws_with_corrections:
             try:
-                success = self.delete_corrections(law_id, folder)
-                if success:
+                law_reset_success = True
+                
+                # Delete legacy law-level correction file if it exists
+                legacy_success = self.delete_corrections(law_id, None, folder)
+                if legacy_success:
+                    files_deleted += 1
+                
+                # Delete all per-version correction files for this law
+                law_versions = [v for l, v in versions_with_corrections if l == law_id]
+                for version in law_versions:
+                    version_success = self.delete_corrections(law_id, version, folder)
+                    if version_success:
+                        files_deleted += 1
+                    else:
+                        law_reset_success = False
+                
+                if law_reset_success or legacy_success or law_versions:
                     results["successfully_reset"] += 1
                     results["reset_laws"].append(law_id)
                 else:
                     results["failed"] += 1
                     results["failed_laws"].append(law_id)
+                    
             except Exception as e:
                 results["failed"] += 1
                 results["failed_laws"].append(law_id)
                 self.logger.error(f"Error resetting corrections for {law_id}: {e}")
+        
+        results["files_deleted"] = files_deleted
+        return results
+    
+    def reset_law_corrections(self, law_id: str, folder: str = "zhlex_files_test") -> dict:
+        """
+        Reset all corrections for a specific law (both legacy and per-version files).
+        
+        Args:
+            law_id: The law identifier
+            folder: The folder name
+            
+        Returns:
+            Dictionary with reset results
+        """
+        results = {
+            "law_id": law_id,
+            "files_deleted": 0,
+            "legacy_file_deleted": False,
+            "version_files_deleted": 0,
+            "success": False
+        }
+        
+        try:
+            # Delete legacy law-level correction file if it exists
+            legacy_success = self.delete_corrections(law_id, None, folder)
+            if legacy_success:
+                results["files_deleted"] += 1
+                results["legacy_file_deleted"] = True
+            
+            # Get all per-version correction files for this law
+            all_versions = self.get_all_versions_with_corrections(folder)
+            law_versions = [v for l, v in all_versions if l == law_id]
+            
+            # Delete all per-version correction files for this law
+            for version in law_versions:
+                version_success = self.delete_corrections(law_id, version, folder)
+                if version_success:
+                    results["files_deleted"] += 1
+                    results["version_files_deleted"] += 1
+            
+            results["success"] = results["files_deleted"] > 0
+            
+        except Exception as e:
+            self.logger.error(f"Error resetting corrections for law {law_id}: {e}")
+            results["error"] = str(e)
         
         return results
