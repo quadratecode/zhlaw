@@ -1297,6 +1297,7 @@ def wrap_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
                 if (
                     (elem_name == "p" and "provision" in classes)
                     or (elem_name == "p" and "marginalia" in classes)
+                    or (elem_name == "div" and "marginalia-container" in classes)
                     or (elem_name.startswith("h") and elem_name[1:].isdigit())
                     or (elem_id in ["footnote-line", "annex"])
                     or (elem_name == "table" and "law-data-table" not in classes)
@@ -1447,104 +1448,100 @@ def exclude_footnotes_from_search(soup: BeautifulSoup) -> BeautifulSoup:
 
 def wrap_provisions(soup: BeautifulSoup) -> BeautifulSoup:
     """
-    Wraps blocks starting with marginalia or provisions into a 'provision-container'.
-    A block can start with one or more marginalia followed by a provision, or just a provision.
-    This version correctly handles laws that do not have any marginalia.
+    Wraps provisions and their related marginalia into 'provision-container' divs.
+    Groups marginalia containers based on their data-related-provision attribute.
     """
-    # Use a set to keep track of elements that have already been moved into a container
-    # to avoid processing them multiple times.
+    # Keep track of processed elements to avoid duplicates
     processed_elements = set()
-
-    # Find all 'p' tags that are either a 'marginalia' or a 'provision'
-    # as these are the potential starting points of a law block.
-    potential_starters = soup.find_all("p", class_=["marginalia", "provision"])
-
-    for starter in potential_starters:
-        # If this element has already been moved into a container, skip it.
-        if starter in processed_elements:
+    
+    # Find all provision paragraphs
+    provision_paragraphs = soup.find_all("p", class_="provision")
+    
+    for provision in provision_paragraphs:
+        # Skip if already processed
+        if id(provision) in processed_elements:
             continue
-
-        elements_to_move = []
-        is_marginalia_starter = "marginalia" in starter.get("class", [])
-
-        # The actual start of the block is the first element to be moved.
-        block_start_element = starter
-
-        # Case 1: The block starts with one or more marginalia.
-        if is_marginalia_starter:
-            marginalia_block = []
-            current_elem = starter
-            # Collect all consecutive marginalia.
-            while (
-                current_elem
-                and isinstance(current_elem, Tag)
-                and current_elem.name == "p"
-                and "marginalia" in current_elem.get("class", [])
-            ):
-                marginalia_block.append(current_elem)
-                current_elem = current_elem.find_next_sibling()
-                while current_elem and isinstance(current_elem, str):  # Skip whitespace
-                    current_elem = current_elem.find_next_sibling()
-
-            # A marginalia block must be followed by a provision.
-            provision_candidate = current_elem
-            if (
-                provision_candidate
-                and isinstance(provision_candidate, Tag)
-                and provision_candidate.name == "p"
-                and "provision" in provision_candidate.get("class", [])
-            ):
-                elements_to_move.extend(marginalia_block)
-                elements_to_move.append(provision_candidate)
-            else:
-                # This is a "stray" marginalia block not followed by a provision, so we don't wrap it.
+            
+        # Get the provision's ID - provisions should always have IDs like "seq-0-prov-2"
+        provision_id = provision.get("id", "")
+        
+        # Skip provisions without proper IDs
+        if not provision_id:
+            logger.warning(f"Provision without ID found: {provision.get_text(strip=True)[:50]}...")
+            continue
+        
+        # Find all marginalia containers that reference this provision
+        related_marginalia = []
+        all_marginalia = soup.find_all("div", class_="marginalia-container")
+        
+        for marginalia in all_marginalia:
+            if id(marginalia) in processed_elements:
                 continue
-
-        # Case 2: The block starts with a provision (no preceding marginalia).
-        else:  # The starter must be a provision
-            elements_to_move.append(starter)
-
-        # Collect all subsequent content until a "stop" element is found.
-        if elements_to_move:
-            last_element_in_block = elements_to_move[-1]
-            for next_elem in last_element_in_block.find_next_siblings():
-                # Don't re-process elements.
-                if next_elem in processed_elements:
-                    break
-
-                stop = False
-                if isinstance(next_elem, Tag):
-                    classes = next_elem.get("class", [])
-                    elem_id = next_elem.get("id", "")
-                    elem_name = next_elem.name
-
-                    # Stop conditions: another provision/marginalia, a heading, a table, or a major separator.
-                    if (
-                        (
-                            elem_name == "p"
-                            and ("provision" in classes or "marginalia" in classes)
-                        )
-                        or (elem_name.startswith("h") and elem_name[1:].isdigit())
-                        or (elem_id in ["footnote-line", "annex"])
-                        or (elem_name == "p" and "footnote" in classes)
-                        or (elem_name == "table")
-                    ):
-                        stop = True
-
-                if stop:
-                    break
-
-                elements_to_move.append(next_elem)
-
-        # Create the container and move the collected elements into it.
-        if elements_to_move:
-            prov_container = soup.new_tag("div", **{"class": "provision-container"})
-            block_start_element.insert_before(prov_container)
-
-            for elem in elements_to_move:
-                prov_container.append(elem)
-                processed_elements.add(elem)
-
+                
+            if marginalia.get("data-related-provision") == provision_id:
+                related_marginalia.append(marginalia)
+        
+        # Create provision container
+        prov_container = soup.new_tag("div", **{"class": "provision-container"})
+        
+        # Insert container before the first element (either marginalia or provision)
+        if related_marginalia:
+            # Sort marginalia by their position in the document
+            related_marginalia.sort(key=lambda x: list(soup.descendants).index(x))
+            first_element = related_marginalia[0]
+            
+            # Check if provision comes before its marginalia
+            prov_index = list(soup.descendants).index(provision)
+            first_marg_index = list(soup.descendants).index(first_element)
+            
+            if prov_index < first_marg_index:
+                first_element = provision
+        else:
+            first_element = provision
+            
+        first_element.insert_before(prov_container)
+        
+        # Move related marginalia into container
+        for marginalia in related_marginalia:
+            prov_container.append(marginalia)
+            processed_elements.add(id(marginalia))
+        
+        # Move the provision into container
+        prov_container.append(provision)
+        processed_elements.add(id(provision))
+        
+        # Collect subsequent content until a stop element is found
+        current_element = prov_container.find_next_sibling()
+        
+        while current_element:
+            next_sibling = current_element.find_next_sibling()
+            
+            stop = False
+            if isinstance(current_element, Tag):
+                classes = current_element.get("class", [])
+                elem_id = current_element.get("id", "")
+                elem_name = current_element.name
+                
+                # Stop conditions
+                if (
+                    (elem_name == "p" and "provision" in classes)
+                    or (elem_name == "div" and "marginalia-container" in classes)
+                    or (elem_name.startswith("h") and elem_name[1:].isdigit())
+                    or (elem_id in ["footnote-line", "annex"])
+                    or (elem_name == "p" and "footnote" in classes)
+                    or (elem_name == "table" and "law-data-table" not in classes)
+                ):
+                    stop = True
+                    
+            if stop:
+                break
+                
+            # Move element into container
+            prov_container.append(current_element)
+            processed_elements.add(id(current_element))
+            
+            current_element = next_sibling
+    
     return soup
 
 

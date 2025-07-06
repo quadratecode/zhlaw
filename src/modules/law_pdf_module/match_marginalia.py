@@ -49,26 +49,93 @@ def is_target_paragraph(paragraph):
     )
 
 
-def adjust_marginalia_position(soup):
-    # Adjust the position of each marginalia in the HTML.
-    marginalia_tags = soup.find_all("p", class_="marginalia")
+def group_marginalia_by_proximity(marginalia_list, proximity_threshold=25.0):
+    """
+    Group marginalia elements that are vertically close to each other.
+    
+    Args:
+        marginalia_list: List of marginalia elements with positioning data
+        proximity_threshold: Maximum vertical distance to consider elements as grouped
+    
+    Returns:
+        List of groups, where each group is a list of marginalia elements
+    """
+    if not marginalia_list:
+        return []
+    
+    # Sort marginalia by page and vertical position
+    sorted_marginalia = sorted(marginalia_list, key=lambda m: (
+        m["page"], 
+        m["pos"][0]  # top position
+    ))
+    
+    groups = []
+    current_group = [sorted_marginalia[0]]
+    
+    for i in range(1, len(sorted_marginalia)):
+        current = sorted_marginalia[i]
+        previous = sorted_marginalia[i-1]
+        
+        # Check if they're on the same page and within proximity threshold
+        if (current["page"] == previous["page"] and 
+            abs(current["pos"][0] - previous["pos"][1]) <= proximity_threshold):
+            current_group.append(current)
+        else:
+            # Start a new group
+            groups.append(current_group)
+            current_group = [current]
+    
+    # Add the last group
+    groups.append(current_group)
+    
+    return groups
 
-    # Continue if a marginalia tag is found
-    if marginalia_tags:
-        for marginalia in marginalia_tags:
-            next_sibling = marginalia.find_next_sibling()
-            previous_sibling = marginalia.find_previous_sibling()
+
+def calculate_group_overlap(group, mod_pos):
+    """
+    Calculate the total overlap between a group of marginalia and a provision.
+    
+    Args:
+        group: List of marginalia elements in the group
+        mod_pos: Position tuple (top, bottom) of the provision
+    
+    Returns:
+        Total overlap score for the group
+    """
+    total_overlap = 0
+    for marginalia in group:
+        overlap = calculate_overlap(mod_pos, marginalia["pos"])
+        total_overlap += overlap
+    
+    return total_overlap
+
+
+def adjust_marginalia_position(soup):
+    """
+    Adjust the position of marginalia containers in the HTML.
+    This function is more conservative now since the group-based approach
+    should already place marginalia in better initial positions.
+    """
+    marginalia_containers = soup.find_all("div", class_="marginalia-container")
+
+    # Continue if a marginalia container is found
+    if marginalia_containers:
+        for container in marginalia_containers:
+            next_sibling = container.find_next_sibling()
+            previous_sibling = container.find_previous_sibling()
             iteration_count = 0
 
+            # Only make minor adjustments if the marginalia is not already 
+            # positioned correctly relative to a provision
             while (
                 next_sibling
                 and not is_target_paragraph(next_sibling)
-                and iteration_count < 50
+                and iteration_count < 10  # Reduced from 50 to 10 for more conservative adjustment
             ):
                 if previous_sibling:
-                    previous_sibling.insert_before(marginalia)
-                next_sibling = marginalia.find_next_sibling()
-                previous_sibling = marginalia.find_previous_sibling()
+                    previous_sibling.insert_before(container)
+                next_sibling = container.find_next_sibling()
+                previous_sibling = container.find_previous_sibling()
                 iteration_count += 1
 
     return soup
@@ -99,42 +166,114 @@ def merge_html(modified_path, marginalia_path):
     with open(marginalia_path, "r", encoding="utf-8") as file:
         soup_marginalia = BeautifulSoup(file, "html.parser")
 
-    # Iterate through each paragraph in the marginalia which contain data attributes
-    marg_paragraphs = soup_marginalia.find_all(
-        "p",
+    # Collect all marginalia containers with their positioning data
+    marginalia_containers = soup_marginalia.find_all(
+        "div",
         {
+            "class": "marginalia-container",
             "data-page-count": True,
             "data-vertical-position-top": True,
             "data-vertical-position-bottom": True,
         },
     )
-    for marg_p in marg_paragraphs:
-        marg_page = marg_p["data-page-count"]
-        marg_pos = (
-            float(marg_p["data-vertical-position-top"]),
-            float(marg_p["data-vertical-position-bottom"]),
-        )
+    
+    # Convert marginalia containers to structured format for matching
+    marginalia_data = []
+    for container in marginalia_containers:
+        marginalia_data.append({
+            "element": container,
+            "page": container["data-page-count"],
+            "pos": (
+                float(container["data-vertical-position-top"]),
+                float(container["data-vertical-position-bottom"]),
+            ),
+            "text": container.get_text(strip=True)
+        })
 
-        # Find the corresponding paragraph in the modified HTML
+    # Process each container
+    for container_data in marginalia_data:
+        container = container_data["element"]
+        container_page = container_data["page"]
+        
+        # Find the best matching provision for this container
         best_overlap = 0
         best_mod_p = None
-        for mod_p in soup_modified.find_all("p", {"data-page-count": marg_page}):
+        best_provision_id = None
+        
+        # Only search for provisions (elements with class="provision")
+        for mod_p in soup_modified.find_all("p", {"class": "provision", "data-page-count": container_page}):
+            # Skip provisions without IDs
+            if not mod_p.get("id"):
+                continue
+                
             mod_pos = (
                 float(mod_p["data-vertical-position-top"]),
                 float(mod_p["data-vertical-position-bottom"]),
             )
-            overlap = calculate_overlap(mod_pos, marg_pos)
+            overlap = calculate_overlap(mod_pos, container_data["pos"])
             if overlap > best_overlap:
                 best_overlap = overlap
                 best_mod_p = mod_p
-
-        # Insert the marginalia as a paragraph with the class "marginalia"
+                # Use existing provision ID
+                best_provision_id = mod_p.get("id")
+        
+        # If no overlapping provision found, find the next provision (top-down)
+        if not best_mod_p:
+            # Get all provisions with IDs sorted by page and vertical position
+            all_provisions = []
+            for p in soup_modified.find_all("p", {"class": "provision"}):
+                # Only include provisions that have IDs and positional data
+                if (p.get("id") and p.get("data-page-count") and p.get("data-vertical-position-top")):
+                    all_provisions.append({
+                        "element": p,
+                        "page": int(p["data-page-count"]),
+                        "top": float(p["data-vertical-position-top"]),
+                        "id": p.get("id")
+                    })
+            
+            # Sort by page, then by vertical position
+            all_provisions.sort(key=lambda x: (x["page"], x["top"]))
+            
+            # Find the first provision that comes after the marginalia
+            container_page_int = int(container_page)
+            container_top = container_data["pos"][0]
+            
+            for prov in all_provisions:
+                # Find the first provision that's either on a later page
+                # or on the same page but below the marginalia
+                if (prov["page"] > container_page_int or 
+                    (prov["page"] == container_page_int and prov["top"] > container_top)):
+                    best_mod_p = prov["element"]
+                    best_provision_id = prov["id"]  # Use the pre-validated ID
+                    break
+        
+        # Add data-related-provision attribute to the container
+        if best_mod_p and best_provision_id:
+            container["data-related-provision"] = best_provision_id
+        else:
+            # Log warning if no valid provision found
+            logger.warning(f"No valid provision found for marginalia: {container_data['text'][:50]}...")
+            # Skip this marginalia container
+            continue
+        
+        # Insert the container before the best matching provision
         if best_mod_p:
-            marginalia_tag = soup_modified.new_tag("p", attrs={"class": "marginalia"})
-            marginalia_tag.string = marg_p.get_text(strip=True)
-            best_mod_p.insert_before(marginalia_tag)
+            # Clone the container and insert it into the modified document
+            new_container = soup_modified.new_tag("div", attrs=container.attrs)
+            new_container.string = ""  # Clear any existing content
+            
+            # Copy all child elements from the original container
+            for child in container.children:
+                if hasattr(child, 'name'):  # It's a tag
+                    new_child = soup_modified.new_tag(child.name, attrs=child.attrs)
+                    new_child.string = child.get_text()
+                    new_container.append(new_child)
+                else:  # It's text
+                    new_container.append(str(child))
+            
+            best_mod_p.insert_before(new_container)
 
-    # Adjust the positions of the marginalia elements (this function needs to be defined based on how you want to adjust positions)
+    # Adjust the positions of the marginalia elements
     adjust_marginalia_position(soup_modified)
 
     return soup_modified
