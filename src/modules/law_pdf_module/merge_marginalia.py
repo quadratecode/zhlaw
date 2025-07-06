@@ -56,12 +56,18 @@ def clean_text(text: str) -> str:
     """
     Clean text by removing hyphenation patterns.
     Removes hyphens between lowercase letters (e.g., "Justiz-verwaltung" -> "Justizverwaltung").
+    Also removes hyphens at word boundaries when not followed by "und" or "oder".
 
     :param text: Text to clean.
     :return: Cleaned text.
     """
     # Remove hyphens between lowercase letters
     text = re.sub(r"([a-z])-([a-z])", r"\1\2", text)
+    
+    # Remove hyphenation where word ends with hyphen but is not followed by "und" or "oder"
+    # Pattern: word- space(s) lowercase_word (but not "und" or "oder")
+    text = re.sub(r"(\w)-\s+(?!(?:und|oder)\b)([a-z]\w*)", r"\1\2", text)
+    
     return text
 
 
@@ -292,7 +298,8 @@ def merge_paragraphs_with_smart_spacing(container: Any) -> None:
 def split_paragraphs_with_enum(container: Any, soup: BeautifulSoup) -> None:
     """
     Splits paragraphs that contain enum patterns into separate paragraphs.
-    Checks for all enumeration patterns from constants.
+    Splits at any enum pattern that's not at the start of the paragraph (ignoring whitespace).
+    Handles multiple consecutive splits within the same paragraph.
 
     :param container: Container to process
     :param soup: BeautifulSoup object for creating new elements
@@ -305,22 +312,40 @@ def split_paragraphs_with_enum(container: Any, soup: BeautifulSoup) -> None:
         # Find all enum pattern matches
         matches = list(ENUM_SPLIT_PATTERN.finditer(text))
         
-        # If we have more than one match, split at the second one
-        if len(matches) > 1:
-            second_match = matches[1]
-            # Split at the second enum pattern (include the enum marker in the second part)
-            before = text[: second_match.start()].rstrip()
-            after = text[second_match.start() :]
+        # Filter out matches that are at the start of the paragraph (ignoring whitespace)
+        stripped_text = text.lstrip()
+        text_start_offset = len(text) - len(stripped_text)
+        
+        split_matches = []
+        for match in matches:
+            # Check if match is at the start (accounting for leading whitespace)
+            if match.start() > text_start_offset:
+                split_matches.append(match)
+        
+        # Split at each match that's not at the start, working backwards to preserve positions
+        if split_matches:
+            current_p = p
+            
+            # Process matches in reverse order to maintain correct splitting positions
+            for match in reversed(split_matches):
+                current_text = current_p.get_text()
+                
+                # Split at the enum pattern (include the enum marker in the second part)
+                before = current_text[:match.start()].rstrip()
+                after = current_text[match.start():]
 
-            if before:  # Only split if there's text before
-                # Update current paragraph with before text
-                p.clear()
-                p.string = before
+                if before:  # Only split if there's text before
+                    # Update current paragraph with before text
+                    current_p.clear()
+                    current_p.string = before
 
-                # Create new paragraph with after text
-                new_p = soup.new_tag("p")
-                new_p.string = after
-                p.insert_after(new_p)
+                    # Create new paragraph with after text
+                    new_p = soup.new_tag("p")
+                    new_p.string = after
+                    current_p.insert_after(new_p)
+                    
+                    # Continue with the new paragraph for potential further splits
+                    current_p = new_p
 
 
 def clean_hyphenation_in_container(container: Any) -> None:
