@@ -2,13 +2,12 @@
 
 This module processes HTML law texts and converts them to clean Markdown format,
 suitable for machine learning datasets and text analysis. It handles special
-law formatting, removes noise, and creates structured output with YAML frontmatter.
+law formatting and creates structured output with YAML frontmatter.
 
 The generated markdown files are stored persistently in a 'md-files/zh' directory
 within the output directory. Files are regenerated completely on each run.
 
 Functions:
-    is_ascii_art_or_noise(text): Detects ASCII art or formatting noise
     read_file_with_fallback_encoding(file_path): Reads files with encoding detection
     sanitize_headings(text): Cleans up heading formatting
     flatten_dict(d, parent_key, sep): Flattens nested dictionaries
@@ -38,22 +37,6 @@ from src.utils.logging_utils import get_module_logger
 logger = get_module_logger(__name__)
 
 
-def is_ascii_art_or_noise(line):
-    """
-    Check if a line appears to be ASCII art or noise.
-    Returns True if the line should be removed.
-    """
-    stripped = line.strip()
-    if not stripped:
-        return True
-    special_chars = set("·•.:-_=|/\\[](){}♦◊,'\"`~!@#$%^&*+<>?;")
-    special_count = sum(1 for char in stripped if char in special_chars)
-    if len(stripped) > 0:
-        if len(stripped) <= 3 and special_count == len(stripped):
-            return True
-        special_ratio = special_count / len(stripped)
-        return special_ratio > 0.5 and len(stripped) > 5
-    return True
 
 
 def read_file_with_fallback_encoding(file_path):
@@ -264,9 +247,6 @@ def convert_html_to_md(html_content, metadata, ordnungsnummer, nachtragsnummer):
             stripped_line = line.strip()
             if stripped_line == "":
                 continue
-            if is_ascii_art_or_noise(line):
-                logger.debug(f"Removing noise line: {line}")
-                continue
             cleaned_lines.append(line)
 
         md_content = "\n".join(cleaned_lines)
@@ -352,7 +332,7 @@ def process_single_html_file(args):
             else:
                 logger.warning(f"Metadata missing for {html_file}. Skipping.")
                 return False, None
-        html_content, encoding = read_file_with_fallback_encoding(file_path)
+        html_content, _ = read_file_with_fallback_encoding(file_path)
         with open(metadata_file, "r", encoding="utf-8") as f:
             metadata = json.load(f)
         md_content = convert_html_to_md(

@@ -1851,6 +1851,11 @@ def main(
         soup = wrap_subprovisions(soup)
         soup = merge_paragraphs_with_footnote_refs(soup)
         soup = wrap_provisions(soup)
+        
+        # Remove data-related-provision attribute after wrapping is complete
+        for element in soup.find_all(attrs={"data-related-provision": True}):
+            del element["data-related-provision"]
+        
         soup = exclude_footnotes_from_search(soup)
         # Determine canonical URL for all versions
         canonical_url = ""

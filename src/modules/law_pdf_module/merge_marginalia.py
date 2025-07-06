@@ -46,7 +46,8 @@ ENUM_PATTERNS = [
 ]
 
 # Pattern to find enum markers anywhere in text (not anchored to start)
-ENUM_SPLIT_PATTERN = re.compile(r"([IVXLCDM]+|[ivxlcdm]+|[a-zA-Z]|\d+)[\.\)](\s+)")
+# Uses word boundaries to ensure matches are standalone words, not substrings
+ENUM_SPLIT_PATTERN = re.compile(r"(?<!\w)([IVXLCDM]+|[ivxlcdm]+|[a-zA-Z]|\d+)[\.\)](\s+)")
 
 
 # -----------------------------------------------------------------------------
