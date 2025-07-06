@@ -137,7 +137,7 @@ def merge_html(modified_path, marginalia_path):
     # Adjust the positions of the marginalia elements (this function needs to be defined based on how you want to adjust positions)
     adjust_marginalia_position(soup_modified)
 
-    return str(soup_modified)
+    return soup_modified
 
 
 def clean_html(soup: BeautifulSoup) -> None:
@@ -182,8 +182,7 @@ def clean_html(soup: BeautifulSoup) -> None:
 
 def main(html_file_law, html_file_marginalia, merged_html_law):
 
-    merged_html = merge_html(html_file_law, html_file_marginalia)
-    soup = BeautifulSoup(merged_html, "html.parser")
+    soup = merge_html(html_file_law, html_file_marginalia)
     soup = clean_html(soup)
 
     from src.utils.html_utils import write_html
@@ -192,4 +191,9 @@ def main(html_file_law, html_file_marginalia, merged_html_law):
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) == 4:
+        main(sys.argv[1], sys.argv[2], sys.argv[3])
+    else:
+        print("Usage: python -m match_marginalia <html_file_law> <html_file_marginalia> <merged_html_law>")
+        sys.exit(1)

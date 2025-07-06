@@ -153,6 +153,32 @@ class Patterns:
     ARTICLE_NUMBER: Final = r"Art\.\s*\d+[a-z]?"
     PARAGRAPH_NUMBER: Final = r"§\s*\d+"
     URL: Final = r"https?://[\w\.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$"
+    
+    # Enumeration patterns
+    # Basic components for building enumeration patterns
+    ROMAN_NUMERALS: Final = r"[IVXLCDM]+"  # Roman numerals
+    SINGLE_LETTER: Final = r"[a-zA-Z]"     # Single letter
+    NUMBERS: Final = r"\d+"                 # One or more digits
+    
+    # Complete enumeration markers (just the marker, no following text)
+    ENUM_LETTER_PERIOD: Final = r"^[a-zA-Z]\.$"           # a., b., etc.
+    ENUM_NUMBER_PERIOD: Final = r"^\d+\.$"                # 1., 2., 12., etc.
+    ENUM_ROMAN_PERIOD: Final = r"^[IVXLCDM]+\.$"          # I., II., III., etc.
+    ENUM_LETTER_PAREN: Final = r"^[a-zA-Z]\)$"            # a), b), etc.
+    ENUM_NUMBER_PAREN: Final = r"^\d+\)$"                 # 1), 2), etc.
+    ENUM_ROMAN_PAREN: Final = r"^[IVXLCDM]+\)$"           # I), II), etc.
+    
+    # Combined pattern for any enumeration marker (capturing groups)
+    ENUM_MARKER: Final = r"^([IVXLCDM]+|[a-zA-Z]|\d+)[\.\)]$"
+    
+    # Enumeration patterns with optional following text
+    ENUM_WITH_TEXT: Final = r"^([IVXLCDM]+|[a-zA-Z]|\d+)[\.\)](\s.*)?$"
+    
+    # Pattern for splitting text containing "wenn" followed by enumeration
+    WENN_ENUM_SPLIT: Final = r'^(.*?)(wenn)\s+([IVXLCDM]+|[a-zA-Z]|\d+)[\.\)](.*)$'
+    
+    # Subprovision pattern (numbers with optional suffixes)
+    SUBPROVISION: Final = r"^(\d+)(bis|ter|quater|quinquies|sexies|septies|octies)?$"
 
 # Special date constant
 RESET_DATE_COMMENT: Final = "Due to incorrect operation on live data, all timestamps before 20250308 have been reset"

@@ -23,6 +23,8 @@ import random
 
 # Get logger from main module
 from src.utils.logging_utils import get_module_logger
+# Import centralized patterns
+from src.constants import Patterns
 
 logger = get_module_logger(__name__)
 
@@ -95,11 +97,10 @@ def try_merge_comma(elements, i):
         # Get the next element's text and strip whitespace
         next_text = elements[i + 1]["Text"].strip()
 
-        # Define a pattern for enumeration markers (single character or roman numeral followed by period)
-        # This pattern matches patterns like "a.", "b.", "I.", "IV.", "1.", etc.
-        enum_pattern = re.compile(r"^([IVXLCDM]+|[a-zA-Z0-9])\.(\s.*)?$")
+        # Use centralized enumeration pattern
+        enum_pattern = re.compile(Patterns.ENUM_WITH_TEXT)
 
-        # If the next element starts with a single character/roman numeral followed by a period, don't merge
+        # If the next element starts with an enumeration marker, don't merge
         if enum_pattern.match(next_text):
             return False
 
@@ -127,6 +128,108 @@ def try_merge_section(elements, i):
         ].get(bounds_key, [])
         del elements[i]
         return True
+    return False
+
+
+def try_split_wenn_enumeration(elements, i):
+    """
+    Splits an element if it contains an enumeration marker.
+    Splits twice: once before the enumeration marker and once after it.
+    
+    Enumeration patterns include:
+    - Letters with period: a., b., etc.
+    - Roman numerals with period: I., II., III., etc.
+    - Letters with parenthesis: a), b), etc.
+    - Roman numerals with parenthesis: I), II), etc.
+    
+    Note: Regular numbers (1., 2., etc.) are NOT matched to avoid splitting dates.
+    
+    Safeguards:
+    - Won't split if enumeration is within parentheses
+    - Won't split if enumeration is at the very end of a sentence
+    - Requires at least one space after the enumeration marker
+    
+    Returns True if a split occurred.
+    """
+    text = elements[i]["Text"]
+    
+    # Pattern to find enumeration markers with safeguards:
+    # - Not within parentheses
+    # - Must have space after the enumeration
+    # - Must have some text before it
+    # - Only matches letters and roman numerals (not regular numbers)
+    pattern = re.compile(r'^(.+?)\s+([IVXLCDM]+|[a-zA-Z])([\.\)])\s+(.+)$', re.DOTALL)
+    
+    match = pattern.match(text)
+    if match:
+        before_enum = match.group(1)
+        enum_marker = match.group(2)
+        enum_delimiter = match.group(3)
+        after_enum = match.group(4)
+        
+        # Additional safeguards:
+        # 1. Check if the enumeration is within parentheses
+        if '(' in before_enum and ')' not in before_enum:
+            # Opening parenthesis without closing before enum - skip
+            return False
+            
+        # 2. Check if before_enum ends with common abbreviations that use periods
+        abbreviations = ['bzw', 'ca', 'Dr', 'Fr', 'Nr', 'resp', 'usw', 'vgl', 'z.B', 'inkl', 'exkl']
+        for abbr in abbreviations:
+            if before_enum.rstrip().endswith(abbr):
+                return False
+        
+        # 3. For single letter enumerations, ensure they're lowercase (typical for legal enumerations)
+        if len(enum_marker) == 1 and enum_marker.isalpha() and enum_marker.isupper():
+            # Skip uppercase single letters as they're likely abbreviations or names
+            return False
+            
+        # 4. Since we no longer match numbers, this check is no longer needed
+        # (removed check for decimal numbers)
+        
+        # Update the first element to contain only text before enumeration
+        elements[i]["Text"] = before_enum.rstrip()
+        
+        # Create the second element containing enumeration marker
+        enum_element = elements[i].copy()
+        enum_element["Text"] = enum_marker + enum_delimiter
+        
+        # Create the third element containing text after enumeration
+        after_element = elements[i].copy()
+        after_element["Text"] = after_enum.lstrip()
+        
+        # Handle bounds - if CharBounds exist, try to split them appropriately
+        bounds_key = "CharBounds" if "CharBounds" in elements[i] else "Bounds"
+        if bounds_key == "CharBounds" and elements[i].get(bounds_key):
+            # Calculate approximate split positions based on text length
+            total_length = len(text)
+            split1_position = len(before_enum)
+            split2_position = len(before_enum) + len(enum_marker) + len(enum_delimiter) + 1  # +1 for space
+            
+            char_bounds = elements[i][bounds_key]
+            split1_index = int(len(char_bounds) * split1_position / total_length) if total_length > 0 else 0
+            split2_index = int(len(char_bounds) * split2_position / total_length) if total_length > 0 else 0
+            
+            # Split the bounds
+            elements[i][bounds_key] = char_bounds[:split1_index] if split1_index > 0 else char_bounds[:1]
+            enum_element[bounds_key] = char_bounds[split1_index:split2_index] if split2_index > split1_index else char_bounds[split1_index:split1_index+1]
+            after_element[bounds_key] = char_bounds[split2_index:] if split2_index < len(char_bounds) else char_bounds[-1:]
+        else:
+            # For regular Bounds, just copy them (can't split accurately without character data)
+            enum_element[bounds_key] = elements[i].get(bounds_key, [])
+            after_element[bounds_key] = elements[i].get(bounds_key, [])
+        
+        # Insert the new elements after the current one
+        # Only insert non-empty elements
+        insert_position = i + 1
+        if enum_element["Text"]:
+            elements.insert(insert_position, enum_element)
+            insert_position += 1
+        if after_element["Text"]:
+            elements.insert(insert_position, after_element)
+        
+        return True
+    
     return False
 
 
@@ -212,6 +315,11 @@ def merge_and_split_elements(elements):
     while i < len(elements):
         # Try to split provision elements
         if try_split_provision(elements, i):
+            i += 1
+            continue
+        
+        # Try to split wenn enumeration elements
+        if try_split_wenn_enumeration(elements, i):
             i += 1
             continue
 

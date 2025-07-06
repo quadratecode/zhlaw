@@ -23,16 +23,18 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 
 # Get logger from main module
 from src.utils.logging_utils import get_module_logger
+# Import centralized patterns
+from src.constants import Patterns
+
 logger = get_module_logger(__name__)
 
 # -----------------------------------------------------------------------------
 # Module-Level Precompiled Regex Patterns and Constants
 # -----------------------------------------------------------------------------
-SUBPROVISION_PATTERN = re.compile(
-    r"^(\d+)(bis|ter|quater|quinquies|sexies|septies|octies)?$", re.IGNORECASE
-)
-LETTER_ENUM_PATTERN = re.compile(r"^[a-zA-Z]\.$")
-NUMBER_ENUM_PATTERN = re.compile(r"^\d{1,2}\.$")
+# Use centralized patterns from constants
+SUBPROVISION_PATTERN = re.compile(Patterns.SUBPROVISION, re.IGNORECASE)
+LETTER_ENUM_PATTERN = re.compile(Patterns.ENUM_LETTER_PERIOD)
+NUMBER_ENUM_PATTERN = re.compile(Patterns.ENUM_NUMBER_PERIOD)
 DASH_ENUM_PATTERN = re.compile(r"–")
 OS_PATTERN = re.compile(r"OS\s*\d+\s*,\s*\d+")
 ANNEX_PATTERN = re.compile(r"Anhang|Anhänge", re.IGNORECASE)
