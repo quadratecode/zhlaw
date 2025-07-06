@@ -207,8 +207,8 @@ class StatisticsCollector:
             # Check if law is completed
             result["completed"] = self.correction_manager.is_law_completed(law_id, folder_name)
             
-            # Get corrections if available
-            corrections = self.correction_manager.get_corrections(law_id, folder_name)
+            # Get corrections if available (legacy law-level)
+            corrections = self.correction_manager.get_corrections(law_id, None, folder_name)
             
             if corrections:
                 result["last_modified"] = corrections.get("reviewed_at")

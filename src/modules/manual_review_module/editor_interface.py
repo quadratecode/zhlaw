@@ -30,7 +30,7 @@ class TableEditorInterface:
         
     def launch_editor_for_law_with_progression(self, law_id: str, unique_tables: Dict[str, Any], 
                                               base_path: str = None, progression_info: Dict[str, Any] = None,
-                                              review_mode: str = 'folder') -> Dict[str, Any]:
+                                              review_mode: str = 'folder', use_legacy_format: bool = False) -> Dict[str, Any]:
         """
         Launch table editor with auto-progression support for folder review.
         
@@ -40,6 +40,7 @@ class TableEditorInterface:
             base_path: Base path to the law files
             progression_info: Info about next law and progression state
             review_mode: 'single' or 'folder' to indicate review mode
+            use_legacy_format: If True, unique_tables is already in legacy format with corrections
             
         Returns:
             Dictionary of corrections from the editor
@@ -50,15 +51,19 @@ class TableEditorInterface:
             return {}
             
         # Prepare data file for table_editor
-        # Extract folder name from progression_info or base_path
-        folder_name = "zhlex_files_test"  # default
-        if progression_info and 'folder_name' in progression_info:
-            folder_name = progression_info['folder_name']
-        elif base_path:
-            # Extract folder name from base_path (e.g., "data/zhlex/zhlex_files_test" -> "zhlex_files_test")
-            folder_name = Path(base_path).name
-        
-        editor_data = self.prepare_editor_data(law_id, unique_tables, review_mode, base_path, folder_name)
+        if use_legacy_format:
+            # unique_tables is already in legacy format with correction states preserved
+            editor_data = self._prepare_editor_data_from_legacy(law_id, unique_tables, review_mode)
+        else:
+            # Extract folder name from progression_info or base_path
+            folder_name = "zhlex_files_test"  # default
+            if progression_info and 'folder_name' in progression_info:
+                folder_name = progression_info['folder_name']
+            elif base_path:
+                # Extract folder name from base_path (e.g., "data/zhlex/zhlex_files_test" -> "zhlex_files_test")
+                folder_name = Path(base_path).name
+            
+            editor_data = self.prepare_editor_data(law_id, unique_tables, review_mode, base_path, folder_name)
         
         # Add progression info if provided
         if progression_info:
@@ -161,7 +166,7 @@ class TableEditorInterface:
             correction_base_path = base_path or "data/zhlex"
         
         correction_manager = CorrectionManager(correction_base_path)
-        existing_corrections = correction_manager.get_corrections(law_id, folder_name)
+        existing_corrections = correction_manager.get_corrections(law_id, None, folder_name)
         existing_tables = existing_corrections.get('tables', {}) if existing_corrections else {}
         
         
@@ -268,6 +273,85 @@ class TableEditorInterface:
             self.logger.info(f"Skipping {len(reviewed_tables)} already reviewed tables for law {law_id}")
         
         return editor_data
+    
+    def _prepare_editor_data_from_legacy(self, law_id: str, legacy_tables: Dict[str, Any], review_mode: str) -> Dict[str, Any]:
+        """
+        Prepare editor data from legacy format tables that already include correction states.
+        
+        Args:
+            law_id: The law identifier
+            legacy_tables: Dictionary of tables in legacy format with correction states
+            review_mode: 'single' or 'folder' to indicate review mode
+            
+        Returns:
+            Data structure for the table editor
+        """
+        tables_list = []
+        
+        for table_hash, table_data in legacy_tables.items():
+            # Legacy format already has the structure we need, but we need to convert to editor format
+            
+            # Determine status and operation from the original structure
+            # Since this is legacy format from _convert_to_legacy_format, check if corrected_structure exists
+            original_structure = table_data.get('original_structure', [])
+            corrected_structure = table_data.get('corrected_structure')
+            
+            # Use the actual status from the legacy table data (if available)
+            actual_status = table_data.get('status', 'undefined')
+            
+            # Determine operation based on status
+            if actual_status == 'confirmed_with_changes':
+                status = actual_status  # Keep the exact status
+                operation = 'edit'
+            elif actual_status == 'confirmed_without_changes':
+                status = actual_status  # Keep the exact status
+                operation = 'confirm'
+            elif actual_status == 'rejected':
+                status = actual_status  # Keep the exact status
+                operation = 'reject'
+            elif actual_status.startswith('merged'):
+                status = actual_status
+                operation = 'merge'
+            elif actual_status == 'undefined':
+                # For undefined status, use pending
+                status = 'pending'
+                operation = 'confirm'
+            else:
+                # For any other status, preserve it but default to confirm operation
+                status = actual_status
+                operation = 'confirm'
+            
+            table_entry = {
+                'hash': table_hash,
+                'found_in_versions': table_data.get('found_in_versions', []),
+                'pages': table_data.get('pages', {}),
+                'pdf_paths': table_data.get('pdf_paths', {}),
+                'source_links': table_data.get('source_links', {}),
+                'structure': original_structure,
+                'status': status,
+                'operation': operation
+            }
+            
+            # Include corrected structure if it exists
+            if corrected_structure:
+                table_entry['corrected_structure'] = corrected_structure
+                
+            tables_list.append(table_entry)
+        
+        # Log what we're sending to the editor
+        self.logger.info(f"Prepared {len(tables_list)} tables for editor from legacy format")
+        for table in tables_list:
+            self.logger.debug(f"  Table {table['hash'][:8]}... status: {table['status']}, operation: {table['operation']}")
+        
+        return {
+            'law_id': law_id,
+            'tables': tables_list,
+            'review_mode': review_mode,
+            'metadata': {
+                'total_tables': len(legacy_tables),
+                'already_reviewed': 0  # All tables are being re-reviewed
+            }
+        }
     
     def _launch_editor(self, data_file: str, law_id: str, base_path: str = None) -> Dict[str, Any]:
         """
@@ -400,6 +484,16 @@ class TableEditorInterface:
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, directory=str(editor_dir), **kwargs)
             
+            def log_error(self, format, *args):
+                # Suppress error logging for common browser requests
+                if any(path in self.path for path in ['/favicon.ico', '/apple-touch-icon']):
+                    return
+                super().log_error(format, *args)
+            
+            def log_message(self, format, *args):
+                # Suppress access logging for cleaner output
+                return
+            
             def do_GET(self):
                 if self.path == '/data.json':
                     # Serve the law data
@@ -412,8 +506,17 @@ class TableEditorInterface:
                 elif self.path == '/save-corrections':
                     # Handle POST request to save corrections
                     return
+                elif self.path == '/favicon.ico':
+                    # Return empty favicon to prevent 404 errors
+                    self.send_response(204)  # No Content
+                    self.end_headers()
+                    return
                 else:
-                    super().do_GET()
+                    try:
+                        super().do_GET()
+                    except (BrokenPipeError, ConnectionResetError):
+                        # Ignore broken pipe errors - browser closed connection
+                        pass
             
             def do_POST(self):
                 if self.path == '/save-corrections':
@@ -443,33 +546,47 @@ class TableEditorInterface:
                             'timestamp': datetime.now().isoformat()
                         }
                         
-                        if action != 'cancel':
-                            # Only save corrections if not cancelled
+                        # Save corrections for 'next' and 'quit' (finish actions)
+                        # Discard corrections for 'cancel*' and 'escape*' actions
+                        if action in ['next', 'quit']:
+                            # Save corrections for normal completion and quit-with-save
                             result_data['corrections'] = corrections
-                        else:
-                            # For cancel action, indicate no corrections saved
+                        elif action in ['cancel', 'cancel_next', 'cancel_quit', 'escape_quit']:
+                            # For cancel and escape actions, indicate no corrections saved
                             result_data['corrections'] = {}
                             result_data['cancelled'] = True
+                        else:
+                            # Fallback - save corrections for unknown actions
+                            result_data['corrections'] = corrections
                         
+                        # Write results to file with proper flushing
                         with open(results_file, 'w', encoding='utf-8') as f:
                             json.dump(result_data, f, indent=2)
+                            # Ensure results are properly written
+                            f.flush()
+                            import os
+                            if hasattr(os, 'fsync'):
+                                os.fsync(f.fileno())
                         
                         # Signal that review is complete and action should be taken
                         if action in ['next', 'quit', 'cancel', 'cancel_next', 'cancel_quit']:
-                            # This will signal the server to stop and take action
                             response_data["review_complete"] = True
                         
-                        self.send_response(200)
-                        self.send_header('Content-type', 'application/json')
-                        self.send_header('Access-Control-Allow-Origin', '*')
-                        self.end_headers()
-                        self.wfile.write(json.dumps(response_data).encode('utf-8'))
+                        try:
+                            self.send_response(200)
+                            self.send_header('Content-type', 'application/json')
+                            self.send_header('Access-Control-Allow-Origin', '*')
+                            self.end_headers()
+                            self.wfile.write(json.dumps(response_data).encode('utf-8'))
+                        except (BrokenPipeError, ConnectionResetError):
+                            # Client disconnected before we could respond
+                            pass
                         
                         # If action requires server shutdown, shut down the server after response
-                        if action in ['next', 'quit', 'cancel', 'cancel_next', 'cancel_quit']:
+                        if action in ['next', 'quit', 'cancel', 'cancel_next', 'cancel_quit', 'escape_quit']:
                             # Give client time to receive response before shutting down
                             def delayed_shutdown():
-                                time.sleep(1)
+                                time.sleep(1.0)  # Give time for response to be received
                                 self.server.shutdown()
                             
                             shutdown_thread = threading.Thread(target=delayed_shutdown)
@@ -477,14 +594,22 @@ class TableEditorInterface:
                             shutdown_thread.start()
                         
                     except Exception as e:
-                        self.send_response(500)
-                        self.send_header('Content-type', 'application/json')
-                        self.send_header('Access-Control-Allow-Origin', '*')
-                        self.end_headers()
-                        self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                        try:
+                            self.send_response(500)
+                            self.send_header('Content-type', 'application/json')
+                            self.send_header('Access-Control-Allow-Origin', '*')
+                            self.end_headers()
+                            self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                        except (BrokenPipeError, ConnectionResetError):
+                            # Ignore if client disconnected
+                            pass
                 else:
-                    self.send_response(404)
-                    self.end_headers()
+                    try:
+                        self.send_response(404)
+                        self.end_headers()
+                    except (BrokenPipeError, ConnectionResetError):
+                        # Ignore if client disconnected
+                        pass
         
         # Start the HTTP server with dynamic port
         port = 8765
@@ -500,8 +625,7 @@ class TableEditorInterface:
                         raise Exception(f"Could not find available port after {max_attempts} attempts")
                 else:
                     raise
-        server_thread = threading.Thread(target=server.serve_forever)
-        server_thread.daemon = True
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
         server_thread.start()
         
         try:
@@ -565,12 +689,17 @@ class TableEditorInterface:
                 if 'corrections' in result_data:
                     corrections = result_data['corrections']
                     action = result_data.get('action', 'complete')
-                    self.logger.info(f"Received {len(corrections)} corrections from editor with action: {action}")
-                    # Return the full result with action
-                    return {
+                    cancelled = result_data.get('cancelled', False)
+                    self.logger.info(f"Received {len(corrections)} corrections from editor with action: {action}, cancelled: {cancelled}")
+                    
+                    # For debugging - log the exact result being returned
+                    result = {
                         'corrections': corrections,
-                        'action': action
+                        'action': action,
+                        'cancelled': cancelled
                     }
+                    self.logger.info(f"Editor interface returning result: {result}")
+                    return result
                 else:
                     # Legacy format fallback
                     corrections = result_data

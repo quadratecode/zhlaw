@@ -170,8 +170,8 @@ class CorrectionManager:
                 # No tables to review, law is complete
                 return True, []
             
-            # Get corrections for this law
-            corrections = self.get_corrections(law_id, folder)
+            # Get corrections for this law (legacy law-level corrections)
+            corrections = self.get_corrections(law_id, None, folder)
             if not corrections:
                 # No corrections exist, all tables are undecided
                 return False, list(unique_tables.keys())
@@ -246,8 +246,8 @@ class CorrectionManager:
                 # No tables found, nothing to update
                 return True
             
-            # Get existing corrections
-            existing_corrections = self.get_corrections(law_id, folder)
+            # Get existing corrections (legacy law-level)
+            existing_corrections = self.get_corrections(law_id, None, folder)
             
             if not existing_corrections:
                 # No existing corrections - let normal review process handle this
@@ -305,7 +305,7 @@ class CorrectionManager:
             Status string: "not_started", "in_progress", "completed", or "error"
         """
         try:
-            corrections = self.get_corrections(law_id, folder)
+            corrections = self.get_corrections(law_id, None, folder)
             if corrections is None:
                 return "not_started"
                 
@@ -326,7 +326,7 @@ class CorrectionManager:
             True if migration was successful or not needed, False if failed
         """
         try:
-            corrections = self.get_corrections(law_id, folder)
+            corrections = self.get_corrections(law_id, None, folder)
             if not corrections:
                 return True  # No file to migrate
             
@@ -457,7 +457,7 @@ class CorrectionManager:
         }
         
         try:
-            corrections = self.get_corrections(law_id, folder)
+            corrections = self.get_corrections(law_id, None, folder)
             if not corrections:
                 return elements, application_info  # No corrections available
             

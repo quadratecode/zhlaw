@@ -8,12 +8,14 @@ Run f1_table_extraction.py first to extract tables before using this module.
 
 import argparse
 import sys
+import os
 from pathlib import Path
 import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
 import shutil
 import json
+import signal
 
 # Add the src directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -40,6 +42,7 @@ class LawTableReview:
         self.report_exporter = ReportExporter()
         self.logger = logging.getLogger(__name__)
         self.simulate_editor = simulate_editor
+        self.setup_signal_handlers()
     
     def resolve_versions(self, law_id: str, version_spec: str, folder_path: str) -> list:
         """
@@ -331,8 +334,16 @@ class LawTableReview:
         # Check existing corrections
         corrections = self.correction_manager.get_corrections(law_id, version, folder_path)
         
-        # Convert to legacy format for editor compatibility
-        legacy_tables = self._convert_to_legacy_format(tables, corrections)
+        # Debug logging
+        if corrections:
+            self.logger.info(f"Loaded {len(corrections.get('tables', {}))} existing corrections for {law_id} v{version}")
+            for table_hash, correction in corrections.get('tables', {}).items():
+                self.logger.debug(f"  Table {table_hash[:8]}... has status: {correction.get('status', 'undefined')}")
+        else:
+            self.logger.info(f"No existing corrections found for {law_id} v{version}")
+        
+        # Convert to legacy format for editor compatibility - allow re-review when targeting specific law
+        legacy_tables = self._convert_to_legacy_format(tables, corrections, allow_re_review=True)
         
         if not legacy_tables:
             print(f"✅ All tables in {law_id} version {version} are already reviewed")
@@ -355,7 +366,8 @@ class LawTableReview:
                 legacy_tables, 
                 base_path_str, 
                 progression_info, 
-                review_mode
+                review_mode,
+                use_legacy_format=True
             )
             
             if result and result.get('corrections'):
@@ -394,11 +406,11 @@ class LawTableReview:
         # Check existing corrections
         corrections = self.correction_manager.get_corrections(law_id, version, folder_path)
         
-        # Convert to legacy format for editor compatibility
-        legacy_tables = self._convert_to_legacy_format(tables, corrections)
+        # Convert to legacy format for editor compatibility - allow re-review of all tables
+        legacy_tables = self._convert_to_legacy_format(tables, corrections, allow_re_review=True)
         
         if not legacy_tables:
-            print(f"✅ All tables in {law_id} version {version} are already reviewed")
+            print(f"⚪ No tables found in {law_id} version {version}")
             return
         
         print(f"📋 Found {len(legacy_tables)} tables to review in {law_id} version {version}")
@@ -460,13 +472,14 @@ class LawTableReview:
         
         return False  # All tables are reviewed
     
-    def _convert_to_legacy_format(self, version_tables: dict, corrections: dict) -> dict:
+    def _convert_to_legacy_format(self, version_tables: dict, corrections: dict, allow_re_review: bool = False) -> dict:
         """
         Convert per-version tables to legacy format for editor compatibility.
         
         Args:
             version_tables: Tables from extract_tables_from_version
             corrections: Existing corrections
+            allow_re_review: If True, include all tables regardless of completion status
             
         Returns:
             Dictionary in legacy format with cross-version structure
@@ -475,14 +488,14 @@ class LawTableReview:
         correction_tables = corrections.get('tables', {}) if corrections else {}
         
         for table_hash, table_data in version_tables.items():
-            # Skip tables that are already completed (if resume mode)
-            if table_hash in correction_tables:
+            # Skip tables that are already completed (if resume mode and not re-review)
+            if not allow_re_review and table_hash in correction_tables:
                 status = correction_tables[table_hash].get('status', 'undefined')
                 if status != 'undefined':
                     continue  # Skip completed tables
             
             # Convert to legacy format
-            legacy_tables[table_hash] = {
+            legacy_table = {
                 'hash': table_hash,
                 'found_in_versions': [table_data['version']],
                 'pages': {table_data['version']: table_data['pages']},
@@ -490,6 +503,19 @@ class LawTableReview:
                 'source_links': {table_data['version']: table_data['source_link']},
                 'original_structure': table_data['original_structure']
             }
+            
+            # Include correction data if it exists and we're allowing re-review
+            if allow_re_review and table_hash in correction_tables:
+                correction = correction_tables[table_hash]
+                legacy_table['status'] = correction.get('status', 'undefined')
+                if 'corrected_structure' in correction:
+                    legacy_table['corrected_structure'] = correction['corrected_structure']
+                self.logger.debug(f"Including correction for table {table_hash[:8]}... with status: {legacy_table['status']}")
+            else:
+                # Set default status for tables without corrections
+                legacy_table['status'] = 'undefined'
+            
+            legacy_tables[table_hash] = legacy_table
         
         return legacy_tables
     
@@ -506,6 +532,22 @@ class LawTableReview:
         """
         # Always use sequential auto-progression for folder review to avoid multiple tabs
         self.review_folder_auto_sequential(folder_path, resume=resume)
+    
+    def setup_signal_handlers(self) -> None:
+        """Setup signal handlers for immediate termination."""
+        def signal_handler(signum, frame):
+            if signum == signal.SIGINT:  # CTRL+C
+                print("\n\n⚠️ CTRL+C detected - terminating process immediately...")
+                print("💻 Browser window can be closed manually")
+                print("✅ Process terminated")
+                # Force immediate exit - don't wait for cleanup
+                os._exit(0)
+            elif signum == signal.SIGTERM:  # Termination signal
+                print("\n\n⚠️ Termination signal detected - terminating process...")
+                os._exit(0)
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
     
     def review_folder_auto_sequential(self, folder_path: str, resume: bool = True) -> None:
         """
@@ -564,6 +606,7 @@ class LawTableReview:
         print(f"Total tables: {total_tables}")
         print(f"Resume mode: {'ON' if resume else 'OFF'}")
         print("\nStarting sequential review with auto-progression...")
+        print("⚠️ Press CTRL+C in this terminal to quit at any time")
         print("=" * 60)
         
         # Process laws one by one with auto-progression
@@ -574,21 +617,19 @@ class LawTableReview:
             print(f"\n📋 Processing law {i + 1}/{len(laws_to_review)}: {law_id}")
             
             try:
+                
                 # Review this law with auto-progression info
                 action = self.review_law_with_progression(law_id, str(full_path), folder_path, 
                                                          next_law_id, is_last_law)
                 
+                
                 # Handle the action returned
-                if action == 'quit' or action == 'cancel_quit':
-                    print("\n⏸️ Review ended by user")
-                    break
-                elif action == 'cancel':
+                self.logger.info(f"Received action from law {law_id}: {action}")
+                
+                if action == 'cancel':
                     print("\n❌ Review cancelled by user")
                     break
-                elif action == 'cancel_next':
-                    print("\n⏭️ Review cancelled, moving to next law")
-                    continue
-                elif action == 'next':
+                elif action in ['cancel_next', 'next']:
                     # Continue to next law automatically
                     continue
                 elif action == 'error':
@@ -607,16 +648,21 @@ class LawTableReview:
                             break
                         
             except KeyboardInterrupt:
-                print("\n⏸️ Review interrupted by user")
-                break
+                # This should not happen since we handle SIGINT in signal handler
+                print("\n⚠️ Review interrupted")
+                sys.exit(0)
             except Exception as e:
                 self.logger.error(f"Error reviewing law {law_id}: {e}")
                 print(f"❌ Error reviewing law {law_id}: {e}")
                 
-                if not is_last_law:
-                    response = input("Continue with next law? (y/n): ")
-                    if response.lower() not in ['y', 'yes']:
-                        break
+                if not is_last_law and not self.stop_requested:
+                    try:
+                        response = input("Continue with next law? (y/n): ")
+                        if response.lower() not in ['y', 'yes']:
+                            break
+                    except (EOFError, KeyboardInterrupt):
+                        print("\n⚠️ Review terminated")
+                        sys.exit(0)
         
         # Final summary
         print(f"\n🎉 FOLDER REVIEW COMPLETED")
@@ -628,6 +674,8 @@ class LawTableReview:
         if completed_count < len(laws):
             print(f"Laws remaining: {len(laws) - completed_count}")
             print("Run the command again to continue reviewing.")
+    
+    
     
     def review_law_with_progression(self, law_id: str, base_path: str, folder_name: str,
                                    next_law_id: Optional[str] = None, is_last_law: bool = False) -> None:
@@ -690,13 +738,15 @@ class LawTableReview:
                     action = result.get('action', 'complete')
                     corrections = result.get('corrections', {})
                     cancelled = result.get('cancelled', False)
+                    self.logger.info(f"Received action '{action}' from editor for law {law_id}")
                 else:
                     # Legacy format - just corrections
                     corrections = result
                     action = 'complete'
                     cancelled = False
+                    self.logger.info(f"Received legacy format result for law {law_id}, defaulting action to 'complete'")
                 
-                if action in ['cancel', 'cancel_next', 'cancel_quit'] or cancelled:
+                if action in ['cancel', 'cancel_next'] or cancelled:
                     # Don't save corrections if cancelled
                     self.logger.info(f"❌ Review cancelled for law {law_id} - no corrections saved")
                 elif corrections:
@@ -710,6 +760,7 @@ class LawTableReview:
                     self.logger.warning(f"No corrections received for law {law_id}")
                 
                 # Return the action for the main loop to handle
+                self.logger.info(f"review_law_with_progression returning action '{action}' to main review loop")
                 return action
             else:
                 self.logger.warning(f"No result received for law {law_id}")
@@ -1083,8 +1134,8 @@ class LawTableReview:
             law_id: The law identifier
             folder_path: Path to the folder
         """
-        # Check if corrections exist
-        corrections = self.correction_manager.get_corrections(law_id, folder_path)
+        # Check if corrections exist (legacy law-level)
+        corrections = self.correction_manager.get_corrections(law_id, None, folder_path)
         if not corrections:
             print(f"ℹ️  No corrections found for law {law_id}")
             return

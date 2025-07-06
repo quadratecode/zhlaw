@@ -81,8 +81,8 @@ class CorrectionApplier:
         Returns:
             Tuple of (modified_elements, corrections_applied)
         """
-        # Get corrections for this law
-        corrections = self.correction_manager.get_corrections(law_id, folder)
+        # Get corrections for this law version
+        corrections = self.correction_manager.get_corrections(law_id, version, folder)
         if not corrections:
             self.logger.debug(f"No corrections found for law {law_id}")
             return elements, {}

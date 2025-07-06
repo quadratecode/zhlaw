@@ -19,7 +19,7 @@ from bs4 import BeautifulSoup, NavigableString
 from pathlib import Path
 
 from src.utils.logging_utils import get_module_logger
-from src.modules.manual_review_module.correction_applier import CorrectionApplier
+from src.utils.table_hash_utils import analyze_tables_in_elements
 
 # Get logger for this module
 logger = get_module_logger(__name__)
@@ -96,7 +96,7 @@ def determine_tag(is_provision, heading_level, text, index, last_special_index):
     return f"h{heading_level}" if heading_level else "p"
 
 
-def identify_and_build_tables(elements, soup):
+def identify_and_build_tables(elements, soup, table_metadata=None):
     """
     Identifies table elements and builds HTML tables.
 
@@ -131,7 +131,7 @@ def identify_and_build_tables(elements, soup):
                 break
 
         # Build the table
-        table = build_table(group_elements, soup, table_id)
+        table = build_table(group_elements, soup, table_id, table_metadata)
         if table:
             tables[table_id] = {"table": table, "insertion_index": first_element_index}
 
@@ -200,7 +200,7 @@ def merge_consecutive_tables_with_same_headers(soup):
     return soup
 
 
-def build_table(elements, soup, table_id):
+def build_table(elements, soup, table_id, table_metadata=None):
     """
     Builds an HTML table from a group of elements with the same TableID using improved positioning logic.
 
@@ -216,6 +216,19 @@ def build_table(elements, soup, table_id):
     table = soup.new_tag(
         "table", **{"class": "law-data-table", "law-data-table-id": str(table_id)}
     )
+    
+    # Store table hash for build-time correction application
+    from src.utils.table_hash_utils import generate_table_hash_from_elements
+    table_hash = generate_table_hash_from_elements(elements)
+    table["data-table-hash"] = table_hash
+    table["data-table-id"] = str(table_id)
+    
+    # Add law metadata if available
+    if table_metadata:
+        if table_metadata.get("law_id"):
+            table["data-law-id"] = table_metadata["law_id"]
+        if table_metadata.get("version"):
+            table["data-version"] = table_metadata["version"]
 
     # 1. First pass: Extract row information and organize by row/cell
     rows = {}
@@ -631,7 +644,7 @@ def build_table(elements, soup, table_id):
     return table
 
 
-def convert_to_html(json_data, erlasstitel, marginalia):
+def convert_to_html(json_data, erlasstitel, marginalia, law_id=None, version=None, folder=None):
     """
     Converts JSON data to HTML format.
     """
@@ -641,6 +654,13 @@ def convert_to_html(json_data, erlasstitel, marginalia):
     # Find font variants and get elements
     font_variants = analyze_font_variants(json_data)
     elements = json_data.get("elements", [])
+    
+    # Store law metadata for table hash attribution
+    table_metadata = {
+        "law_id": law_id,
+        "version": version,
+        "folder": folder
+    }
 
     # Pre-scan to find the last index where the text contains target keywords
     # TODO: Check if this can be removed due to manipulating the elements in extend_metadata.py
@@ -667,7 +687,7 @@ def convert_to_html(json_data, erlasstitel, marginalia):
     # Step 2: Build table HTML strings
     table_html = {}
     for table_id, group_elements in table_groups.items():
-        table = build_table(group_elements, soup_helper, table_id)
+        table = build_table(group_elements, soup_helper, table_id, table_metadata)
         if table:
             table_html[table_id] = str(table)
 
@@ -950,26 +970,20 @@ def main(json_file_law_updated, metadata, html_file, marginalia):
     except Exception as e:
         logger.warning(f"Could not extract law_id and version from path: {e}")
     
-    # Apply corrections if law_id and version are available
+    # Store table hashes in HTML for build-time correction application
     if law_id and version and json_data:
-        logger.info(f"Applying corrections for law {law_id} version {version}")
-        correction_applier = CorrectionApplier(base_path="data/zhlex")
+        logger.info(f"Storing table hashes for law {law_id} version {version}")
         elements = json_data.get("elements", [])
         
-        # Apply corrections
-        corrected_elements, corrections_info = correction_applier.apply_corrections(
-            elements, law_id, version, folder
-        )
+        # Analyze tables and store hash information for build step
+        table_info = analyze_tables_in_elements(elements)
         
-        # Update json_data with corrected elements
-        json_data["elements"] = corrected_elements
-        
-        if corrections_info:
-            logger.info(f"Corrections applied: {corrections_info}")
+        if table_info:
+            logger.info(f"Found {len(table_info)} tables with hashes stored for build-time correction")
     
     # Get title from metadata doc_info
     erlasstitel = metadata["doc_info"]["erlasstitel"]
-    html_content = convert_to_html(json_data, erlasstitel, marginalia)
+    html_content = convert_to_html(json_data, erlasstitel, marginalia, law_id, version, folder)
     # Write the html content to a file
     with open(html_file, "w", encoding="utf-8") as file:
         file.write(str(html_content))

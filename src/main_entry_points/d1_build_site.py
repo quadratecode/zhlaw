@@ -115,6 +115,25 @@ def process_html_file(args):
             with open(html_file, "r", encoding="utf-8") as file:
                 soup = BeautifulSoup(file, "html.parser")
 
+        # Apply manual table corrections BEFORE marginalia processing (NEW)
+        if file_type in ["old_html", "new_html"]:
+            from src.modules.site_generator_module.build_correction_applier import (
+                BuildCorrectionApplier, 
+                extract_law_id_version_from_path, 
+                folder_from_path
+            )
+            
+            law_id, version = extract_law_id_version_from_path(html_file)
+            if law_id and version:
+                folder = folder_from_path(html_file)
+                # Select base path based on law origin
+                base_path = "data/zhlex" if law_origin == "zh" else "data/fedlex"
+                correction_applier = BuildCorrectionApplier(base_path=base_path) 
+                soup = correction_applier.apply_corrections_to_html(
+                    soup, law_id, version, folder
+                )
+                logger.info(f"Applied manual table corrections for {law_id} v{version}")
+
         # Insert InfoBox and other final touches
         doc_info = metadata.get("doc_info", {})
         soup = build_zhlaw.main(

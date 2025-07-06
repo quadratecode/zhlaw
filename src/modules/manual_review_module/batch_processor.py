@@ -179,7 +179,9 @@ class BatchProcessor:
             if self._stop_requested:
                 break
                 
-            self._process_single_law(law_id, base_path, folder_name, simulate_editor)
+            action = self._process_single_law(law_id, base_path, folder_name, simulate_editor)
+            
+            # No special quit action handling needed - simplified interface
             
             if progress_callback:
                 progress_callback(self.current_progress)
@@ -187,36 +189,16 @@ class BatchProcessor:
     def _process_laws_parallel(self, laws: List[str], base_path: str, folder_name: str,
                              simulate_editor: bool, progress_callback: Optional[Callable]) -> None:
         """Process laws in parallel with thread pool."""
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all tasks
-            future_to_law = {
-                executor.submit(self._process_single_law, law_id, base_path, folder_name, simulate_editor): law_id
-                for law_id in laws
-            }
-            
-            # Process completed tasks
-            for future in as_completed(future_to_law):
-                if self._stop_requested:
-                    # Cancel remaining tasks
-                    for f in future_to_law:
-                        f.cancel()
-                    break
-                
-                law_id = future_to_law[future]
-                
-                try:
-                    future.result()  # This will raise an exception if the task failed
-                except Exception as e:
-                    self.logger.error(f"Failed to process law {law_id}: {e}")
-                    with self._progress_lock:
-                        self.current_progress.failed_laws += 1
-                        self.current_progress.failed_law_ids.append(law_id)
-                
-                if progress_callback:
-                    progress_callback(self.current_progress)
+        # Note: Parallel processing is disabled for interactive review to ensure proper action handling
+        self.logger.warning("Parallel processing disabled for interactive review. Using sequential processing.")
+        self._process_laws_sequential(laws, base_path, folder_name, simulate_editor, progress_callback)
     
-    def _process_single_law(self, law_id: str, base_path: str, folder_name: str, simulate_editor: bool) -> None:
-        """Process a single law."""
+    def _process_single_law(self, law_id: str, base_path: str, folder_name: str, simulate_editor: bool) -> str:
+        """Process a single law.
+        
+        Returns:
+            Action string indicating what to do next ('next', 'quit', 'cancel_quit', etc.)
+        """
         try:
             with self._progress_lock:
                 self.current_progress.current_law = law_id
@@ -231,7 +213,7 @@ class BatchProcessor:
                         self.current_progress.completed_law_ids.append(law_id)
                         self.current_progress.last_update = datetime.now().isoformat()
                         self._save_progress()
-                return
+                return 'next'
             
             # Extract tables
             unique_tables = self.extractor.extract_unique_tables_from_law(law_id, base_path)
@@ -244,7 +226,7 @@ class BatchProcessor:
                     self.current_progress.completed_law_ids.append(law_id)
                     self.current_progress.last_update = datetime.now().isoformat()
                     self._save_progress()
-                return
+                return 'next' 'next'
             
             self.logger.info(f"Found {len(unique_tables)} unique tables in law {law_id}")
             
@@ -252,24 +234,57 @@ class BatchProcessor:
             if simulate_editor:
                 self.editor.force_simulation = True
             
-            corrections = self.editor.launch_editor_for_law(law_id, unique_tables, base_path)
+            result = self.editor.launch_editor_for_law(law_id, unique_tables, base_path, review_mode='folder')
             
-            if corrections:
-                success = self.correction_manager.save_corrections(law_id, corrections, folder_name)
-                if success:
-                    self.logger.info(f"✅ Saved corrections for law {law_id}")
+            if result:
+                # Check if result contains action info (new format)
+                if isinstance(result, dict) and 'action' in result:
+                    action = result.get('action', 'complete')
+                    corrections = result.get('corrections', {})
+                    cancelled = result.get('cancelled', False)
+                else:
+                    # Legacy format - just corrections
+                    corrections = result
+                    action = 'complete'
+                    cancelled = False
+                
+                # No special quit action handling needed - simplified interface
+                
+                if action in ['cancel', 'cancel_next'] or cancelled:
+                    # Don't save corrections if cancelled, but continue to next law
+                    self.logger.info(f"❌ Review cancelled for law {law_id} - no corrections saved")
                     with self._progress_lock:
                         self.current_progress.completed_laws += 1
                         self.current_progress.completed_law_ids.append(law_id)
                         self.current_progress.last_update = datetime.now().isoformat()
-                        # Update estimated time
-                        self.current_progress.estimated_time_remaining = self.current_progress.estimate_remaining_time()
                         self._save_progress()
+                elif corrections:
+                    success = self.correction_manager.save_corrections(law_id, corrections, folder_name)
+                    if success:
+                        self.logger.info(f"✅ Saved corrections for law {law_id}")
+                        with self._progress_lock:
+                            self.current_progress.completed_laws += 1
+                            self.current_progress.completed_law_ids.append(law_id)
+                            self.current_progress.last_update = datetime.now().isoformat()
+                            # Update estimated time
+                            self.current_progress.estimated_time_remaining = self.current_progress.estimate_remaining_time()
+                            self._save_progress()
+                    else:
+                        raise Exception("Failed to save corrections")
                 else:
-                    raise Exception("Failed to save corrections")
+                    self.logger.warning(f"No corrections received for law {law_id}")
+                    # Mark as completed even without corrections
+                    with self._progress_lock:
+                        self.current_progress.completed_laws += 1
+                        self.current_progress.completed_law_ids.append(law_id)
+                        self.current_progress.last_update = datetime.now().isoformat()
+                        self._save_progress()
             else:
-                self.logger.warning(f"No corrections received for law {law_id}")
-                raise Exception("No corrections received")
+                self.logger.warning(f"No result received for law {law_id}")
+                raise Exception("No result received")
+            
+            # If we get here, return 'next' to continue processing
+            return 'next'
                 
         except Exception as e:
             self.logger.error(f"Error processing law {law_id}: {e}")
@@ -278,7 +293,8 @@ class BatchProcessor:
                 self.current_progress.failed_law_ids.append(law_id)
                 self.current_progress.last_update = datetime.now().isoformat()
                 self._save_progress()
-            raise
+            # Return 'next' even on error to continue processing other laws
+            return 'error'
     
     def pause_batch(self) -> None:
         """Request to pause the current batch processing."""

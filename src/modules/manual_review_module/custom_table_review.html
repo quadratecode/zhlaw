@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Custom Table Review System</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <style>
+    <head>
+        <title>Custom Table Review System</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
@@ -107,19 +106,6 @@
             margin-bottom: 5px;
         }
         
-        .versions {
-            display: flex;
-            gap: 5px;
-            flex-wrap: wrap;
-        }
-        
-        .version-badge {
-            background: #007bff;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-        }
         
         .pdf-links {
             display: flex;
@@ -211,10 +197,19 @@
         }
         
         
+        .table-scroll-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
         .custom-table {
             width: 100%;
+            min-width: 600px; /* Ensure minimum width for readability */
             border-collapse: collapse;
-            margin-bottom: 15px;
+            margin: 0;
         }
         
         .custom-table th,
@@ -666,168 +661,188 @@
         .hidden {
             display: none;
         }
-    </style>
-</head>
-<body>
-    <div class="review-container">
-        <div class="header">
-            <div class="title" id="title">Custom Table Review System</div>
-            <div class="progress" id="progress">Initializing...</div>
-            
-            <div class="navigation">
-                <button class="nav-btn" id="prev-btn" onclick="previousTable()" disabled>← Previous</button>
-                <button class="nav-btn" id="next-btn" onclick="nextTable()" disabled>Next →</button>
-                <button class="nav-btn" id="overview-btn" onclick="showOverview()">Overview</button>
+        </style>
+    </head>
+    <body>
+        <div class="review-container">
+            <div class="header">
+                <div class="title" id="title">Custom Table Review System</div>
+                <div class="progress" id="progress">Initializing...</div>
+                <div class="navigation">
+                    <button
+                        class="nav-btn"
+                        id="prev-btn"
+                        onclick="previousTable()"
+                        disabled
+                    >← Previous</button>
+                    <button
+                        class="nav-btn"
+                        id="next-btn"
+                        onclick="nextTable()"
+                        disabled
+                    >Next →</button>
+                    <button class="nav-btn" id="overview-btn" onclick="showOverview()">Overview</button>
+                </div>
             </div>
-        </div>
-        
-        <div id="table-review-section">
-            <div class="current-table" id="current-table">
-                <div class="table-info">
-                    <span>Table <span id="table-number">1</span> of <span id="total-tables">0</span></span>
-                    <span class="table-hash" id="table-hash">hash</span>
-                    <div class="status-display status-pending" id="table-status">Pending</div>
-                </div>
-                
-                <div class="context-info">
-                    <div class="context-item">
-                        <div class="context-label">Found in versions:</div>
-                        <div class="versions" id="versions-display"></div>
+            <div id="table-review-section">
+                <div class="current-table" id="current-table">
+                    <div class="table-info">
+                        <span>
+                            Table
+                            <span id="table-number">1</span>
+                            of
+                            <span id="total-tables">0</span>
+                        </span>
+                        <span class="table-hash" id="table-hash">hash</span>
+                        <div class="status-display status-pending" id="table-status">Pending</div>
                     </div>
-                    <div class="context-item">
-                        <div class="context-label">Pages:</div>
-                        <div id="pages-display"></div>
-                    </div>
-                    <div class="context-item">
-                        <div class="context-label">PDF Documents:</div>
-                        <div class="pdf-links" id="pdf-links"></div>
-                    </div>
-                    <div class="context-item">
-                        <div class="context-label">Structure:</div>
-                        <div id="structure-info"></div>
-                    </div>
-                </div>
-                
-                
-                
-                <div class="table-editor">
-                    <div class="editor-header">
-                        <div class="editor-title">Table Editor</div>
-                        
-                        <div class="editor-controls">
-                            <!-- Header row checkbox -->
-                            <label class="header-checkbox">
-                                <input type="checkbox" id="has-header-row" onchange="toggleHeaderRow()">
-                                Has header row
-                            </label>
-                            
-                            <!-- Row operations -->
-                            <div class="editor-control-group">
-                                <label>Rows:</label>
-                                <button class="compact-btn" onclick="addRowAbove()" title="Add row above selected cell">⬆️+</button>
-                                <button class="compact-btn" onclick="addRowBelow()" title="Add row below selected cell">⬇️+</button>
-                                <button class="compact-btn" onclick="removeRow()" title="Remove current row">🗑️</button>
-                            </div>
-                            
-                            <!-- Column operations -->
-                            <div class="editor-control-group">
-                                <label>Cols:</label>
-                                <button class="compact-btn" onclick="addColumnLeft()" title="Add column left of selected cell">⬅️+</button>
-                                <button class="compact-btn" onclick="addColumnRight()" title="Add column right of selected cell">➡️+</button>
-                                <button class="compact-btn" onclick="removeColumn()" title="Remove current column">🗑️</button>
-                            </div>
-                            
-                            <!-- Table operations -->
-                            <div class="editor-control-group">
-                                <label>Table:</label>
-                                <button class="compact-btn" onclick="mergeTable()" title="Merge with next table">⟱ Merge</button>
-                                <button class="compact-btn" onclick="skipTable()" title="Skip for now">→ Skip</button>
-                            </div>
-                            
-                            <!-- Reset button -->
-                            <button class="btn-reset" onclick="resetTableStructure()" title="Reset to original structure">🔄 Reset</button>
+                    <div class="context-info">
+                        <div class="context-item">
+                            <div class="context-label">Pages:</div>
+                            <div id="pages-display"></div>
+                        </div>
+                        <div class="context-item">
+                            <div class="context-label">PDF Documents:</div>
+                            <div class="pdf-links" id="pdf-links"></div>
+                        </div>
+                        <div class="context-item">
+                            <div class="context-label">Structure:</div>
+                            <div id="structure-info"></div>
                         </div>
                     </div>
-                    
-                    <div id="table-container">
-                        <!-- Table will be generated here -->
+                    <div class="table-editor">
+                        <div class="editor-header">
+                            <div class="editor-title">Table Editor</div>
+                            <div class="editor-controls">
+                                <!-- Header row checkbox -->
+                                <label class="header-checkbox">
+                                    <input type="checkbox" id="has-header-row" onchange="toggleHeaderRow()">
+                                    Has header row
+                                </label>
+                                <!-- Row operations -->
+                                <div class="editor-control-group">
+                                    <label>Rows:</label>
+                                    <button class="compact-btn" onclick="addRowAbove()" title="Add row above selected cell">⬆️+</button>
+                                    <button class="compact-btn" onclick="addRowBelow()" title="Add row below selected cell">⬇️+</button>
+                                    <button class="compact-btn" onclick="removeRow()" title="Remove current row">🗑️</button>
+                                </div>
+                                <!-- Column operations -->
+                                <div class="editor-control-group">
+                                    <label>Cols:</label>
+                                    <button class="compact-btn" onclick="addColumnLeft()" title="Add column left of selected cell">⬅️+</button>
+                                    <button class="compact-btn" onclick="addColumnRight()" title="Add column right of selected cell">➡️+</button>
+                                    <button class="compact-btn" onclick="removeColumn()" title="Remove current column">🗑️</button>
+                                </div>
+                                <!-- Table operations -->
+                                <div class="editor-control-group">
+                                    <label>Table:</label>
+                                    <button class="compact-btn" onclick="mergeTable()" title="Merge with next table">⟱ Merge</button>
+                                    <button class="compact-btn" onclick="skipTable()" title="Skip for now">→ Skip</button>
+                                </div>
+                                <!-- Reset button -->
+                                <button class="btn-reset" onclick="resetTableStructure()" title="Reset to original structure">🔄 Reset</button>
+                            </div>
+                        </div>
+                        <div id="table-container">
+                            <!-- Table will be generated here --></div>
+                    </div>
+                    <!-- Table Status Control (moved below editor) -->
+                    <div class="table-status-control" id="status-control">
+                        <label class="status-label">Table Status:</label>
+                        <div class="radio-group" id="status-radio-group">
+                            <label class="radio-option">
+                                <div class="radio-option-header">
+                                    <input
+                                        type="radio"
+                                        name="table-status"
+                                        value="undefined"
+                                        checked
+                                        onchange="updateTableStatus('undefined')"
+                                    >
+                                    <span class="radio-label">❓ Undefined</span>
+                                </div>
+                                <div class="radio-description">User must make a selection</div>
+                            </label>
+                            <label class="radio-option">
+                                <div class="radio-option-header">
+                                    <input
+                                        type="radio"
+                                        name="table-status"
+                                        value="confirmed_without_changes"
+                                        onchange="updateTableStatus('confirmed_without_changes')"
+                                    >
+                                    <span class="radio-label">✅ Confirmed without changes</span>
+                                </div>
+                                <div class="radio-description">Table is correctly converted, no editing needed</div>
+                            </label>
+                            <label class="radio-option">
+                                <div class="radio-option-header">
+                                    <input
+                                        type="radio"
+                                        name="table-status"
+                                        value="confirmed_with_changes"
+                                        onchange="updateTableStatus('confirmed_with_changes')"
+                                    >
+                                    <span class="radio-label">✏️ Confirmed with changes</span>
+                                </div>
+                                <div class="radio-description">Table is a table, but edits are needed</div>
+                            </label>
+                            <label class="radio-option">
+                                <div class="radio-option-header">
+                                    <input
+                                        type="radio"
+                                        name="table-status"
+                                        value="rejected"
+                                        onchange="updateTableStatus('rejected')"
+                                    >
+                                    <span class="radio-label">❌ Rejected</span>
+                                </div>
+                                <div class="radio-description">Not a table and should not be treated as such</div>
+                            </label>
+                        </div>
+                    </div>
+                    <!-- Merged Status Display (shown when table is merged) -->
+                    <div class="merged-status" id="merged-status" style="display: none;">
+                        <div class="merged-message" id="merged-message">This table has been merged with a previous table.</div>
+                        <button class="btn-unmerge" onclick="showUnmergeConfirmation()">Unmerge Table</button>
                     </div>
                 </div>
-                
-                <!-- Table Status Control (moved below editor) -->
-                <div class="table-status-control" id="status-control">
-                    <label class="status-label">Table Status:</label>
-                    <div class="radio-group" id="status-radio-group">
-                        <label class="radio-option">
-                            <div class="radio-option-header">
-                                <input type="radio" name="table-status" value="undefined" checked onchange="updateTableStatus('undefined')">
-                                <span class="radio-label">❓ Undefined</span>
-                            </div>
-                            <div class="radio-description">User must make a selection</div>
-                        </label>
-                        <label class="radio-option">
-                            <div class="radio-option-header">
-                                <input type="radio" name="table-status" value="confirmed_without_changes" onchange="updateTableStatus('confirmed_without_changes')">
-                                <span class="radio-label">✅ Confirmed without changes</span>
-                            </div>
-                            <div class="radio-description">Table is correctly converted, no editing needed</div>
-                        </label>
-                        <label class="radio-option">
-                            <div class="radio-option-header">
-                                <input type="radio" name="table-status" value="confirmed_with_changes" onchange="updateTableStatus('confirmed_with_changes')">
-                                <span class="radio-label">✏️ Confirmed with changes</span>
-                            </div>
-                            <div class="radio-description">Table is a table, but edits are needed</div>
-                        </label>
-                        <label class="radio-option">
-                            <div class="radio-option-header">
-                                <input type="radio" name="table-status" value="rejected" onchange="updateTableStatus('rejected')">
-                                <span class="radio-label">❌ Rejected</span>
-                            </div>
-                            <div class="radio-description">Not a table and should not be treated as such</div>
-                        </label>
-                    </div>
+            </div>
+            <div id="completion-section" class="hidden">
+                <div class="completion-message">
+                    <h2>🎉 Review Complete!</h2>
+                    <p>All tables have been reviewed.</p>
+                    <p id="review-summary"></p>
                 </div>
-                
-                <!-- Merged Status Display (shown when table is merged) -->
-                <div class="merged-status" id="merged-status" style="display: none;">
-                    <div class="merged-message" id="merged-message">This table has been merged with a previous table.</div>
-                    <button class="btn-unmerge" onclick="showUnmergeConfirmation()">Unmerge Table</button>
+            </div>
+            <div class="final-actions">
+                <button
+                    class="final-btn btn-finish"
+                    id="finish-review-btn"
+                    onclick="finishReviewForLaw()"
+                    disabled
+                >
+                    Finish Review
+                </button>
+                <button class="final-btn btn-cancel" onclick="cancelReview()">
+                    Cancel Review
+                </button>
+                <div class="shortcut-info">
+                    <span style="font-size: 12px; color: #666; margin-left: 20px;">
+                        ⚠️ In terminal: Press
+                        <strong>Ctrl+C</strong>
+                        to quit (close browser manually)
+                    </span>
                 </div>
-                
             </div>
         </div>
-        
-        <div id="completion-section" class="hidden">
-            <div class="completion-message">
-                <h2>🎉 Review Complete!</h2>
-                <p>All tables have been reviewed.</p>
-                <p id="review-summary"></p>
-            </div>
-        </div>
-        
-        <div class="final-actions">
-            <button class="final-btn btn-finish" id="finish-review-btn" onclick="finishReviewForLaw()" disabled>
-                Finish Review for this Law
-            </button>
-            <button class="final-btn btn-finish-close" id="finish-close-btn" onclick="finishReviewAndClose()" disabled style="display: none;">
-                Finish Review for this Law and Quit
-            </button>
-            <button class="final-btn btn-cancel" onclick="cancelReview()">
-                Cancel Review
-            </button>
-            <button class="final-btn btn-cancel" id="cancel-quit-btn" onclick="cancelReviewAndQuit()" style="display: none;">
-                Cancel Review and Quit
-            </button>
-        </div>
-    </div>
-
-    <script>
+        <script>
         // ====== GLOBAL STATE ======
         let lawData = null;
         let currentTableIndex = 0;
         let corrections = {};
         let tableData = {};
+        let tableHeaderStates = {}; // Track header row state per table hash
         let selectedCell = null; // Track currently selected cell for operations
         let reviewMode = 'single'; // 'single' or 'folder'
         
@@ -860,21 +875,55 @@
                 console.log('📊 Progression info:', progressionInfo);
             }
             
-            document.getElementById('title').textContent = `Law ${data.law_id} - Table Review`;
+            // Extract version from the first table if available
+            let version = null;
+            if (data.tables && data.tables.length > 0 && data.tables[0].found_in_versions && data.tables[0].found_in_versions.length > 0) {
+                version = data.tables[0].found_in_versions[0];
+            }
+            
+            const titleText = version ? `Law ${data.law_id} v${version} - Table Review` : `Law ${data.law_id} - Table Review`;
+            document.getElementById('title').textContent = titleText;
             document.getElementById('total-tables').textContent = data.tables.length;
             
             // Show appropriate buttons based on review mode
             updateButtonVisibility();
             
-            // Initialize table data storage
+            // Initialize table data storage and header states
             data.tables.forEach(table => {
+                // Initialize corrections from table data if not already present
+                if (!corrections[table.hash] && table.status && table.status !== 'undefined' && table.status !== 'pending') {
+                    // Table has a status from the server, initialize correction entry
+                    corrections[table.hash] = {
+                        hash: table.hash,
+                        status: table.status,
+                        found_in_versions: table.found_in_versions,
+                        pages: table.pages,
+                        pdf_paths: table.pdf_paths,
+                        source_links: table.source_links,
+                        original_structure: table.structure
+                    };
+                    
+                    // Include corrected structure if available
+                    if (table.corrected_structure) {
+                        corrections[table.hash].corrected_structure = table.corrected_structure;
+                    }
+                    
+                    console.log(`📋 Initialized correction for table ${table.hash.substring(0, 8)} with status: ${table.status}`);
+                }
+                
                 // Use corrected structure if available, otherwise use original structure
                 if (corrections[table.hash] && corrections[table.hash].corrected_structure) {
                     tableData[table.hash] = JSON.parse(JSON.stringify(corrections[table.hash].corrected_structure));
                     console.log(`📋 Using corrected structure for table ${table.hash.substring(0, 8)}`);
+                } else if (table.corrected_structure) {
+                    tableData[table.hash] = JSON.parse(JSON.stringify(table.corrected_structure));
+                    console.log(`📋 Using table's corrected structure for table ${table.hash.substring(0, 8)}`);
                 } else {
                     tableData[table.hash] = JSON.parse(JSON.stringify(table.structure)); // Deep copy
                 }
+                
+                // Initialize header state per table - detect from actual structure
+                tableHeaderStates[table.hash] = hasActualHeaderRow(tableData[table.hash]);
             });
             
             if (data.tables.length === 0) {
@@ -900,7 +949,7 @@
             
             // Update table info
             document.getElementById('table-number').textContent = index + 1;
-            document.getElementById('table-hash').textContent = table.hash.substring(0, 12) + '...';
+            document.getElementById('table-hash').textContent = table.hash;
             
             // Update status
             const status = corrections[table.hash] ? corrections[table.hash].status : 'undefined';
@@ -953,11 +1002,6 @@
             }
             
             // Update context info
-            const versionsEl = document.getElementById('versions-display');
-            versionsEl.innerHTML = table.found_in_versions
-                .map(v => `<span class="version-badge">${v}</span>`)
-                .join('');
-            
             const pagesEl = document.getElementById('pages-display');
             pagesEl.textContent = Object.entries(table.pages)
                 .map(([v, p]) => `v${v}: ${Array.isArray(p) ? p.join(', ') : p}`)
@@ -987,6 +1031,9 @@
             const isEditingEnabled = status === 'confirmed_with_changes' || status === 'confirmed'; // backward compatibility
             setTableEditable(isEditingEnabled);
             
+            // Enable/disable header checkbox based on editing state
+            updateHeaderCheckboxState(isEditingEnabled);
+            
             // Update navigation
             updateNavigation();
             updateProgress();
@@ -995,12 +1042,13 @@
         // ====== TABLE RENDERING ======
         
         function renderTable(tableHash) {
-            const checkbox = document.getElementById('has-header-row');
-            const hasHeaderRow = checkbox ? checkbox.checked : hasActualHeaderRow(tableData[tableHash]);
+            // Get the stored header state for this specific table
+            const hasHeaderRow = tableHeaderStates[tableHash] || false;
             
-            // If checkbox doesn't match auto-detection, sync it
-            if (checkbox && !checkbox.checked && hasActualHeaderRow(tableData[tableHash])) {
-                checkbox.checked = true;
+            // Update checkbox to reflect this table's header state
+            const checkbox = document.getElementById('has-header-row');
+            if (checkbox) {
+                checkbox.checked = hasHeaderRow;
             }
             
             renderTableWithHeaderSetting(tableHash, hasHeaderRow);
@@ -1117,6 +1165,8 @@
                 }
                 // Disable editing when undefined
                 setTableEditable(false);
+                // Disable header checkbox when undefined
+                updateHeaderCheckboxState(false);
                 console.log(`❓ Table ${table.hash} set to undefined`);
                 
             } else if (status === 'confirmed_without_changes') {
@@ -1132,6 +1182,8 @@
                 };
                 // Disable editing when confirmed without changes
                 setTableEditable(false);
+                // Disable header checkbox when confirmed without changes
+                updateHeaderCheckboxState(false);
                 console.log(`✅ Confirmed table ${table.hash} without changes`);
                 
             } else if (status === 'confirmed_with_changes') {
@@ -1147,6 +1199,8 @@
                 };
                 // Enable editing when confirmed with changes
                 setTableEditable(true);
+                // Enable header checkbox when confirmed with changes
+                updateHeaderCheckboxState(true);
                 console.log(`✏️ Confirmed table ${table.hash} with changes enabled`);
                 
             } else if (status === 'rejected') {
@@ -1161,6 +1215,8 @@
                 };
                 // Disable editing when rejected
                 setTableEditable(false);
+                // Disable header checkbox when rejected
+                updateHeaderCheckboxState(false);
                 console.log(`❌ Rejected table ${table.hash}`);
             }
             
@@ -1197,10 +1253,16 @@
                 const tableHash = table.hash;
                 const correction = corrections[tableHash];
                 
+                // Consider a table decided if it has any status other than undefined or missing
                 if (!correction || correction.status === 'undefined') {
                     undecidedHashes.push(tableHash);
                 }
             }
+            
+            console.log(`📊 Validation: ${lawData.tables.length} total tables, ${undecidedHashes.length} undecided`);
+            console.log('Corrections:', Object.keys(corrections).map(hash => 
+                `${hash.substring(0,8)}: ${corrections[hash]?.status || 'missing'}`
+            ));
             
             return {
                 isComplete: undecidedHashes.length === 0,
@@ -1213,22 +1275,10 @@
              * Show/hide buttons based on review mode
              */
             const finishBtn = document.getElementById('finish-review-btn');
-            const finishCloseBtn = document.getElementById('finish-close-btn');
-            const cancelQuitBtn = document.getElementById('cancel-quit-btn');
             
-            if (reviewMode === 'folder') {
-                // Show additional buttons for folder mode
-                finishBtn.style.display = 'inline-block';
-                finishCloseBtn.style.display = 'inline-block';
-                cancelQuitBtn.style.display = 'inline-block';
-                finishBtn.textContent = 'Finish Review for this Law';
-            } else {
-                // Show only finish button for single law mode
-                finishBtn.style.display = 'inline-block';
-                finishCloseBtn.style.display = 'none';
-                cancelQuitBtn.style.display = 'none';
-                finishBtn.textContent = 'Finish Review for this Law';
-            }
+            // Simplified interface - only show finish button for all modes
+            finishBtn.style.display = 'inline-block';
+            finishBtn.textContent = 'Finish Review';
         }
         
         function updateCompletionStatus() {
@@ -1237,20 +1287,21 @@
              */
             const validation = validateAllTablesDecided();
             const finishBtn = document.getElementById('finish-review-btn');
-            const finishCloseBtn = document.getElementById('finish-close-btn');
             
             // Enable/disable buttons based on completion
             finishBtn.disabled = !validation.isComplete;
-            finishCloseBtn.disabled = !validation.isComplete;
             
-            // Update button tooltips
+            // Update button text to show remaining count
             if (!validation.isComplete) {
-                const message = `Please decide on ${validation.undecidedHashes.length} remaining table(s)`;
+                const remaining = validation.undecidedHashes.length;
+                finishBtn.textContent = `Finish Review (${remaining} remaining)`;
+                const message = `Please decide on ${remaining} remaining table(s)`;
                 finishBtn.title = message;
-                finishCloseBtn.title = message;
+                console.log(`⚠️ Button disabled: ${message}`);
             } else {
+                finishBtn.textContent = 'Finish Review';
                 finishBtn.title = '';
-                finishCloseBtn.title = '';
+                console.log(`✅ Button enabled: All tables decided`);
             }
             
             console.log(`📊 Completion status: ${validation.isComplete ? 'Complete' : `${validation.undecidedHashes.length} tables undecided`}`);
@@ -1272,21 +1323,7 @@
             saveCorrectionsAndProceed('next');
         }
         
-        function finishReviewAndClose() {
-            /**
-             * Finish review for current law and close browser (folder mode only)
-             */
-            const validation = validateAllTablesDecided();
-            
-            if (!validation.isComplete) {
-                // Buttons are disabled when validation fails, so this shouldn't happen
-                console.log(`Validation failed: ${validation.undecidedHashes.length} table(s) still need decisions`);
-                return;
-            }
-            
-            // Save corrections and quit the entire process
-            saveCorrectionsAndProceed('quit');
-        }
+        // finishReviewAndClose function removed - simplified interface
         
         function saveCorrectionsAndProceed(action) {
             /**
@@ -1409,6 +1446,24 @@
                 btn.disabled = !editable;
                 btn.style.opacity = editable ? '1' : '0.5';
             });
+        }
+        
+        function updateHeaderCheckboxState(isEditingEnabled) {
+            const headerCheckbox = document.getElementById('has-header-row');
+            if (headerCheckbox) {
+                headerCheckbox.disabled = !isEditingEnabled;
+                // Update visual styling to indicate disabled state
+                const checkboxContainer = headerCheckbox.closest('.header-checkbox');
+                if (checkboxContainer) {
+                    if (isEditingEnabled) {
+                        checkboxContainer.style.opacity = '1';
+                        checkboxContainer.style.cursor = 'pointer';
+                    } else {
+                        checkboxContainer.style.opacity = '0.5';
+                        checkboxContainer.style.cursor = 'not-allowed';
+                    }
+                }
+            }
         }
         
         function markTableAsEdited() {
@@ -1586,30 +1641,23 @@
                 return;
             }
             
-            let action, message;
-            
-            if (reviewMode === 'folder') {
-                // In folder mode, cancel current law and move to next
-                action = 'cancel_next';
-                message = 'Cancel review for this law? Unsaved changes will be lost and the next law will be opened.';
-            } else {
-                // In single mode, cancel and quit
-                action = 'cancel';
-                message = 'Cancel review? All unsaved changes will be lost.';
-            }
+            const message = reviewMode === 'folder' ? 
+                'Cancel review for this law? Unsaved changes will be lost and the next law will be opened.' :
+                'Cancel review? All unsaved changes will be lost.';
             
             if (confirm(message)) {
                 window.cancelInProgress = true;
-                console.log('❌ Review cancelled by user with action:', action);
+                console.log('❌ Review cancelled by user - moving to next law');
                 
-                // Send cancel action to backend
+                // Always use 'next' action to move to next law (or close if single mode)
                 fetch('/save-corrections', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         corrections: {},
-                        action: action,
-                        law_id: lawData.law_id
+                        action: 'next',
+                        law_id: lawData.law_id,
+                        cancelled: true
                     })
                 })
                 .finally(() => {
@@ -1618,31 +1666,7 @@
             }
         }
         
-        function cancelReviewAndQuit() {
-            // Prevent multiple executions
-            if (window.cancelInProgress) {
-                return;
-            }
-            
-            if (confirm('Cancel review and quit entire process? All unsaved changes will be lost.')) {
-                window.cancelInProgress = true;
-                console.log('❌ Review cancelled and quit by user');
-                
-                // Send cancel and quit action to backend
-                fetch('/save-corrections', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        corrections: {},
-                        action: 'cancel_quit',
-                        law_id: lawData.law_id
-                    })
-                })
-                .finally(() => {
-                    window.close();
-                });
-            }
-        }
+        // cancelReviewAndQuit function removed - simplified interface
         
         // ====== DATA LOADING ======
         function loadData() {
@@ -1736,10 +1760,13 @@
             const checkbox = document.getElementById('has-header-row');
             const tableHash = lawData.tables[currentTableIndex].hash;
             
+            // Store header state for this specific table
+            tableHeaderStates[tableHash] = checkbox.checked;
+            
             // Force re-render table with new header setting based on checkbox state
             renderTableWithHeaderSetting(tableHash, checkbox.checked);
             
-            console.log(checkbox.checked ? '✅ Header row enabled' : '❌ Header row disabled');
+            console.log(checkbox.checked ? `✅ Header row enabled for table ${tableHash.substring(0, 8)}` : `❌ Header row disabled for table ${tableHash.substring(0, 8)}`);
         }
         
         // Render table with explicit header setting
@@ -1755,7 +1782,7 @@
             // Use forced header setting instead of auto-detection
             const hasHeaderRow = forceHeaderEnabled;
             
-            let html = '<table class="custom-table" id="editable-table">';
+            let html = '<div class="table-scroll-container"><table class="custom-table" id="editable-table">';
             
             // Render rows
             for (let i = 0; i < structure.length; i++) {
@@ -1784,7 +1811,7 @@
                 html += '</tr>';
             }
             
-            html += '</table>';
+            html += '</table></div>';
             container.innerHTML = html;
             
             console.log(`✅ Rendered table ${tableHash} with ${structure.length} rows, forced header: ${hasHeaderRow}`);
@@ -2100,20 +2127,19 @@
                 }
             }
         });
-    </script>
-    
-    <!-- Unmerge Confirmation Modal -->
-    <div class="confirmation-modal" id="unmerge-modal">
-        <div class="confirmation-content">
-            <div class="confirmation-title">⚠️ Confirm Unmerge</div>
-            <div class="confirmation-message">
-                Are you sure you want to unmerge this table? This action will restore the table to its original state and allow you to make a new decision.
-            </div>
-            <div class="confirmation-buttons">
-                <button class="btn-cancel" onclick="hideUnmergeConfirmation()">Cancel</button>
-                <button class="btn-confirm" onclick="confirmUnmerge()">Unmerge</button>
+        </script>
+        <!-- Unmerge Confirmation Modal -->
+        <div class="confirmation-modal" id="unmerge-modal">
+            <div class="confirmation-content">
+                <div class="confirmation-title">⚠️ Confirm Unmerge</div>
+                <div class="confirmation-message">
+                    Are you sure you want to unmerge this table? This action will restore the table to its original state and allow you to make a new decision.
+                </div>
+                <div class="confirmation-buttons">
+                    <button class="btn-cancel" onclick="hideUnmergeConfirmation()">Cancel</button>
+                    <button class="btn-confirm" onclick="confirmUnmerge()">Unmerge</button>
+                </div>
             </div>
         </div>
-    </div>
-</body>
+    </body>
 </html>
