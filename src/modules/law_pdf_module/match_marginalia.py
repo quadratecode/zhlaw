@@ -110,6 +110,57 @@ def calculate_group_overlap(group, mod_pos):
     return total_overlap
 
 
+def merge_marginalia_containers(soup):
+    """
+    Merge multiple marginalia-containers that have the same data-related-provision.
+    
+    This function consolidates multiple marginalia containers assigned to the same
+    provision into a single container, preserving all marginalia paragraphs and
+    maintaining the positioning data from the first container.
+    """
+    # Group marginalia containers by their data-related-provision attribute
+    provision_groups = {}
+    all_containers = soup.find_all("div", class_="marginalia-container")
+    
+    for container in all_containers:
+        related_provision = container.get("data-related-provision")
+        if related_provision:
+            if related_provision not in provision_groups:
+                provision_groups[related_provision] = []
+            provision_groups[related_provision].append(container)
+    
+    # Process groups with multiple containers
+    for provision_id, containers in provision_groups.items():
+        if len(containers) > 1:
+            # Use the first container as the base
+            base_container = containers[0]
+            
+            # Collect all marginalia paragraphs from all containers
+            all_marginalia_paragraphs = []
+            for container in containers:
+                # Find all marginalia paragraphs in this container
+                marginalia_paras = container.find_all("p", class_="marginalia")
+                all_marginalia_paragraphs.extend(marginalia_paras)
+            
+            # Clear the base container's content
+            base_container.clear()
+            
+            # Add all collected marginalia paragraphs to the base container
+            for para in all_marginalia_paragraphs:
+                # Clone the paragraph to avoid issues with moving elements
+                new_para = soup.new_tag("p", attrs=para.attrs)
+                new_para.string = para.get_text()
+                base_container.append(new_para)
+            
+            # Remove the duplicate containers (all except the first)
+            for container in containers[1:]:
+                container.decompose()
+            
+            logger.info(f"Merged {len(containers)} marginalia containers for provision {provision_id}")
+    
+    return soup
+
+
 def adjust_marginalia_position(soup):
     """
     Adjust the position of marginalia containers in the HTML.
@@ -273,6 +324,9 @@ def merge_html(modified_path, marginalia_path):
             
             best_mod_p.insert_before(new_container)
 
+    # Merge multiple marginalia containers with the same provision
+    soup_modified = merge_marginalia_containers(soup_modified)
+    
     # Adjust the positions of the marginalia elements
     adjust_marginalia_position(soup_modified)
 

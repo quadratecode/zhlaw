@@ -103,6 +103,7 @@ def are_paragraphs_adjacent(
 ) -> bool:
     """
     Check if two paragraphs should be considered adjacent based on their positional data.
+    Handles overlapping elements, same-line elements, and close vertical proximity.
 
     :param p1: Positional data of the first paragraph.
     :param p2: Positional data of the second paragraph.
@@ -114,6 +115,10 @@ def are_paragraphs_adjacent(
 
     # Check if paragraphs start at almost the same vertical position.
     if abs(p1["top"] - p2["top"]) < FLOAT_COMPARE_THRESHOLD:
+        return True
+
+    # Check for overlap: if p2 starts before p1 ends, they overlap and should be grouped
+    if p2["top"] < p1["bottom"]:
         return True
 
     # Check if the vertical gap is within the threshold.

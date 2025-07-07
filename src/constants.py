@@ -171,7 +171,12 @@ class Patterns:
     DATE_YYYY_MM_DD: Final = r"\d{4}-\d{2}-\d{2}"
     LAW_NUMBER: Final = r"\d{3}\.\d{1,3}"
     ARTICLE_NUMBER: Final = r"Art\.\s*\d+[a-z]?"
-    PARAGRAPH_NUMBER: Final = r"§\s*\d+"
+    PARAGRAPH_NUMBER: Final = r"§\s*\d+[a-z]?"
+    
+    # Provision reference patterns (for preventing unwanted splits)
+    PROVISION_PARAGRAPH: Final = r"§\s*\d+[a-z]?$"      # § 54, § 54a
+    PROVISION_ARTICLE: Final = r"Art\.\s*\d+[a-z]?$"    # Art. 123, Art. 123a
+    PROVISION_ARTIKEL: Final = r"Artikel\s*\d+[a-z]?$"  # Artikel 123, Artikel 123a
     URL: Final = (
         r"https?://[\w\.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$"
     )

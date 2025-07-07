@@ -184,7 +184,20 @@ def try_split_wenn_enumeration(elements, i):
             # Skip uppercase single letters as they're likely abbreviations or names
             return False
             
-        # 4. Since we no longer match numbers, this check is no longer needed
+        # 4. Check if before_enum ends with a provision marker (§ or Art.)
+        # Provision patterns: § <number> or Art. <number> - these should stay together
+        provision_patterns = [
+            r'§\s*\d+[a-z]?$',        # § 54, § 54a
+            r'Art\.\s*\d+[a-z]?$',    # Art. 123, Art. 123a  
+            r'Artikel\s*\d+[a-z]?$'   # Artikel 123, Artikel 123a
+        ]
+        
+        for pattern in provision_patterns:
+            if re.search(pattern, before_enum.rstrip()):
+                # This is likely a provision reference like "§ 54 b." - don't split
+                return False
+            
+        # 5. Since we no longer match numbers, this check is no longer needed
         # (removed check for decimal numbers)
         
         # Update the first element to contain only text before enumeration
