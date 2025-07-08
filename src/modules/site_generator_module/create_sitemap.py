@@ -22,12 +22,51 @@ import re
 from datetime import datetime
 from urllib.parse import urljoin
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 import yaml
 from src.utils.logging_utils import get_module_logger
+from .build_zhlaw import alphanum_key
 
 # Get logger for this module
 logger = get_module_logger(__name__)
+
+
+def should_filter_version(version: Dict[str, Any], all_versions: List[Dict[str, Any]]) -> bool:
+    """
+    Determines if a version should be filtered out based on the criteria:
+    1. Must be the highest numeric_nachtragsnummer of all versions
+    2. "law_text_url" must be "null" or None
+    3. "aufhebungsdatum" must contain a date
+    4. "in_force" must be false
+    
+    Args:
+        version: The version to check
+        all_versions: All versions for this law (to determine if it's the highest)
+    
+    Returns:
+        True if the version should be filtered out
+    """
+    # Sort versions by numeric_nachtragsnummer to find the highest
+    sorted_versions = sorted(
+        all_versions, key=lambda x: alphanum_key(x.get("nachtragsnummer", ""))
+    )
+    
+    # Check if this is the highest version
+    if not sorted_versions or version != sorted_versions[-1]:
+        return False
+    
+    # Check all four conditions
+    law_text_url_null = (
+        version.get("law_text_url") == "null" or 
+        version.get("law_text_url") is None
+    )
+    has_aufhebungsdatum = (
+        version.get("aufhebungsdatum") and 
+        version.get("aufhebungsdatum") != ""
+    )
+    not_in_force = version.get("in_force") is False
+    
+    return law_text_url_null and has_aufhebungsdatum and not_in_force
 
 
 class SitemapGenerator:
@@ -109,12 +148,21 @@ class SitemapGenerator:
                 ordnungsnummer = law.get("ordnungsnummer", "")
                 versions = law.get("versions", [])
                 
-                # Find the newest version (in_force=true)
+                # Find the latest version by numeric_nachtragsnummer, excluding filtered versions
                 newest_version = None
-                for version in versions:
-                    if version.get("in_force", False):
-                        newest_version = version
-                        break
+                if versions:
+                    # Filter out versions that should be excluded (using should_filter_version logic)
+                    selectable_versions = []
+                    for version in versions:
+                        if not should_filter_version(version, versions):
+                            selectable_versions.append(version)
+                    
+                    if selectable_versions:
+                        try:
+                            newest_version = max(selectable_versions, key=lambda v: v.get("numeric_nachtragsnummer", 0))
+                        except (TypeError, ValueError):
+                            # Fallback to last version in list if numeric comparison fails
+                            newest_version = selectable_versions[-1]
                 
                 if newest_version and ordnungsnummer:
                     canonical_url = f"{self.domain}/col-zh/{ordnungsnummer}-{newest_version.get('nachtragsnummer', '')}.html"
@@ -132,11 +180,21 @@ class SitemapGenerator:
                 ordnungsnummer = law.get("ordnungsnummer", "")
                 versions = law.get("versions", [])
                 
+                # Find the latest version by numeric_nachtragsnummer, excluding filtered versions
                 newest_version = None
-                for version in versions:
-                    if version.get("in_force", False):
-                        newest_version = version
-                        break
+                if versions:
+                    # Filter out versions that should be excluded (using should_filter_version logic)
+                    selectable_versions = []
+                    for version in versions:
+                        if not should_filter_version(version, versions):
+                            selectable_versions.append(version)
+                    
+                    if selectable_versions:
+                        try:
+                            newest_version = max(selectable_versions, key=lambda v: v.get("numeric_nachtragsnummer", 0))
+                        except (TypeError, ValueError):
+                            # Fallback to last version in list if numeric comparison fails
+                            newest_version = selectable_versions[-1]
                 
                 if newest_version and ordnungsnummer:
                     canonical_url = f"{self.domain}/col-ch/{ordnungsnummer}-{newest_version.get('nachtragsnummer', '')}.html"

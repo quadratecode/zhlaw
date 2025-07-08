@@ -156,7 +156,15 @@ def merge_marginalia_containers(soup):
             for container in containers[1:]:
                 container.decompose()
             
-            logger.info(f"Merged {len(containers)} marginalia containers for provision {provision_id}")
+            # Reposition the merged container to be directly above its related provision
+            related_provision = soup.find(id=provision_id)
+            if related_provision:
+                # Move the merged container directly before the related provision
+                related_provision.insert_before(base_container)
+                logger.info(f"Merged {len(containers)} marginalia containers for provision {provision_id} and repositioned")
+            else:
+                logger.warning(f"Could not find provision {provision_id} to reposition merged marginalia container")
+                logger.info(f"Merged {len(containers)} marginalia containers for provision {provision_id}")
     
     return soup
 

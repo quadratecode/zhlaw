@@ -606,7 +606,7 @@ def modify_html(
             soup.insert(0, html_tag)
         else:
             soup.append(html_tag)
-    
+
     head: Union[Tag, None] = soup.head
     if head is None:
         head = soup.new_tag("head")
@@ -869,6 +869,77 @@ def alphanum_key(s: str) -> List[Union[int, str]]:
     ]
 
 
+def should_filter_version(
+    version: Dict[str, Any], all_versions: List[Dict[str, Any]]
+) -> bool:
+    """
+    Determines if a version should be filtered out based on the criteria:
+    1. Must be the highest numeric_nachtragsnummer of all versions
+    2. "law_text_url" must be "null" or None
+    3. "aufhebungsdatum" must contain a date
+    4. "in_force" must be false
+
+    Args:
+        version: The version to check
+        all_versions: All versions for this law (to determine if it's the highest)
+
+    Returns:
+        True if the version should be filtered out
+    """
+    # Sort versions by numeric_nachtragsnummer to find the highest
+    sorted_versions = sorted(
+        all_versions, key=lambda x: alphanum_key(x.get("nachtragsnummer", ""))
+    )
+
+    # Check if this is the highest version
+    if not sorted_versions or version != sorted_versions[-1]:
+        return False
+
+    # Check all four conditions
+    law_text_url_null = (
+        version.get("law_text_url") == "null" or version.get("law_text_url") is None
+    )
+    has_aufhebungsdatum = (
+        version.get("aufhebungsdatum") and version.get("aufhebungsdatum") != ""
+    )
+    not_in_force = version.get("in_force") is False
+
+    return law_text_url_null and has_aufhebungsdatum and not_in_force
+
+
+def filter_law_versions(laws: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Filters out versions from law data that meet the filtering criteria.
+
+    Args:
+        laws: List of law dictionaries from zhlex_data_processed.json
+
+    Returns:
+        List of law dictionaries with filtered versions removed
+    """
+    filtered_laws = []
+
+    for law in laws:
+        versions = law.get("versions", [])
+        if not versions:
+            filtered_laws.append(law)
+            continue
+
+        # Filter out versions that meet the criteria
+        filtered_versions = []
+        for version in versions:
+            if not should_filter_version(version, versions):
+                filtered_versions.append(version)
+
+        # Only include the law if it has remaining versions
+        if filtered_versions:
+            filtered_law = law.copy()
+            filtered_law["versions"] = filtered_versions
+            filtered_laws.append(filtered_law)
+
+    return filtered_laws
+
+
 # -----------------------------------------------------------------------------
 # Metadata, Versions, and Navigation Functions
 # -----------------------------------------------------------------------------
@@ -1075,10 +1146,10 @@ def insert_versions_and_update_navigation(
     versions: Any,
     ordnungsnummer: str,
     current_nachtragsnummer: str,
-) -> Tuple[BeautifulSoup, List[Dict[str, Any]]]:
+) -> Tuple[BeautifulSoup, List[Dict[str, Any]], Dict[str, Any]]:
     """
     Updates version information in the 'Versionen' display and navigation buttons.
-    Returns the modified soup and the sorted list of all versions.
+    Returns the modified soup, the sorted list of all versions, and any filtered version.
     """
     if "older_versions" in versions:
         all_versions: List[Dict[str, Any]] = versions.get(
@@ -1096,6 +1167,27 @@ def insert_versions_and_update_navigation(
     all_versions = sorted(
         all_versions, key=lambda x: alphanum_key(x["nachtragsnummer"])
     )
+
+    # Check if the highest version should be filtered out
+    filtered_version = None
+    if all_versions:
+        highest_version = all_versions[-1]
+        # Check all four conditions
+        if (
+            (
+                highest_version.get("law_text_url") == "null"
+                or highest_version.get("law_text_url") is None
+            )
+            and (
+                highest_version.get("aufhebungsdatum")
+                and highest_version.get("aufhebungsdatum") != ""
+            )
+            and (highest_version.get("in_force") is False)
+        ):
+            # This is the highest version and meets all filtering criteria
+            filtered_version = highest_version
+            # Remove it from the selectable versions
+            all_versions = all_versions[:-1]
     versions_value: Union[Tag, None] = soup.find("div", {"class": "versions-value"})
     if versions_value:
         for version in all_versions:
@@ -1154,7 +1246,7 @@ def insert_versions_and_update_navigation(
         soup, ordnungsnummer, prev_ver, next_ver, new_ver
     )
 
-    return soup, all_versions
+    return soup, all_versions, filtered_version
 
 
 # -----------------------------------------------------------------------------
@@ -1453,75 +1545,77 @@ def wrap_provisions(soup: BeautifulSoup) -> BeautifulSoup:
     """
     # Keep track of processed elements to avoid duplicates
     processed_elements = set()
-    
+
     # Find all provision paragraphs
     provision_paragraphs = soup.find_all("p", class_="provision")
-    
+
     for provision in provision_paragraphs:
         # Skip if already processed
         if id(provision) in processed_elements:
             continue
-            
+
         # Get the provision's ID - provisions should always have IDs like "seq-0-prov-2"
         provision_id = provision.get("id", "")
-        
+
         # Skip provisions without proper IDs
         if not provision_id:
-            logger.warning(f"Provision without ID found: {provision.get_text(strip=True)[:50]}...")
+            logger.warning(
+                f"Provision without ID found: {provision.get_text(strip=True)[:50]}..."
+            )
             continue
-        
+
         # Find all marginalia containers that reference this provision
         related_marginalia = []
         all_marginalia = soup.find_all("div", class_="marginalia-container")
-        
+
         for marginalia in all_marginalia:
             if id(marginalia) in processed_elements:
                 continue
-                
+
             if marginalia.get("data-related-provision") == provision_id:
                 related_marginalia.append(marginalia)
-        
+
         # Create provision container
         prov_container = soup.new_tag("div", **{"class": "provision-container"})
-        
+
         # Insert container before the first element (either marginalia or provision)
         if related_marginalia:
             # Sort marginalia by their position in the document
             related_marginalia.sort(key=lambda x: list(soup.descendants).index(x))
             first_element = related_marginalia[0]
-            
+
             # Check if provision comes before its marginalia
             prov_index = list(soup.descendants).index(provision)
             first_marg_index = list(soup.descendants).index(first_element)
-            
+
             if prov_index < first_marg_index:
                 first_element = provision
         else:
             first_element = provision
-            
+
         first_element.insert_before(prov_container)
-        
+
         # Move related marginalia into container
         for marginalia in related_marginalia:
             prov_container.append(marginalia)
             processed_elements.add(id(marginalia))
-        
+
         # Move the provision into container
         prov_container.append(provision)
         processed_elements.add(id(provision))
-        
+
         # Collect subsequent content until a stop element is found
         current_element = prov_container.find_next_sibling()
-        
+
         while current_element:
             next_sibling = current_element.find_next_sibling()
-            
+
             stop = False
             if isinstance(current_element, Tag):
                 classes = current_element.get("class", [])
                 elem_id = current_element.get("id", "")
                 elem_name = current_element.name
-                
+
                 # Stop conditions
                 if (
                     (elem_name == "p" and "provision" in classes)
@@ -1532,16 +1626,16 @@ def wrap_provisions(soup: BeautifulSoup) -> BeautifulSoup:
                     or (elem_name == "table" and "law-data-table" not in classes)
                 ):
                     stop = True
-                    
+
             if stop:
                 break
-                
+
             # Move element into container
             prov_container.append(current_element)
             processed_elements.add(id(current_element))
-            
+
             current_element = next_sibling
-    
+
     return soup
 
 
@@ -1851,39 +1945,21 @@ def main(
         soup = wrap_subprovisions(soup)
         soup = merge_paragraphs_with_footnote_refs(soup)
         soup = wrap_provisions(soup)
-        
+
         # Remove data-related-provision attribute after wrapping is complete
         for element in soup.find_all(attrs={"data-related-provision": True}):
             del element["data-related-provision"]
-        
-        soup = exclude_footnotes_from_search(soup)
-        # Determine canonical URL for all versions
-        canonical_url = ""
-        if in_force_status:
-            # Self-referencing canonical for newest version
-            if law_origin == "zh":
-                canonical_url = f"https://zhlaw.ch/col-zh/{ordnungsnummer}-{current_nachtragsnummer}.html"
-            elif law_origin == "ch":
-                canonical_url = f"https://zhlaw.ch/col-ch/{ordnungsnummer}-{current_nachtragsnummer}.html"
-        elif versions:
-            newer_versions = versions if isinstance(versions, list) else []
-            for version in newer_versions:
-                if version.get("in_force", False):
-                    canonical_nachtragsnummer = version.get("nachtragsnummer", "")
-                    if canonical_nachtragsnummer:
-                        if law_origin == "zh":
-                            canonical_url = f"https://zhlaw.ch/col-zh/{ordnungsnummer}-{canonical_nachtragsnummer}.html"
-                        elif law_origin == "ch":
-                            canonical_url = f"https://zhlaw.ch/col-ch/{ordnungsnummer}-{canonical_nachtragsnummer}.html"
-                    break
 
+        soup = exclude_footnotes_from_search(soup)
+        
+        # Canonical URL will be determined after version processing
         soup = modify_html(
             soup,
             erlasstitel,
             ordnungsnummer,
             current_nachtragsnummer,
             in_force_status,
-            canonical_url,
+            "",  # Empty canonical URL for now
         )
         soup = insert_combined_table(
             soup,
@@ -1915,9 +1991,65 @@ def main(
             version_container.append(nav_div)  # Then nav buttons
             sidebar.insert(1, version_container)
 
-            soup, all_versions = insert_versions_and_update_navigation(
-                soup, versions, ordnungsnummer, current_nachtragsnummer
+            soup, all_versions, filtered_version = (
+                insert_versions_and_update_navigation(
+                    soup, versions, ordnungsnummer, current_nachtragsnummer
+                )
             )
+
+            # Add "Aufgehoben mit" note if applicable
+            if filtered_version and all_versions:
+                # Check if current version is the last selectable version
+                last_selectable_version = all_versions[-1] if all_versions else None
+                if (
+                    last_selectable_version
+                    and last_selectable_version.get("nachtragsnummer")
+                    == current_nachtragsnummer
+                ):
+                    # Create a separate aufgehoben box below the status message
+                    aufgehoben_box = soup.new_tag("div", id="aufgehoben-message")
+
+                    # Add the appropriate CSS class based on the status message
+                    status_div_in_container = version_container.find(
+                        "div", id="status-message"
+                    )
+                    if status_div_in_container:
+                        # Copy the same styling class from status message
+                        if "in-force-yes" in status_div_in_container.get("class", []):
+                            aufgehoben_box["class"] = [
+                                "aufgehoben-message",
+                                "in-force-yes",
+                            ]
+                        elif "in-force-no" in status_div_in_container.get("class", []):
+                            aufgehoben_box["class"] = [
+                                "aufgehoben-message",
+                                "in-force-no",
+                            ]
+                        else:
+                            aufgehoben_box["class"] = ["aufgehoben-message"]
+                    else:
+                        aufgehoben_box["class"] = ["aufgehoben-message"]
+
+                    # Create the "Aufgehoben mit" note content
+                    aufgehoben_box.append("Definitiv aufgehoben mit ")
+
+                    # Create link to the filtered version's law page
+                    if filtered_version.get("law_page_url"):
+                        aufgehoben_link = soup.new_tag(
+                            "a",
+                            href=filtered_version["law_page_url"],
+                            target="_blank",
+                            **{"class": "aufgehoben-link"},
+                        )
+                        aufgehoben_link.string = filtered_version["nachtragsnummer"]
+                        aufgehoben_box.append(aufgehoben_link)
+                    else:
+                        # If no law_page_url, just show the version number without link
+                        aufgehoben_box.append(filtered_version["nachtragsnummer"])
+
+                    # Insert the aufgehoben box after the status message
+                    if status_div_in_container:
+                        status_div_in_container.insert_after(aufgehoben_box)
 
         # Check if this version is the newest
         is_newest = False
@@ -1926,6 +2058,46 @@ def main(
             is_newest = newest_nachtragsnummer == current_nachtragsnummer
         else:
             is_newest = True
+
+        # Now determine canonical URL using the properly filtered all_versions list
+        canonical_url = ""
+        if all_versions:
+            # Get the latest (last) version from the filtered list
+            latest_version = all_versions[-1]
+            latest_nachtragsnummer = latest_version.get("nachtragsnummer", "")
+            
+            if is_newest:
+                # Self-referencing canonical for latest version
+                if law_origin == "zh":
+                    canonical_url = f"https://zhlaw.ch/col-zh/{ordnungsnummer}-{current_nachtragsnummer}.html"
+                elif law_origin == "ch":
+                    canonical_url = f"https://zhlaw.ch/col-ch/{ordnungsnummer}-{current_nachtragsnummer}.html"
+            else:
+                # Point to the latest version
+                if latest_nachtragsnummer:
+                    if law_origin == "zh":
+                        canonical_url = f"https://zhlaw.ch/col-zh/{ordnungsnummer}-{latest_nachtragsnummer}.html"
+                    elif law_origin == "ch":
+                        canonical_url = f"https://zhlaw.ch/col-ch/{ordnungsnummer}-{latest_nachtragsnummer}.html"
+        else:
+            # If no versions available, assume this is the latest (self-referencing)
+            if law_origin == "zh":
+                canonical_url = f"https://zhlaw.ch/col-zh/{ordnungsnummer}-{current_nachtragsnummer}.html"
+            elif law_origin == "ch":
+                canonical_url = f"https://zhlaw.ch/col-ch/{ordnungsnummer}-{current_nachtragsnummer}.html"
+
+        # Update the canonical link in the head if one was determined
+        if canonical_url:
+            head = soup.find("head")
+            if head:
+                # Remove any existing canonical link
+                existing_canonical = head.find("link", rel="canonical")
+                if existing_canonical:
+                    existing_canonical.decompose()
+                
+                # Add the correct canonical link
+                canonical_link = soup.new_tag("link", rel="canonical", href=canonical_url)
+                head.append(canonical_link)
 
         # Apply attributes based on version status
         law_div: Union[Tag, None] = soup.find("div", id="law")

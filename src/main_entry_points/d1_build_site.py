@@ -506,6 +506,10 @@ def main(
         with open(COLLECTION_DATA_ZH, "r", encoding="utf-8") as file:
             zhlex_data_processed = json.load(file)
 
+        # Filter out versions that meet the filtering criteria to prevent placeholder generation
+        zhlex_data_filtered = build_zhlaw.filter_law_versions(zhlex_data_processed)
+        logger.info(f"Filtered ZH data for placeholders: {len(zhlex_data_processed)} -> {len(zhlex_data_filtered)} laws")
+
         # Collect all ZH public HTML files
         public_html_files_zh = glob.glob(
             os.path.join(COLLECTION_PATH_ZH, "*.html"),
@@ -514,7 +518,7 @@ def main(
 
         logger.info("Creating placeholders for ZH-Lex")
         create_placeholders.main(
-            zhlex_data_processed, public_html_files_zh, PLACEHOLDER_DIR_ZH
+            zhlex_data_filtered, public_html_files_zh, PLACEHOLDER_DIR_ZH
         )
         logger.info("Finished creating placeholders for ZH-Lex")
 

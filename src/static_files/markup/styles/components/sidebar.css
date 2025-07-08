@@ -54,6 +54,35 @@
     color: var(--in-force-dark-red);
 }
 
+/* Aufgehoben Message Box - Same design as status message */
+#aufgehoben-message {
+    text-align: center;
+    padding: 0.75rem;
+    font-weight: var(--font-weight-bold);
+    margin-bottom: 0.5rem;
+}
+
+#aufgehoben-message.in-force-yes {
+    border: 1px solid var(--in-force-dark-green);
+    background-color: var(--in-force-green);
+    color: var(--in-force-dark-green);
+}
+
+#aufgehoben-message.in-force-no {
+    border: 1px solid var(--in-force-dark-red);
+    background-color: var(--in-force-red);
+    color: var(--in-force-dark-red);
+}
+
+/* Keep links blue in aufgehoben message with standard underline */
+#aufgehoben-message .aufgehoben-link {
+    color: var(--link-blue);
+    text-decoration: underline;
+    text-decoration-thickness: .1em;
+    text-decoration-skip-ink: auto;
+    text-underline-offset: 0.22em;
+}
+
 #annex summary {
     cursor: pointer;
 }
