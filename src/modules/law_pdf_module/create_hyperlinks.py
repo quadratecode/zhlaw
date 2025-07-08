@@ -98,8 +98,20 @@ def find_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
     Process <p> elements to identify provisions and subprovisions.
     Subprovisions (paragraphs with only a numeric string or with suffixes)
     are marked with class 'subprovision' and assigned an ID referencing the last provision.
+    
+    Validates that subprovisions follow sequential order (1, 1bis, 2, 2bis, 2ter, etc.)
+    to avoid marking random numbers (like footnote references) as subprovisions.
     """
     last_provision_id: Optional[str] = None
+    
+    # Define the suffix sequence
+    SUFFIX_SEQUENCE = ['', 'bis', 'ter', 'quater', 'quinquies', 'sexies', 'septies', 'octies']
+    
+    # Track subprovision state per provision
+    subprovision_state = {
+        'last_number': 0,
+        'last_suffix_index': -1  # Index in SUFFIX_SEQUENCE
+    }
 
     # Filter paragraphs based on specific attribute conditions.
     for paragraph in soup.find_all(
@@ -120,22 +132,51 @@ def find_subprovisions(soup: BeautifulSoup) -> BeautifulSoup:
             current_id = paragraph.get("id")
             if current_id:  # Make sure it has an ID
                 last_provision_id = current_id
+                # Reset subprovision tracking for new provision
+                subprovision_state = {
+                    'last_number': 0,
+                    'last_suffix_index': -1
+                }
 
-        # If text matches subprovision pattern, mark it as subprovision
+        # If text matches subprovision pattern, validate sequence before marking
         if SUBPROVISION_PATTERN.match(text):
-            paragraph["class"] = ["subprovision"]
-            if last_provision_id:
-                subprov_match = SUBPROVISION_PATTERN.match(text)
-                if subprov_match:
-                    subprovision_number = subprov_match.group(1)
-                    subprov_suffix = (
-                        subprov_match.group(2) if subprov_match.group(2) else ""
-                    )
-
-                    # Construct the new ID by simply appending to the last known provision ID.
-                    paragraph["id"] = (
-                        f"{last_provision_id}-sub-{subprovision_number}{subprov_suffix.lower()}"
-                    )
+            subprov_match = SUBPROVISION_PATTERN.match(text)
+            if subprov_match:
+                subprovision_number = int(subprov_match.group(1))
+                subprov_suffix = subprov_match.group(2) if subprov_match.group(2) else ""
+                
+                # Find suffix index
+                suffix_index = -1
+                for i, suffix in enumerate(SUFFIX_SEQUENCE):
+                    if suffix.lower() == subprov_suffix.lower():
+                        suffix_index = i
+                        break
+                
+                # Validate sequential order
+                is_valid_sequence = False
+                
+                if subprovision_state['last_number'] == 0:
+                    # First subprovision - should start with 1 (no suffix)
+                    is_valid_sequence = (subprovision_number == 1 and suffix_index <= 0)
+                elif subprovision_number == subprovision_state['last_number']:
+                    # Same number - suffix must progress sequentially
+                    is_valid_sequence = (suffix_index == subprovision_state['last_suffix_index'] + 1)
+                elif subprovision_number == subprovision_state['last_number'] + 1:
+                    # Next number - must have no suffix or empty suffix
+                    is_valid_sequence = (suffix_index <= 0)
+                
+                # Only mark as subprovision if sequence is valid
+                if is_valid_sequence:
+                    paragraph["class"] = ["subprovision"]
+                    if last_provision_id:
+                        # Construct the new ID by simply appending to the last known provision ID.
+                        paragraph["id"] = (
+                            f"{last_provision_id}-sub-{subprovision_number}{subprov_suffix.lower()}"
+                        )
+                    
+                    # Update tracking state
+                    subprovision_state['last_number'] = subprovision_number
+                    subprovision_state['last_suffix_index'] = suffix_index if suffix_index >= 0 else 0
 
     return soup
 
