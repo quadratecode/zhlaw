@@ -1,6 +1,6 @@
 # Main Entry Points Documentation
 
-This document lists all main entry point files and their possible argument combinations. Each command can be copy-pasted directly.
+This document lists all main entry point modules and their standardized command-line arguments. All modules use consistent argument patterns for easier operation.
 
 ## 1. a1_scrape_zhlex.py - ZH-Lex Scraping Pipeline
 
@@ -16,31 +16,66 @@ python -m src.main_entry_points.a1_scrape_zhlex
 
 Processes ZH-Lex PDF files that have been scraped and downloaded.
 
-### Arguments:
-- `--folder`: Choose folder to process
-  - `zhlex_files`: Process all Canton of Zurich files
-  - `zhlex_files_test`: Process test dataset only (default)
-- `--mode`: Processing mode
-  - `concurrent`: Parallel processing (default)
-  - `sequential`: Sequential processing (for debugging)
-
-### All possible combinations:
-
 ```bash
-# Process test files with concurrent mode (default)
 python -m src.main_entry_points.a2_process_zhlex
-
-# Process test files with sequential mode
-python -m src.main_entry_points.a2_process_zhlex --mode sequential
-
-# Process all files with concurrent mode
-python -m src.main_entry_points.a2_process_zhlex --folder zhlex_files
-
-# Process all files with sequential mode
-python -m src.main_entry_points.a2_process_zhlex --folder zhlex_files --mode sequential
 ```
 
-## 3. b1_process_krzh_dispatch.py - Parliamentary Dispatch Processing
+### Arguments:
+- `--target`: Target folder to process (default: zhlex_files_test)
+  - `zhlex_files_test`: Process test dataset only
+  - `zhlex_files`: Process all Canton of Zurich files
+- `--mode`: Processing mode (default: concurrent)
+  - `concurrent`: Parallel processing
+  - `sequential`: Sequential processing (for debugging)
+- `--filter-new-only`: Only process files that haven't been processed yet
+- `--log-level`: Logging level (default: info)
+  - `debug`, `info`, `warning`, `error`
+
+## 3. a3_table_extraction.py - Table Extraction System
+
+Extracts table structures from legal documents and creates per-version correction files.
+
+```bash
+python -m src.main_entry_points.a3_table_extraction --target zhlex_files_test
+```
+
+### Arguments:
+- `--target`: Target folder to process (**required**)
+  - `zhlex_files_test`, `zhlex_files`, `fedlex_files_test`, `fedlex_files`
+- `--law`: Extract tables for specific law only (e.g., 170.4)
+- `--show-status`: Show extraction status for target folder
+- `--workers`: Number of worker threads for concurrent processing (default: 4)
+- `--mode`: Processing mode (default: concurrent)
+  - `concurrent`: Parallel processing
+  - `sequential`: Single-threaded processing
+- `--regenerate`: Regenerate table data for specific law from scratch (requires --law)
+- `--regenerate-all`: Regenerate table data for all laws in target folder from scratch
+- `--log-level`: Logging level (default: info)
+  - `debug`, `info`, `warning`, `error`
+
+## 4. a4_table_review.py - Table Review System
+
+Human-in-the-loop table review system for correcting table structures.
+
+```bash
+python -m src.main_entry_points.a4_table_review --target zhlex_files_test
+```
+
+### Arguments:
+- `--target`: Target folder to review (**required**)
+  - `zhlex_files_test`, `zhlex_files`, `fedlex_files_test`, `fedlex_files`
+- `--law`: Review specific law (e.g., 170.4)
+- `--version`: Specify version(s): specific version (e.g., '129'), 'latest', or 'all'
+- `--show-status`: Show review progress and statistics
+- `--reset`: Reset corrections for a law (requires --law)
+- `--reset-all`: Reset all corrections in the specified target folder
+- `--mode`: Processing mode (default: sequential)
+  - `sequential`: Interactive mode (recommended for review)
+  - `concurrent`: Batch processing mode
+- `--log-level`: Logging level (default: info)
+  - `debug`, `info`, `warning`, `error`
+
+## 5. b1_process_krzh_dispatch.py - Parliamentary Dispatch Processing
 
 Processes parliamentary dispatches from Kantonsrat Zürich.
 
@@ -50,7 +85,7 @@ Processes parliamentary dispatches from Kantonsrat Zürich.
 python -m src.main_entry_points.b1_process_krzh_dispatch
 ```
 
-## 4. c1_scrape_fedlex.py - Fedlex Scraping Pipeline
+## 6. c1_scrape_fedlex.py - Fedlex Scraping Pipeline
 
 Scrapes federal law metadata from Fedlex SPARQL endpoint.
 
@@ -60,299 +95,96 @@ Scrapes federal law metadata from Fedlex SPARQL endpoint.
 python -m src.main_entry_points.c1_scrape_fedlex
 ```
 
-## 5. c2_process_fedlex.py - Fedlex File Processing Pipeline
+## 7. c2_process_fedlex.py - Fedlex File Processing Pipeline
 
 Processes Fedlex federal law HTML files.
 
-### Arguments:
-- `--folder`: Choose folder to process
-  - `fedlex_files`: Process all federal law files (default)
-  - `fedlex_files_test`: Process test dataset only
-- `--mode`: Processing mode
-  - `concurrent`: Parallel processing
-  - `sequential`: Sequential processing (default)
-- `--workers`: Number of worker processes (only for concurrent mode)
-
-### All possible combinations:
-
 ```bash
-# Process test files with sequential mode (default for test)
-python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files_test
-
-# Process test files with concurrent mode
-python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files_test --mode concurrent
-
-# Process test files with concurrent mode and 4 workers
-python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files_test --mode concurrent --workers 4
-
-# Process all files with sequential mode
-python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files --mode sequential
-
-# Process all files with concurrent mode
-python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files --mode concurrent
-
-# Process all files with concurrent mode and 8 workers
-python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files --mode concurrent --workers 8
+python -m src.main_entry_points.c2_process_fedlex
 ```
 
-## 6. d1_build_site.py - Static Site Generation Pipeline
+### Arguments:
+- `--target`: Target folder to process (default: fedlex_files_test)
+  - `fedlex_files_test`: Process test dataset only
+  - `fedlex_files`: Process all federal law files
+- `--mode`: Processing mode (default: concurrent)
+  - `concurrent`: Parallel processing
+  - `sequential`: Sequential processing (for debugging)
+- `--filter-new-only`: Only process files that haven't been processed yet
+- `--log-level`: Logging level (default: info)
+  - `debug`, `info`, `warning`, `error`
+
+## 8. d1_build_site.py - Static Site Generation Pipeline
 
 Generates the static website from processed law data.
 
-### Arguments:
-- `--folder`: Choose collections to build
-  - `all_test_files`: Test files for fedlex and zhlex
-  - `fedlex_test_files`: Test files only for fedlex
-  - `zhlex_test_files`: Test files only for zhlex
-  - `all_main_files`: All files in fedlex_files and zhlex_files (default)
-  - `zhlex_main_files`: All files in zhlex_files only
-  - `fedlex_main_files`: All files in fedlex_files only
-- `--db-build`: Build markdown dataset
-  - `yes`: Generate dataset (default)
-  - `no`: Skip dataset generation
-- `--placeholders`: Create placeholder pages
-  - `yes`: Create placeholders (default)
-  - `no`: Skip placeholders
-- `--mode`: Processing mode
-  - `concurrent`: Parallel processing (default)
-  - `sequential`: Sequential processing
-- `--workers`: Number of worker processes
-
-### Common workflows:
-
 ```bash
-# Build everything with defaults (all files, with dataset, with placeholders, concurrent)
 python -m src.main_entry_points.d1_build_site
-
-# Build test files for quick testing
-python -m src.main_entry_points.d1_build_site --folder all_test_files
-
-# Build only ZH test files
-python -m src.main_entry_points.d1_build_site --folder zhlex_test_files
-
-# Build only Fedlex test files
-python -m src.main_entry_points.d1_build_site --folder fedlex_test_files
-
-# Build all ZH files without dataset
-python -m src.main_entry_points.d1_build_site --folder zhlex_main_files --db-build no
-
-# Build all Fedlex files without placeholders
-python -m src.main_entry_points.d1_build_site --folder fedlex_main_files --placeholders no
-
-# Build everything sequentially for debugging
-python -m src.main_entry_points.d1_build_site --mode sequential
-
-# Build with specific number of workers
-python -m src.main_entry_points.d1_build_site --workers 4
 ```
 
-### All possible combinations for test files:
+### Arguments:
+- `--target`: Target collection(s) to build (default: all_files)
+  - `all_files_test`: Test files for both collections
+  - `fedlex_files_test`: Fedlex test files only
+  - `zhlex_files_test`: ZH-Lex test files only
+  - `all_files`: Both collections (production)
+  - `zhlex_files`: ZH-Lex only (production)
+  - `fedlex_files`: Fedlex only (production)
+- `--build-dataset` / `--no-build-dataset`: Build markdown dataset (default: enabled)
+- `--create-placeholders` / `--no-placeholders`: Create placeholder pages for missing documents (default: enabled, ZH-Lex only)
+- `--mode`: Processing mode (default: concurrent)
+  - `concurrent`: Parallel processing
+  - `sequential`: Sequential processing (for debugging)
+- `--workers`: Number of worker processes (default: auto-detect)
+- `--no-minify`: Disable minification for debugging (pretty-print HTML and CSS)
+- `--log-level`: Logging level (default: info)
+  - `debug`, `info`, `warning`, `error`
 
-```bash
-# All test files combinations
-python -m src.main_entry_points.d1_build_site --folder all_test_files
-python -m src.main_entry_points.d1_build_site --folder all_test_files --db-build no
-python -m src.main_entry_points.d1_build_site --folder all_test_files --placeholders no
-python -m src.main_entry_points.d1_build_site --folder all_test_files --db-build no --placeholders no
-python -m src.main_entry_points.d1_build_site --folder all_test_files --mode sequential
-python -m src.main_entry_points.d1_build_site --folder all_test_files --mode sequential --db-build no
-python -m src.main_entry_points.d1_build_site --folder all_test_files --workers 2
-
-# ZH test files combinations
-python -m src.main_entry_points.d1_build_site --folder zhlex_test_files
-python -m src.main_entry_points.d1_build_site --folder zhlex_test_files --db-build no
-python -m src.main_entry_points.d1_build_site --folder zhlex_test_files --placeholders no
-python -m src.main_entry_points.d1_build_site --folder zhlex_test_files --mode sequential
-
-# Fedlex test files combinations
-python -m src.main_entry_points.d1_build_site --folder fedlex_test_files
-python -m src.main_entry_points.d1_build_site --folder fedlex_test_files --db-build no
-python -m src.main_entry_points.d1_build_site --folder fedlex_test_files --placeholders no
-python -m src.main_entry_points.d1_build_site --folder fedlex_test_files --mode sequential
-```
-
-### All possible combinations for main files:
-
-```bash
-# All main files combinations
-python -m src.main_entry_points.d1_build_site --folder all_main_files
-python -m src.main_entry_points.d1_build_site --folder all_main_files --db-build no
-python -m src.main_entry_points.d1_build_site --folder all_main_files --placeholders no
-python -m src.main_entry_points.d1_build_site --folder all_main_files --db-build no --placeholders no
-python -m src.main_entry_points.d1_build_site --folder all_main_files --mode sequential
-python -m src.main_entry_points.d1_build_site --folder all_main_files --workers 8
-
-# ZH main files combinations
-python -m src.main_entry_points.d1_build_site --folder zhlex_main_files
-python -m src.main_entry_points.d1_build_site --folder zhlex_main_files --db-build no
-python -m src.main_entry_points.d1_build_site --folder zhlex_main_files --placeholders no
-python -m src.main_entry_points.d1_build_site --folder zhlex_main_files --mode sequential
-python -m src.main_entry_points.d1_build_site --folder zhlex_main_files --workers 4
-
-# Fedlex main files combinations
-python -m src.main_entry_points.d1_build_site --folder fedlex_main_files
-python -m src.main_entry_points.d1_build_site --folder fedlex_main_files --db-build no
-python -m src.main_entry_points.d1_build_site --folder fedlex_main_files --placeholders no
-python -m src.main_entry_points.d1_build_site --folder fedlex_main_files --mode sequential
-python -m src.main_entry_points.d1_build_site --folder fedlex_main_files --workers 6
-```
-
-## 7. e1_build_database.py - SQL Database Generation Pipeline
+## 9. e1_build_database.py - SQL Database Generation Pipeline
 
 Builds an SQLite database from processed markdown law files.
 
+```bash
+python -m src.main_entry_points.e1_build_database
+```
+
 ### Arguments:
-- `--input-dir`: Input directory containing md-files subdirectory (default: public/)
-- `--output-file`: Output database filename (default: zhlaw.db)
-- `--collections`: Collections to process
+- `--target`: Target collections to process (default: all)
   - `zh`: Process only Zurich laws
   - `ch`: Process only federal laws
-  - `all`: Process all collections (default)
-- `--mode`: Processing mode
-  - `concurrent`: Parallel processing (default)
+  - `all`: Process all collections
+- `--input-dir`: Input directory containing md-files subdirectory (default: public/)
+- `--output-file`: Output database filename (default: zhlaw.db)
+- `--mode`: Processing mode (default: concurrent)
+  - `concurrent`: Parallel processing
   - `sequential`: Sequential processing
-- `--workers`: Number of worker processes (default: auto-detect)
-- `--log-level`: Logging level (DEBUG, INFO, WARNING, ERROR - default: INFO)
+- `--log-level`: Logging level (default: info)
+  - `debug`, `info`, `warning`, `error`
 
-### Common workflows:
+## Argument Standardization
 
-```bash
-# Build database from all collections (default)
-python -m src.main_entry_points.e1_build_database
+All modules follow consistent patterns:
 
-# Build from test files only
-python -m src.main_entry_points.e1_build_database --input-dir public_test/
+### Core Arguments (used across all applicable modules):
+- `--target`: Unified naming for folder/collection selection
+- `--mode {concurrent,sequential}`: Consistent processing mode control
+- `--log-level {debug,info,warning,error}`: Standardized logging (lowercase)
 
-# Build only ZH collection with sequential processing
-python -m src.main_entry_points.e1_build_database --collections zh --mode sequential
+### Specialized Arguments:
+- `--filter-new-only`: Process only unprocessed items
+- `--show-status`: Display status/progress information
+- Boolean flags: Use `--flag` / `--no-flag` pattern where applicable
 
-# Build with custom output filename and worker count
-python -m src.main_entry_points.e1_build_database --output-file custom_laws.db --workers 4
-
-# Build with debug logging
-python -m src.main_entry_points.e1_build_database --log-level DEBUG
-```
-
-### All possible combinations:
-
-```bash
-# Basic usage
-python -m src.main_entry_points.e1_build_database
-
-# Different input directories
-python -m src.main_entry_points.e1_build_database --input-dir public/
-python -m src.main_entry_points.e1_build_database --input-dir public_test/
-
-# Different collections
-python -m src.main_entry_points.e1_build_database --collections zh
-python -m src.main_entry_points.e1_build_database --collections ch
-python -m src.main_entry_points.e1_build_database --collections all
-
-# Different processing modes
-python -m src.main_entry_points.e1_build_database --mode concurrent
-python -m src.main_entry_points.e1_build_database --mode sequential
-
-# Custom output files
-python -m src.main_entry_points.e1_build_database --output-file laws.db
-python -m src.main_entry_points.e1_build_database --output-file test_laws.db
-
-# Worker configurations
-python -m src.main_entry_points.e1_build_database --workers 2
-python -m src.main_entry_points.e1_build_database --workers 4
-python -m src.main_entry_points.e1_build_database --workers 8
-
-# Logging levels
-python -m src.main_entry_points.e1_build_database --log-level DEBUG
-python -m src.main_entry_points.e1_build_database --log-level INFO
-python -m src.main_entry_points.e1_build_database --log-level WARNING
-
-# Combined examples
-python -m src.main_entry_points.e1_build_database --input-dir public_test/ --collections zh --mode sequential
-python -m src.main_entry_points.e1_build_database --output-file test.db --workers 2 --log-level DEBUG
-python -m src.main_entry_points.e1_build_database --collections ch --mode concurrent --workers 4
-```
-
-## Complete Processing Pipelines
-
-### Test Pipeline (Quick Testing)
-```bash
-# 1. Scrape and process ZH test data
-python -m src.main_entry_points.a1_scrape_zhlex
-python -m src.main_entry_points.a2_process_zhlex --folder zhlex_files_test
-
-# 2. Scrape and process Fedlex test data
-python -m src.main_entry_points.c1_scrape_fedlex
-python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files_test
-
-# [Optional: 3. Process parliamentary dispatches]
-python -m src.main_entry_points.b1_process_krzh_dispatch
-
-# 4. Build test site (includes placeholders and dataset)
-python -m src.main_entry_points.d1_build_site --folder all_test_files
-
-# [Optional: 5. Build database from test site]
-python -m src.main_entry_points.e1_build_database --input-dir public_test/
-```
-
-### Full Production Pipeline
-```bash
-# 1. Scrape and process all ZH data
-python -m src.main_entry_points.a1_scrape_zhlex
-python -m src.main_entry_points.a2_process_zhlex --folder zhlex_files
-
-# 2. Scrape and process all Fedlex data
-python -m src.main_entry_points.c1_scrape_fedlex
-python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files --mode concurrent
-
-# 3. Process parliamentary dispatches
-python -m src.main_entry_points.b1_process_krzh_dispatch
-
-# 4. Build complete site
-python -m src.main_entry_points.d1_build_site --folder all_main_files
-
-# [Optional: 5. Build database from production site]
-python -m src.main_entry_points.e1_build_database --input-dir public/
-```
-
-### ZH-Only Pipeline
-```bash
-# 1. Scrape and process ZH data
-python -m src.main_entry_points.a1_scrape_zhlex
-python -m src.main_entry_points.a2_process_zhlex --folder zhlex_files
-
-# 2. Build ZH-only site
-python -m src.main_entry_points.d1_build_site --folder zhlex_main_files
-
-# [Optional: 3. Build database for ZH laws only]
-python -m src.main_entry_points.e1_build_database --collections zh
-```
-
-### Fedlex-Only Pipeline
-```bash
-# 1. Scrape and process Fedlex data
-python -m src.main_entry_points.c1_scrape_fedlex
-python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files --mode concurrent
-
-# 2. Build Fedlex-only site
-python -m src.main_entry_points.d1_build_site --folder fedlex_main_files
-
-# [Optional: 3. Build database for federal laws only]
-python -m src.main_entry_points.e1_build_database --collections ch
-```
-
-### Debug Pipeline (Sequential Processing)
-```bash
-# Process everything sequentially for easier debugging
-python -m src.main_entry_points.a2_process_zhlex --folder zhlex_files_test --mode sequential
-python -m src.main_entry_points.c2_process_fedlex --folder fedlex_files_test --mode sequential
-python -m src.main_entry_points.d1_build_site --folder all_test_files --mode sequential
-```
+### File Naming Convention:
+- Test files: Always use full names like `zhlex_files_test`, `fedlex_files_test`
+- Production files: Use `zhlex_files`, `fedlex_files`, `all_files`
 
 ## Notes
 
 1. **Processing Order**: Always run scraping scripts (a1, c1) before processing scripts (a2, c2)
-2. **Test vs Production**: Use test folders for development and debugging
-3. **Concurrent vs Sequential**: Use concurrent for speed, sequential for debugging
-4. **Worker Count**: If not specified, uses system CPU count
-5. **API Limits**: Adobe API has monthly limits - use test files to avoid exhausting quota
-6. **OpenAI Requirement**: Only needed for b1_process_krzh_dispatch (dispatch processing)
+2. **Table Processing**: Run a3_table_extraction before a4_table_review
+3. **Test vs Production**: Use test targets for development and debugging
+4. **Concurrent vs Sequential**: Use concurrent for speed, sequential for debugging
+5. **Worker Count**: Auto-detected unless specified
+6. **API Limits**: Adobe API has monthly limits - use test files to avoid exhausting quota
+7. **OpenAI Requirement**: Only needed for b1_process_krzh_dispatch (dispatch processing)

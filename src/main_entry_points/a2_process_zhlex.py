@@ -213,13 +213,14 @@ def process_files_sequentially(pdf_files):
 
 
 @configure_logging()
-def main(folder: str, concurrent_mode: bool) -> None:
+def main(folder: str, concurrent_mode: bool, new_only: bool = False) -> None:
     """
     Process all PDF files in the specified folder.
 
     Args:
         folder: The folder to process (zhlex_files or zhlex_files_test)
         concurrent_mode: If True, process files in parallel; otherwise, sequentially
+        new_only: If True, only process files that haven't been processed yet
     """
     logger.info("Loading laws index")
     pdf_files = glob.glob(f"data/zhlex/{folder}/**/**/*-original.pdf", recursive=True)
@@ -227,6 +228,31 @@ def main(folder: str, concurrent_mode: bool) -> None:
     if not pdf_files:
         logger.info("No PDF files found. Exiting.")
         return
+    
+    # Filter for new files only if requested
+    if new_only:
+        logger.info("Filtering for unprocessed files only...")
+        unprocessed_files = []
+        for pdf_file in pdf_files:
+            metadata_file = pdf_file.replace("-original.pdf", "-metadata.json")
+            try:
+                with open(metadata_file, "r") as f:
+                    metadata = json.load(f)
+                # Check if file has been processed
+                if metadata.get("process_steps", {}).get("generate_html"):
+                    logger.debug(f"Skipping already processed file: {pdf_file}")
+                    continue
+            except (FileNotFoundError, json.JSONDecodeError):
+                logger.debug(f"Metadata not found or invalid for: {pdf_file}")
+            # File hasn't been processed or metadata doesn't exist
+            unprocessed_files.append(pdf_file)
+        
+        pdf_files = unprocessed_files
+        logger.info(f"Found {len(pdf_files)} unprocessed files to process")
+        
+        if not pdf_files:
+            logger.info("No unprocessed files found. Exiting.")
+            return
 
     logger.info(
         f"Processing using {'concurrent' if concurrent_mode else 'sequential'} mode"
@@ -241,22 +267,61 @@ def main(folder: str, concurrent_mode: bool) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Process PDF files")
-    parser.add_argument(
-        "--folder",
-        type=str,
-        default="zhlex_files_test",
-        choices=["zhlex_files", "zhlex_files_test"],
-        help="Folder to process",
+    parser = argparse.ArgumentParser(
+        description="Process ZH-Lex PDF files to structured HTML",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Process test files with concurrent mode
+  python -m src.main_entry_points.a2_process_zhlex --target zhlex_files_test
+  
+  # Process all files sequentially for debugging
+  python -m src.main_entry_points.a2_process_zhlex --target zhlex_files --mode sequential
+  
+  # Process only unprocessed files
+  python -m src.main_entry_points.a2_process_zhlex --target zhlex_files_test --filter-new-only
+        """
     )
+    
+    # Standardized arguments (4 total)
+    parser.add_argument(
+        "--target",
+        choices=["zhlex_files", "zhlex_files_test"],
+        default="zhlex_files_test",
+        help="Target folder to process (default: zhlex_files_test)"
+    )
+    
     parser.add_argument(
         "--mode",
-        type=str,
-        default="concurrent",
         choices=["concurrent", "sequential"],
-        help="Processing mode: concurrent (parallel) or sequential (for debugging)",
+        default="concurrent",
+        help="Processing mode: concurrent (parallel) or sequential (for debugging) - default: concurrent"
     )
+    
+    parser.add_argument(
+        "--filter-new-only",
+        action="store_true",
+        help="Only process files that haven't been processed yet (based on metadata)"
+    )
+    
+    parser.add_argument(
+        "--log-level",
+        choices=["debug", "info", "warning", "error"],
+        default="info",
+        help="Logging level - default: info"
+    )
+    
     args = parser.parse_args()
+    
+    # Setup logging
+    import logging
+    log_level_map = {
+        'debug': logging.DEBUG,
+        'info': logging.INFO,
+        'warning': logging.WARNING,
+        'error': logging.ERROR
+    }
+    logging.basicConfig(level=log_level_map[args.log_level])
 
     concurrent_mode = args.mode == "concurrent"
-    main(args.folder, concurrent_mode)
+    main(args.target, concurrent_mode, args.filter_new_only)

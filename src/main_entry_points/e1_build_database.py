@@ -53,9 +53,17 @@ def parse_arguments():
 Examples:
   %(prog)s
   %(prog)s --input-dir public_test/
-  %(prog)s --collections zh --mode sequential
-  %(prog)s --output-file custom_laws.db --workers 4
+  %(prog)s --target zh --mode sequential  
+  %(prog)s --output-file custom_laws.db
         """
+    )
+    
+    # Standardized arguments (5 total)
+    parser.add_argument(
+        "--target",
+        choices=["zh", "ch", "all"],
+        default="all",
+        help="Target collections to process: zh, ch, or all (default: all)"
     )
     
     parser.add_argument(
@@ -73,34 +81,17 @@ Examples:
     )
     
     parser.add_argument(
-        "--collections",
-        type=str,
-        default="all",
-        choices=["zh", "ch", "all"],
-        help="Collections to process: zh, ch, or all (default: all)"
-    )
-    
-    parser.add_argument(
         "--mode",
-        type=str,
-        default="concurrent",
         choices=["concurrent", "sequential"],
-        help="Processing mode (default: concurrent)"
-    )
-    
-    parser.add_argument(
-        "--workers",
-        type=int,
-        default=None,
-        help="Number of worker processes (default: auto-detect)"
+        default="concurrent",
+        help="Processing mode: concurrent (parallel) or sequential (default: concurrent)"
     )
     
     parser.add_argument(
         "--log-level",
-        type=str,
-        default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        help="Logging level (default: INFO)"
+        choices=["debug", "info", "warning", "error"],
+        default="info",
+        help="Logging level (default: info)"
     )
     
     return parser.parse_args()
@@ -127,28 +118,24 @@ def validate_arguments(args):
         raise ValueError(f"No collections found in {md_files_path}")
     
     # Determine collections to process
-    if args.collections == "all":
+    if args.target == "all":
         collections = available_collections
     else:
-        collections = [args.collections]
-        if args.collections not in available_collections:
-            raise ValueError(f"Collection '{args.collections}' not found. Available: {available_collections}")
+        collections = [args.target]
+        if args.target not in available_collections:
+            raise ValueError(f"Collection '{args.target}' not found. Available: {available_collections}")
     
     # Validate output file path
     output_path = Path(args.output_file)
     if not output_path.parent.exists():
         raise ValueError(f"Output directory does not exist: {output_path.parent}")
     
-    # Validate workers
-    if args.workers is not None and args.workers < 1:
-        raise ValueError("Number of workers must be at least 1")
-    
     return {
         'input_dir': input_path,
         'output_file': output_path,
         'collections': collections,
         'processing_mode': args.mode,
-        'max_workers': args.workers
+        'max_workers': None  # Auto-detect worker count
     }
 
 

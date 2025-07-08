@@ -800,9 +800,15 @@ def process_files_sequentially(raw_files):
     return processed_count, error_count
 
 
-def process_files(input_dir, mode="sequential", max_workers=None):
+def process_files(input_dir, mode="sequential", max_workers=None, new_only=False):
     """
     Find and process all "*-raw.html" files, saving as "*-merged.html".
+    
+    Args:
+        input_dir: Directory to search for raw HTML files
+        mode: Processing mode ('concurrent' or 'sequential')
+        max_workers: Number of worker processes for concurrent mode
+        new_only: If True, only process files that don't have an existing output file
     """
     pattern = os.path.join(input_dir, "**", "*-raw.html")
     raw_files = list(glob.iglob(pattern, recursive=True))
@@ -811,7 +817,27 @@ def process_files(input_dir, mode="sequential", max_workers=None):
         print(f"No '*-raw.html' files found in {input_dir} or its subdirectories.")
         return
 
-    print(f"Found {len(raw_files)} raw HTML files to process...")
+    print(f"Found {len(raw_files)} raw HTML files...")
+    
+    # Filter for new files only if requested
+    if new_only:
+        print("Filtering for unprocessed files only...")
+        unprocessed_files = []
+        for raw_file in raw_files:
+            output_file = raw_file.replace("-raw.html", "-merged.html")
+            if os.path.exists(output_file):
+                # Skip files that already have output
+                continue
+            unprocessed_files.append(raw_file)
+        
+        raw_files = unprocessed_files
+        print(f"Found {len(raw_files)} unprocessed files to process")
+        
+        if not raw_files:
+            print("No unprocessed files found. All files have already been processed.")
+            return
+
+    print(f"Processing {len(raw_files)} files...")
 
     if mode == "concurrent":
         processed_count, error_count = process_files_concurrently(
@@ -855,6 +881,11 @@ def main():
         default=None,
         help="Number of worker processes for concurrent mode (default: auto)",
     )
+    parser.add_argument(
+        "--new-only",
+        action="store_true",
+        help="Only process files that haven't been processed yet (based on output file existence)",
+    )
     args = parser.parse_args()
 
     # Set input directory based on folder argument
@@ -897,7 +928,7 @@ def main():
         print(f"Warning: Error during hyperlinking import: {import_e}")
     # --- End Optional Import ---
 
-    process_files(input_dir, args.mode, args.workers)
+    process_files(input_dir, args.mode, args.workers, args.new_only)
 
 
 # --- Script Execution ---

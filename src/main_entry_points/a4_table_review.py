@@ -1625,52 +1625,37 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Review all tables in test folder (run f1_table_extraction first!)
-  # NOTE: Automatically preserves existing corrections and only reviews new/undefined tables
-  python -m src.main_entry_points.f2_table_review --folder zhlex_files_test
+  # Review all tables in test folder (run a3_table_extraction first!)
+  python -m src.main_entry_points.a4_table_review --target zhlex_files_test
   
   # Review specific law (all versions)
-  python -m src.main_entry_points.f2_table_review --law 170.4 --folder zhlex_files_test
+  python -m src.main_entry_points.a4_table_review --target zhlex_files_test --law 170.4
   
   # Review specific law version
-  python -m src.main_entry_points.f2_table_review --law 170.4 --version 129 --folder zhlex_files_test
+  python -m src.main_entry_points.a4_table_review --target zhlex_files_test --law 170.4 --version 129
   
   # Review latest version of all laws
-  python -m src.main_entry_points.f2_table_review --version latest --folder zhlex_files_test
+  python -m src.main_entry_points.a4_table_review --target zhlex_files_test --version latest
   
   # Review all versions of all laws
-  python -m src.main_entry_points.f2_table_review --version all --folder zhlex_files_test
+  python -m src.main_entry_points.a4_table_review --target zhlex_files_test --version all
   
-  # Show detailed statistics
-  python -m src.main_entry_points.f2_table_review --stats --folder zhlex_files_test
+  # Show review progress
+  python -m src.main_entry_points.a4_table_review --target zhlex_files_test --show-status
   
-  # Generate comprehensive report (all formats)
-  python -m src.main_entry_points.f2_table_review --report all --folder zhlex_files_test
+  # Reset corrections for a law
+  python -m src.main_entry_points.a4_table_review --target zhlex_files_test --law 170.4 --reset
   
-  # Generate HTML report only
-  python -m src.main_entry_points.f2_table_review --report html --folder zhlex_files_test
-  
-  # Show basic progress
-  python -m src.main_entry_points.f2_table_review --status --folder zhlex_files_test
-  
-  # Export all correction JSON files (will prompt for destination)
-  python -m src.main_entry_points.f2_table_review --export --folder zhlex_files_test
-  
-  # Export with specific destination path
-  python -m src.main_entry_points.f2_table_review --export --folder zhlex_files_test --export-path /path/to/backup
-  
-  # Reset corrections for a law (keeps extraction data)
-  python -m src.main_entry_points.f2_table_review --reset --law 170.4 --folder zhlex_files_test
-  
-  # Reset all corrections in a folder (keeps extraction data)
-  python -m src.main_entry_points.f2_table_review --reset-all --folder zhlex_files_test
+  # Reset all corrections in folder
+  python -m src.main_entry_points.a4_table_review --target zhlex_files_test --reset-all
         """
     )
     
+    # Core standardized arguments (8 total)
     parser.add_argument(
-        "--folder",
+        "--target",
         required=True,
-        help="Folder to review (e.g., zhlex_files_test, zhlex_files)"
+        help="Target folder to review (e.g., zhlex_files_test, zhlex_files, fedlex_files_test, fedlex_files)"
     )
     
     parser.add_argument(
@@ -1684,150 +1669,102 @@ Examples:
     )
     
     parser.add_argument(
-        "--status",
+        "--show-status",
         action="store_true",
-        help="Show review progress"
+        help="Show review progress and statistics"
     )
     
     parser.add_argument(
         "--reset",
         action="store_true",
-        help="Reset corrections for a law (use with --law) or all laws in folder"
+        help="Reset corrections for a law (requires --law)"
     )
     
     parser.add_argument(
         "--reset-all",
         action="store_true",
-        help="Reset all corrections in the specified folder"
+        help="Reset all corrections in the specified target folder"
     )
     
     parser.add_argument(
-        "--check-editor",
-        action="store_true",
-        help="Check table editor availability"
+        "--mode",
+        choices=["concurrent", "sequential"],
+        default="sequential",
+        help="Processing mode: sequential (interactive) or concurrent (batch) - default: sequential"
     )
     
     parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
-    )
-    
-    parser.add_argument(
-        "--simulate",
-        action="store_true",
-        help="Use simulation mode instead of launching browser editor"
-    )
-    
-    parser.add_argument(
-        "--workers",
-        type=int,
-        help="Number of worker threads for parallel processing (default: auto-detect)"
-    )
-    
-    parser.add_argument(
-        "--no-batch",
-        action="store_true",
-        help="Disable batch processing (use legacy sequential mode)"
-    )
-    
-    parser.add_argument(
-        "--sequential",
-        action="store_true",
-        help="Use interactive sequential mode - review laws one after another"
-    )
-    
-    parser.add_argument(
-        "--no-resume",
-        action="store_true",
-        help="Don't resume from previous progress, start fresh"
-    )
-    
-    parser.add_argument(
-        "--report",
-        choices=["json", "csv", "html", "all"],
-        help="Generate statistics report in specified format"
-    )
-    
-    parser.add_argument(
-        "--stats",
-        action="store_true",
-        help="Show detailed statistics for the folder"
-    )
-    
-    parser.add_argument(
-        "--output-dir",
-        default="reports",
-        help="Directory to save reports (default: reports)"
-    )
-    
-    parser.add_argument(
-        "--export",
-        action="store_true",
-        help="Export all correction JSON files from folder to a specified location"
-    )
-    
-    parser.add_argument(
-        "--export-path",
-        help="Path where to export corrections (will prompt if not provided with --export)"
+        "--log-level",
+        choices=["debug", "info", "warning", "error"],
+        default="info",
+        help="Logging level - default: info"
     )
     
     args = parser.parse_args()
     
-    # Setup logging
-    log_level = 'DEBUG' if args.verbose else 'INFO'
-    setup_logging(log_level=log_level)
+    # Setup logging with standardized log level
+    log_level_map = {
+        'debug': 'DEBUG',
+        'info': 'INFO', 
+        'warning': 'WARNING',
+        'error': 'ERROR'
+    }
+    setup_logging(log_level=log_level_map[args.log_level])
     
-    # Create reviewer
-    reviewer = LawTableReview(simulate_editor=args.simulate, max_workers=args.workers)
+    # Create reviewer with simplified configuration
+    simulate_editor = (args.log_level == 'debug')  # Auto-enable simulation in debug mode
+    max_workers = None  # Auto-detect worker count
+    reviewer = LawTableReview(simulate_editor=simulate_editor, max_workers=max_workers)
     
     try:
-        if args.check_editor:
-            reviewer.check_editor_status()
-        elif args.export:
-            reviewer.export_corrections(args.folder, args.export_path)
-        elif args.report:
-            reviewer.generate_report(args.folder, args.report, args.output_dir)
-        elif args.stats:
-            reviewer.show_detailed_statistics(args.folder)
-        elif args.status:
-            reviewer.show_progress(args.folder)
+        # Handle status/progress display
+        if args.show_status:
+            reviewer.show_progress(args.target)
+            
+        # Handle reset operations
         elif args.reset_all:
-            reviewer.reset_all_corrections(args.folder)
+            reviewer.reset_all_corrections(args.target)
         elif args.reset:
             if args.law:
-                reviewer.reset_law_corrections(args.law, args.folder)
+                reviewer.reset_law_corrections(args.law, args.target)
             else:
-                # If no specific law, reset all corrections in folder
-                reviewer.reset_all_corrections(args.folder)
-        elif args.sequential:
-            reviewer.review_folder_sequential(args.folder)
+                print("❌ --reset requires --law argument to specify which law to reset")
+                sys.exit(1)
+                
+        # Handle law-specific review
         elif args.law:
             if args.version:
                 # Review specific law with version filtering
-                versions_to_review = reviewer.resolve_versions(args.law, args.version, args.folder)
+                versions_to_review = reviewer.resolve_versions(args.law, args.version, args.target)
                 if versions_to_review:
-                    reviewer.review_specific_law_versions(args.law, versions_to_review, args.folder)
+                    reviewer.review_specific_law_versions(args.law, versions_to_review, args.target)
                 else:
                     print(f"❌ No valid versions found for law {args.law} with version spec '{args.version}'")
             else:
-                # Review all versions of specific law (backward compatibility)
-                reviewer.review_specific_law(args.law, args.folder)
+                # Review all versions of specific law
+                reviewer.review_specific_law(args.law, args.target)
+                
+        # Handle version-filtered review
         elif args.version:
             # Review all laws with version filtering
             if args.version == "latest":
-                reviewer.review_folder_latest_versions(args.folder, resume=not args.no_resume)
+                reviewer.review_folder_latest_versions(args.target, resume=True)
             elif args.version == "all":
-                reviewer.review_folder_all_versions(args.folder, resume=not args.no_resume)
+                reviewer.review_folder_all_versions(args.target, resume=True)
             else:
                 print(f"❌ Version '{args.version}' requires --law argument for specific version")
+                
+        # Default: review folder based on mode
         else:
-            reviewer.review_folder(
-                args.folder, 
-                use_batch=not args.no_batch,
-                resume=not args.no_resume,
-                max_workers=args.workers
-            )
+            if args.mode == "sequential":
+                reviewer.review_folder_sequential(args.target)
+            else:  # concurrent mode
+                reviewer.review_folder(
+                    args.target,
+                    use_batch=True,
+                    resume=True,
+                    max_workers=max_workers
+                )
             
     except KeyboardInterrupt:
         print("\nOperation cancelled by user")

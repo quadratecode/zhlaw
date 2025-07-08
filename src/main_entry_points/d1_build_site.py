@@ -658,70 +658,111 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Process PDF -> HTML for multiple collections."
+        description="Generate static website from processed law collections"
     )
+    
+    # Standardized arguments (7 total)
     parser.add_argument(
-        "--folder",
+        "--target",
         type=str,
-        default="all_main_files",
+        default="all_files",
         choices=[
-            "all_test_files",
-            "fedlex_test_files",
-            "zhlex_test_files",
-            "all_main_files",
-            "zhlex_main_files",
-            "fedlex_main_files",
+            "all_files_test",
+            "fedlex_files_test", 
+            "zhlex_files_test",
+            "all_files",
+            "zhlex_files",
+            "fedlex_files",
         ],
         help=(
-            "Choose which collection(s) to build:\n"
-            "'all_test_files' (test files for fedlex and zhlex), "
-            "'fedlex_test_files' (test files only for fedlex), "
-            "'zhlex_test_files' (test files only for zhlex), "
-            "'all_main_files' (all files in fedlex_files and zhlex_files), "
-            "'zhlex_main_files' (all files in zhlex_files), "
-            "'fedlex_main_files' (all files in fedlex_files)."
+            "Target collection(s) to build: "
+            "'all_files_test' (test files for both), "
+            "'fedlex_files_test' (fedlex test only), "
+            "'zhlex_files_test' (zhlex test only), "
+            "'all_files' (both collections), "
+            "'zhlex_files' (zhlex only), "
+            "'fedlex_files' (fedlex only) - default: all_files"
         ),
     )
+    
     parser.add_argument(
-        "--db-build",
-        type=str,
-        default="yes",
-        choices=["yes", "no"],
-        help="Build dataset for processed collections",
+        "--build-dataset",
+        action="store_true",
+        default=True,
+        help="Build markdown dataset for processed collections (default: enabled)"
     )
     parser.add_argument(
-        "--placeholders",
-        type=str,
-        default="yes",
-        choices=["yes", "no"],
-        help="Create placeholders (ZH-Lex only).",
+        "--no-build-dataset",
+        dest="build_dataset",
+        action="store_false",
+        help="Disable dataset building"
     )
+    
+    parser.add_argument(
+        "--create-placeholders",
+        action="store_true",
+        default=True,
+        help="Create placeholder pages for missing documents (ZH-Lex only, default: enabled)"
+    )
+    parser.add_argument(
+        "--no-placeholders",
+        dest="create_placeholders",
+        action="store_false",
+        help="Disable placeholder creation"
+    )
+    
     parser.add_argument(
         "--mode",
-        type=str,
-        default="concurrent",
         choices=["concurrent", "sequential"],
-        help="Processing mode: concurrent (parallel) or sequential (for debugging)",
+        default="concurrent",
+        help="Processing mode: concurrent (parallel) or sequential (for debugging) - default: concurrent"
     )
+    
     parser.add_argument(
         "--workers",
         type=int,
         default=None,
-        help="Number of worker processes for concurrent mode (default: auto)",
+        help="Number of worker processes for concurrent mode (default: auto-detect)"
     )
-    parser.add_argument(
-        "--minify",
-        action="store_true",
-        default=True,
-        help="Minify HTML, CSS, and JS output (default: enabled)",
-    )
+    
     parser.add_argument(
         "--no-minify",
-        dest="minify",
-        action="store_false",
-        help="Disable minification for debugging (pretty-print HTML)",
+        action="store_true",
+        help="Disable minification for debugging (pretty-print HTML and CSS)"
+    )
+    
+    parser.add_argument(
+        "--log-level",
+        choices=["debug", "info", "warning", "error"],
+        default="info",
+        help="Logging level - default: info"
     )
     args = parser.parse_args()
+    
+    # Map new target names to old folder names for backward compatibility
+    target_map = {
+        "all_files_test": "all_test_files",
+        "fedlex_files_test": "fedlex_test_files",
+        "zhlex_files_test": "zhlex_test_files", 
+        "all_files": "all_main_files",
+        "zhlex_files": "zhlex_main_files",
+        "fedlex_files": "fedlex_main_files"
+    }
+    
+    # Convert boolean flags to old yes/no format for compatibility
+    db_build = "yes" if args.build_dataset else "no"
+    placeholders = "yes" if args.create_placeholders else "no"
+    minify_output = not args.no_minify  # Invert the logic
+    
+    # Setup logging (though main() might override this)
+    import logging
+    log_level_map = {
+        'debug': logging.DEBUG,
+        'info': logging.INFO,
+        'warning': logging.WARNING,
+        'error': logging.ERROR
+    }
+    logging.basicConfig(level=log_level_map[args.log_level])
 
     logger.info(f"Script arguments: {args}")
-    main(args.folder, args.db_build, args.placeholders, args.mode, args.workers, args.minify)
+    main(target_map[args.target], db_build, placeholders, args.mode, args.workers, minify_output)

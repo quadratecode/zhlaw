@@ -38,7 +38,7 @@ logger = get_module_logger(__name__)
 
 
 @configure_logging()
-def main(folder: str, mode: str, workers: int = None) -> None:
+def main(folder: str, mode: str, workers: int = None, new_only: bool = False) -> None:
     """
     Process all Fedlex HTML files in the specified folder.
 
@@ -46,6 +46,7 @@ def main(folder: str, mode: str, workers: int = None) -> None:
         folder: The folder to process ('fedlex_files' or 'fedlex_files_test')
         mode: Processing mode ('concurrent' or 'sequential')
         workers: Number of worker processes for concurrent mode (None for auto)
+        new_only: If True, only process files that haven't been processed yet
     """
     start_time = time.time()
     
@@ -85,6 +86,8 @@ def main(folder: str, mode: str, workers: int = None) -> None:
                 ]
                 if workers and mode == "concurrent":
                     new_argv.extend(["--workers", str(workers)])
+                if new_only:
+                    new_argv.append("--new-only")
                 
                 # Temporarily replace sys.argv
                 sys.argv = new_argv
@@ -115,35 +118,55 @@ if __name__ == "__main__":
         epilog="""
 Examples:
   # Process test files sequentially (for debugging)
-  python -m src.cmd.b2_process_fedlex --folder fedlex_files_test --mode sequential
+  python -m src.main_entry_points.c2_process_fedlex --target fedlex_files_test --mode sequential
 
   # Process all files with parallel processing
-  python -m src.cmd.b2_process_fedlex --folder fedlex_files --mode concurrent
+  python -m src.main_entry_points.c2_process_fedlex --target fedlex_files --mode concurrent
 
-  # Process with specific number of workers
-  python -m src.cmd.b2_process_fedlex --folder fedlex_files --mode concurrent --workers 4
+  # Process only new files that haven't been processed yet
+  python -m src.main_entry_points.c2_process_fedlex --target fedlex_files --filter-new-only
         """)
     
+    # Standardized arguments (4 total)
     parser.add_argument(
-        "--folder",
-        type=str,
-        default="fedlex_files_test",
+        "--target",
         choices=["fedlex_files", "fedlex_files_test"],
-        help="Folder to process (default: fedlex_files_test)"
+        default="fedlex_files_test",
+        help="Target folder to process (default: fedlex_files_test)"
     )
+    
     parser.add_argument(
         "--mode",
-        type=str,
-        default="sequential",
         choices=["concurrent", "sequential"],
-        help="Processing mode: concurrent (parallel) or sequential (default, for debugging)"
+        default="concurrent",
+        help="Processing mode: concurrent (parallel) or sequential (for debugging) - default: concurrent"
     )
+    
     parser.add_argument(
-        "--workers",
-        type=int,
-        default=None,
-        help="Number of worker processes for concurrent mode (default: auto-detected)"
+        "--filter-new-only",
+        action="store_true",
+        help="Only process files that haven't been processed yet (based on output file existence)"
+    )
+    
+    parser.add_argument(
+        "--log-level",
+        choices=["debug", "info", "warning", "error"],
+        default="info",
+        help="Logging level - default: info"
     )
     
     args = parser.parse_args()
-    main(args.folder, args.mode, args.workers)
+    
+    # Setup logging
+    import logging
+    log_level_map = {
+        'debug': logging.DEBUG,
+        'info': logging.INFO,
+        'warning': logging.WARNING,
+        'error': logging.ERROR
+    }
+    logging.basicConfig(level=log_level_map[args.log_level])
+    
+    # Auto-detect workers and call main with standardized arguments
+    workers = None  # Auto-detect
+    main(args.target, args.mode, workers, args.filter_new_only)

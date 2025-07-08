@@ -441,36 +441,37 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Extract tables for all laws in test folder and create correction files (concurrent)
-  python -m src.main_entry_points.a3_table_extraction --folder zhlex_files_test
+  # Extract tables for all laws in test folder (concurrent mode)
+  python -m src.main_entry_points.a3_table_extraction --target zhlex_files_test
   
-  # Extract tables for all laws in production folder and create correction files
-  python -m src.main_entry_points.a3_table_extraction --folder zhlex_files
+  # Extract tables for all laws in production folder
+  python -m src.main_entry_points.a3_table_extraction --target zhlex_files
   
   # Extract tables for specific law
-  python -m src.main_entry_points.a3_table_extraction --law 170.4 --folder zhlex_files_test
+  python -m src.main_entry_points.a3_table_extraction --target zhlex_files_test --law 170.4
   
   # Regenerate table data for specific law (clears corrections)
-  python -m src.main_entry_points.a3_table_extraction --law 170.4 --folder zhlex_files_test --regenerate
+  python -m src.main_entry_points.a3_table_extraction --target zhlex_files_test --law 170.4 --regenerate
   
   # Regenerate table data for all laws (clears all corrections)
-  python -m src.main_entry_points.a3_table_extraction --folder zhlex_files_test --regenerate-all
+  python -m src.main_entry_points.a3_table_extraction --target zhlex_files_test --regenerate-all
   
   # Sequential processing (single-threaded)
-  python -m src.main_entry_points.a3_table_extraction --folder zhlex_files_test --no-concurrent
+  python -m src.main_entry_points.a3_table_extraction --target zhlex_files_test --mode sequential
   
   # Show extraction status
-  python -m src.main_entry_points.a3_table_extraction --status --folder zhlex_files_test
+  python -m src.main_entry_points.a3_table_extraction --target zhlex_files_test --show-status
   
   # Custom worker count
-  python -m src.main_entry_points.a3_table_extraction --folder zhlex_files_test --workers 8
+  python -m src.main_entry_points.a3_table_extraction --target zhlex_files_test --workers 8
         """
     )
     
+    # Standardized arguments (8 total)
     parser.add_argument(
-        "--folder",
+        "--target",
         required=True,
-        help="Folder to process (e.g., zhlex_files_test, zhlex_files)"
+        help="Target folder to process (e.g., zhlex_files_test, zhlex_files, fedlex_files_test, fedlex_files)"
     )
     
     parser.add_argument(
@@ -479,21 +480,23 @@ Examples:
     )
     
     parser.add_argument(
-        "--status",
+        "--show-status",
         action="store_true",
-        help="Show extraction status for folder"
+        help="Show extraction status for target folder"
     )
     
     parser.add_argument(
         "--workers",
         type=int,
-        help="Number of worker threads for concurrent processing (default: 4)"
+        default=4,
+        help="Number of worker threads for concurrent processing - default: 4"
     )
     
     parser.add_argument(
-        "--no-concurrent",
-        action="store_true",
-        help="Disable concurrent processing (use sequential mode)"
+        "--mode",
+        choices=["concurrent", "sequential"],
+        default="concurrent",
+        help="Processing mode: concurrent (parallel) or sequential (single-threaded) - default: concurrent"
     )
     
     parser.add_argument(
@@ -505,13 +508,14 @@ Examples:
     parser.add_argument(
         "--regenerate-all",
         action="store_true",
-        help="Regenerate table data for all laws in folder from scratch (clears all corrections)"
+        help="Regenerate table data for all laws in target folder from scratch (clears all corrections)"
     )
     
     parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
+        "--log-level",
+        choices=["debug", "info", "warning", "error"],
+        default="info",
+        help="Logging level - default: info"
     )
     
     args = parser.parse_args()
@@ -525,29 +529,37 @@ Examples:
         print("❌ Error: Cannot use --regenerate and --regenerate-all together")
         sys.exit(1)
     
-    # Setup logging
-    log_level = 'DEBUG' if args.verbose else 'INFO'
-    setup_logging(log_level=log_level)
+    # Setup logging with standardized log level
+    log_level_map = {
+        'debug': 'DEBUG',
+        'info': 'INFO',
+        'warning': 'WARNING', 
+        'error': 'ERROR'
+    }
+    setup_logging(log_level=log_level_map[args.log_level])
     
-    # Create processor
+    # Create processor with standardized configuration
     processor = TableExtractionProcessor(max_workers=args.workers)
     
     try:
+        # Convert mode to concurrent boolean for compatibility
+        concurrent_mode = (args.mode == "concurrent")
+        
         if args.regenerate_all:
             processor.regenerate_tables_for_folder(
-                args.folder,
-                concurrent=not args.no_concurrent
+                args.target,
+                concurrent=concurrent_mode
             )
         elif args.regenerate:
-            processor.regenerate_tables_for_law(args.law, args.folder)
-        elif args.status:
-            processor.show_extraction_status(args.folder)
+            processor.regenerate_tables_for_law(args.law, args.target)
+        elif args.show_status:
+            processor.show_extraction_status(args.target)
         elif args.law:
-            processor.extract_tables_for_law(args.law, args.folder)
+            processor.extract_tables_for_law(args.law, args.target)
         else:
             processor.extract_tables_for_folder(
-                args.folder, 
-                concurrent=not args.no_concurrent
+                args.target,
+                concurrent=concurrent_mode
             )
             
     except KeyboardInterrupt:
