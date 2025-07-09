@@ -593,10 +593,11 @@ def modify_html(
     Adds language, description, and canonical meta tags for SEO.
     Note: No data-pagefind-body attribute is added here - it will be added selectively later.
     """
-    # Add no-js class to html element for JavaScript detection
+    # Add no-js class and language to html element for JavaScript detection and hyphenation
     html_tag = soup.html
     if html_tag:
         html_tag["class"] = html_tag.get("class", []) + ["no-js", "light-mode"]
+        html_tag["lang"] = "de-CH"  # Swiss German for proper hyphenation
 
     # Ensure we have an html element
     html_tag = soup.html
@@ -1908,10 +1909,11 @@ def update_css_references_for_site_elements(soup: BeautifulSoup) -> BeautifulSou
             # Insert after the CSS link
             head.insert(1, fouc_prevention_script)
 
-        # Also ensure the HTML tag has the proper classes
+        # Also ensure the HTML tag has the proper classes and language
         html_tag = soup.html
         if html_tag:
             html_tag["class"] = html_tag.get("class", []) + ["no-js", "light-mode"]
+            html_tag["lang"] = "de-CH"  # Swiss German for proper hyphenation
 
     return soup
 

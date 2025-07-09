@@ -46,6 +46,7 @@ body {
 
 #law {
     font-weight: var(--font-weight-medium);
+    max-width: 42rem;
 }
 
 .provision,
