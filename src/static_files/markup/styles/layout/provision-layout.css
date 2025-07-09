@@ -24,13 +24,13 @@
 /* General Rule: Add a top margin to every direct child that follows another, creating the "gap". */
 .provision-container * {
     margin-top: 0.1rem;
-    margin-bottom: 0.2rem;
+    margin-bottom: 0.1rem;
 }
 
 .provision-container {
     display: flex;
     flex-direction: column;
-    margin-top: 1.5em;
+    margin-top: 1.35em;
 }
 
 /* Highlight rules */
@@ -59,6 +59,7 @@ p.footnote.highlight:hover:not(.anchor-hover) {
 }
 
 @media (prefers-color-scheme: dark) {
+
     html:not(.light-mode):not(.dark-mode) .provision-container.highlight:hover:not(.anchor-hover),
     html:not(.light-mode):not(.dark-mode) .subprovision-container.highlight:hover:not(.anchor-hover),
     html:not(.light-mode):not(.dark-mode) p.footnote.highlight:hover:not(.anchor-hover) {

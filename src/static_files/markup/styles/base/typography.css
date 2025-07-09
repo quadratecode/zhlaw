@@ -50,23 +50,23 @@ h6,
 }
 
 h1 {
-    font-size: 1.7rem;
+    font-size: 1.5rem;
     margin-top: 0;
 }
 
 h2,
 #annex summary {
-    font-size: 1.45rem;
+    font-size: 1.35rem;
 }
 
 h3 {
-    font-size: 1.35rem;
+    font-size: 1.2rem;
 }
 
 h4,
 h5,
 h6 {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
 }
 
 h1+h1,
@@ -98,8 +98,8 @@ a:focus {
 
 /* Special Typography */
 .marginalia {
-    font-size: 1.25em;
-    color: var(--dark-shade);
+    color: var(--soft-black);
+    font-weight: var(--font-weight-black);
 }
 
 /* Base styles for enumerated paragraphs */
