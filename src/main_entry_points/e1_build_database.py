@@ -99,14 +99,22 @@ Examples:
 
 def validate_arguments(args):
     """Validate command line arguments."""
-    # Validate input directory
-    input_path = Path(args.input_dir)
-    if not input_path.exists():
-        raise ValueError(f"Input directory does not exist: {input_path}")
+    # Check if we should use datasets directory
+    md_files_path = Path("datasets/md-files")
     
-    md_files_path = input_path / "md-files"
-    if not md_files_path.exists():
-        raise ValueError(f"md-files directory not found: {md_files_path}")
+    # If datasets/md-files exists, use it. Otherwise fall back to the input_dir approach
+    if md_files_path.exists():
+        input_path = Path("datasets")
+        logger.info(f"Using markdown files from datasets directory: {md_files_path}")
+    else:
+        # Validate input directory
+        input_path = Path(args.input_dir)
+        if not input_path.exists():
+            raise ValueError(f"Input directory does not exist: {input_path}")
+        
+        md_files_path = input_path / "md-files"
+        if not md_files_path.exists():
+            raise ValueError(f"md-files directory not found: {md_files_path}")
     
     # Validate collections
     available_collections = []

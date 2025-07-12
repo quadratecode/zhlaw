@@ -63,10 +63,16 @@ def build_database(
         logger.info(f"Building database from {input_dir} to {output_file}")
         logger.info(f"Processing mode: {processing_mode}")
         
-        # Validate input directory
-        md_files_dir = input_dir / "md-files"
-        if not md_files_dir.exists():
-            raise DatabaseBuildError(f"md-files directory not found: {md_files_dir}")
+        # Check if datasets/md-files exists first
+        datasets_md_files_dir = Path("datasets/md-files")
+        if datasets_md_files_dir.exists():
+            md_files_dir = datasets_md_files_dir
+            logger.info(f"Using markdown files from datasets directory: {md_files_dir}")
+        else:
+            # Validate input directory
+            md_files_dir = input_dir / "md-files"
+            if not md_files_dir.exists():
+                raise DatabaseBuildError(f"md-files directory not found: {md_files_dir}")
         
         # Determine collections to process
         if collections is None:
